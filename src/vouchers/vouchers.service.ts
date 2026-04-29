@@ -944,19 +944,22 @@ if (!offerResult) {
         }
       }
 
-      // Credit points to user
-      if (loyaltyPoints > 0) {
-        const user = await this.userModel.findById(voucher.userId);
-        if (user) {
-          // Add to total points
-          user.loyaltyPoints = (user.loyaltyPoints || 0) + loyaltyPoints;
-          // Add to per-merchant points
-          const merchantIdStr = String(offerMerchantId || voucher.merchantId);
-          if (!user.merchantLoyaltyPoints) user.merchantLoyaltyPoints = {};
-          user.merchantLoyaltyPoints[merchantIdStr] = (user.merchantLoyaltyPoints[merchantIdStr] || 0) + loyaltyPoints;
-          await user.save();
-        }
-      }
+       // Credit points to user
+       if (loyaltyPoints > 0) {
+         const user = await this.userModel.findById(voucher.userId);
+         if (user) {
+           // Add to total points
+           user.loyaltyPoints = (user.loyaltyPoints || 0) + loyaltyPoints;
+           // Add to per-merchant points (replace object to ensure change detection)
+           const merchantIdStr = String(offerMerchantId || voucher.merchantId);
+           const current = user.merchantLoyaltyPoints || {};
+           user.merchantLoyaltyPoints = {
+             ...current,
+             [merchantIdStr]: (current[merchantIdStr] || 0) + loyaltyPoints,
+           };
+           await user.save();
+         }
+       }
 
       // Get user details (after update)
       const user = await this.userModel.findById(voucher.userId).select('name email loyaltyPoints merchantLoyaltyPoints');
