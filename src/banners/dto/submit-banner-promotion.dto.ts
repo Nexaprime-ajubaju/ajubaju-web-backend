@@ -120,6 +120,11 @@ export class SubmitBannerPromotionDto {
   loyaltyScorePerStar?: number;
 
   @IsOptional()
+  @IsNumber()
+  @Min(0)
+  loyaltyPointsPerPurchase?: number;
+
+  @IsOptional()
   @IsString()
   promotionExpiryText?: string;
 
