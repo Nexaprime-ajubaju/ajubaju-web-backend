@@ -26,15 +26,14 @@ export default registerAs('config', () => ({
   },
   
   mongodb: {
-    // ✅ Added fallback with encoded password
-    uri: process.env.MONGODB_URI || 'mongodb://mongo:nexaprime123@golobackend-mongo-52ltia:27017/?authSource=admin&directConnection=true',
-    // Optional: individual connection parameters
-    host: process.env.MONGODB_HOST || 'golobackend-mongo-52ltia',
+    // Use external IP that definitely works
+    uri: process.env.MONGODB_URI || 'mongodb://mongo:nexaprime123@62.72.23.96:27017/?authSource=admin&directConnection=true',
+    host: process.env.MONGODB_HOST || '62.72.23.96',
     port: parseInt(process.env.MONGODB_PORT || '27017', 10),
     username: process.env.MONGODB_USERNAME || 'mongo',
     password: process.env.MONGODB_PASSWORD || 'nexaprime123',
     database: process.env.MONGODB_DATABASE || 'admin',
-  },
+},
   
   kafka: {
     enabled: parseBoolean(process.env.ENABLE_KAFKA ?? 'false'),
