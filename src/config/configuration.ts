@@ -27,12 +27,12 @@ export default registerAs('config', () => ({
   
   mongodb: {
     // ✅ Added fallback with encoded password
-    uri: process.env.MONGODB_URI || 'mongodb://mongo:nexaprime%40123@golobackend-mongo-52ltia:27017/?authSource=admin&directConnection=true',
+    uri: process.env.MONGODB_URI || 'mongodb://mongo:nexaprime123@golobackend-mongo-52ltia:27017/?authSource=admin&directConnection=true',
     // Optional: individual connection parameters
     host: process.env.MONGODB_HOST || 'golobackend-mongo-52ltia',
     port: parseInt(process.env.MONGODB_PORT || '27017', 10),
     username: process.env.MONGODB_USERNAME || 'mongo',
-    password: process.env.MONGODB_PASSWORD || 'nexaprime@123',
+    password: process.env.MONGODB_PASSWORD || 'nexaprime123',
     database: process.env.MONGODB_DATABASE || 'admin',
   },
   
