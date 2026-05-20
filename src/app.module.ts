@@ -48,10 +48,11 @@ const logger = new Logger('MongoDB');
         }
         
         // Final fallback with encoded password
-        if (!uri) {
-          logger.warn('Using hardcoded MongoDB URI (should not happen in production)');
-          uri = 'mongodb://mongo:nexaprime123@golobackend-mongo-52ltia:27017/?authSource=admin&directConnection=true';
-        }
+       // Final fallback with EXTERNAL IP
+       if (!uri) {
+            logger.warn('Using hardcoded MongoDB URI with external IP');
+            uri = 'mongodb://mongo:nexaprime123@62.72.23.96:27017/?authSource=admin&directConnection=true';
+          }
         
         // Log sanitized URI
         const sanitizedUri = uri.replace(/\/\/.*@/, '//<credentials>@');
