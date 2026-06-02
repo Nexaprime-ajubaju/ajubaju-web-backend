@@ -37,14 +37,30 @@ export class OfferPromotion {
   @Prop({ required: true })
   title: string;
 
+  // Business category (for matching user preferences) — auto-filled from merchant profile
   @Prop({ required: true })
   category: string;
+
+  // Business-level category (copied from merchant's storeCategory) — used for recommendation matching
+  @Prop({ default: '' })
+  businessCategory?: string;
+
+  // Business-level sub-category (copied from merchant's storeSubCategory)
+  @Prop({ default: '' })
+  businessSubCategory?: string;
+
+  // The promotional type chosen by merchant (e.g., "Special", "Flash Sale") — for UI filtering
+  @Prop({ default: '' })
+  promoTag?: string;
 
   @Prop({ default: '' })
   description: string;
 
   @Prop({})
   imageUrl: string;
+
+  @Prop({ default: '1920 x 520 px' })
+  recommendedSize: string;
 
   @Prop({ type: [Date], required: true, default: [] })
   selectedDates: Date[];

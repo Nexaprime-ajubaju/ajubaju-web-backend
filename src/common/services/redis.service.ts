@@ -147,7 +147,8 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
-   * Delete multiple keys by pattern
+   * Delete multiple keys by pattern using SCAN (non-blocking, production-safe).
+   * NEVER use KEYS in production — it blocks Redis for the full scan duration.
    */
   async deleteByPattern(pattern: string): Promise<number> {
     if (!this.enabled || !this.redisClient) {
@@ -155,17 +156,28 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     }
 
     try {
-      const keys = await this.redisClient.keys(pattern);
-      if (keys.length === 0) {
-        return 0;
-      }
-      for (const key of keys) {
-        await this.redisClient.del(key);
-      }
-      this.logger.debug(`Cache DEL pattern ${pattern}: deleted ${keys.length} keys`);
-      return keys.length;
+      let deletedCount = 0;
+      let cursor = '0';
+
+      do {
+        const reply = await this.redisClient.scan(cursor, {
+          MATCH: pattern,
+          COUNT: 100,
+        });
+
+        cursor = String(reply.cursor);
+        const keys = reply.keys;
+
+        if (keys.length > 0) {
+          await this.redisClient.del(keys);
+          deletedCount += keys.length;
+        }
+      } while (cursor !== '0');
+
+      this.logger.debug(`Cache SCAN-DEL pattern "${pattern}": deleted ${deletedCount} keys`);
+      return deletedCount;
     } catch (error: any) {
-      this.logger.error(`Cache DEL pattern failed for ${pattern}: ${error.message}`);
+      this.logger.error(`Cache SCAN-DEL failed for pattern "${pattern}": ${error.message}`);
       return 0;
     }
   }

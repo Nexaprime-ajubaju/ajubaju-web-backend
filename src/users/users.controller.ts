@@ -229,6 +229,13 @@ export class UsersController {
     return { success: true, message: 'Password changed', data: result };
   }
 
+  @Post('change-password')
+  @UseGuards(JwtAuthGuard)
+  async changePasswordDirect(@CurrentUser() user: any, @Body() body: { currentPassword: string; newPassword: string }) {
+    const result = await this.usersService.changePasswordDirect(user.id, body.currentPassword, body.newPassword);
+    return { success: true, message: 'Password changed successfully', data: result };
+  }
+
   // ==================== WISHLIST ====================
 
   @Get('wishlist')

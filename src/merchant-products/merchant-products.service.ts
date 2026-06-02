@@ -247,6 +247,18 @@ export class MerchantProductsService implements OnModuleInit {
     return response;
   }
 
+  async getPublicProductById(productId: string) {
+    const product = await this.merchantProductModel.findById(productId).exec();
+    if (!product) {
+      throw new NotFoundException('Product not found');
+    }
+
+    return {
+      success: true,
+      data: this.mapProduct(product),
+    };
+  }
+
   async updateProduct(merchantId: string, productId: string, dto: UpdateMerchantProductDto) {
     const product = await this.findProductOrThrow(productId);
 

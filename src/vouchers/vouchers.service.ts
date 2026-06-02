@@ -13,6 +13,7 @@ import { UserDocument } from '../users/schemas/user.schema';
 import { MerchantDocument } from '../users/schemas/merchant.schema';
 import { MerchantProduct, MerchantProductDocument } from '../merchant-products/schemas/merchant-product.schema';
 import { OrdersService } from '../orders/orders.service';
+import { RedisService } from '../common/services/redis.service';
 
 @Injectable()
 export class VouchersService implements OnModuleInit {
@@ -41,7 +42,28 @@ export class VouchersService implements OnModuleInit {
     @InjectModel('Merchant') private merchantModel: Model<MerchantDocument>,
     @InjectModel(MerchantProduct.name) private merchantProductModel: Model<MerchantProductDocument>,
     private ordersService: OrdersService,
+    private redisService: RedisService,
   ) {}
+
+  private getRedemptionRedisKey(merchantId: string) {
+    return `merchant:redemptions:daily:${merchantId}`;
+  }
+
+  private async recordMerchantRedemption(merchantId: string, occurredAt = new Date()): Promise<void> {
+    const redisClient = this.redisService.getClient();
+    if (!redisClient || !merchantId) {
+      return;
+    }
+
+    try {
+      const dayKey = occurredAt.toISOString().slice(0, 10);
+      const redisKey = this.getRedemptionRedisKey(merchantId);
+      await redisClient.hIncrBy(redisKey, dayKey, 1);
+      await redisClient.expire(redisKey, 60 * 60 * 24 * 60);
+    } catch (error: any) {
+      this.logger.error(`Failed to record merchant redemption for ${merchantId}: ${error.message}`);
+    }
+  }
 
   async onModuleInit() {
     try {
@@ -960,6 +982,33 @@ if (!offerResult) {
            await user.save();
          }
        }
+
+      // Normalize merchant identifier to merchant userId (some rows use profile _id)
+      const resolveMerchantUserId = async (candidateId?: string) => {
+        if (!candidateId) return null;
+        try {
+          // If candidateId is a profile ObjectId, find profile.userId
+          if (isValidObjectId(candidateId)) {
+            const profile = await this.merchantModel.findById(candidateId).select('userId').lean().exec();
+            if (profile?.userId) return String(profile.userId);
+          }
+
+          // Try to find merchant profile by userId field
+          const profile2 = await this.merchantModel.findOne({ userId: candidateId }).select('userId').lean().exec();
+          if (profile2?.userId) return String(profile2.userId);
+
+          // Fallback: return the provided candidateId
+          return candidateId;
+        } catch (err) {
+          return candidateId;
+        }
+      };
+
+      const candidate = String(actualMerchantId || offerMerchantId || voucher.merchantId || '');
+      const merchantUserId = (await resolveMerchantUserId(candidate)) || candidate;
+
+      // Record redemption using normalized merchant user id so dashboard (which reads by user id) sees it
+      await this.recordMerchantRedemption(String(merchantUserId));
 
       // Get user details (after update)
       const user = await this.userModel.findById(voucher.userId).select('name email loyaltyPoints merchantLoyaltyPoints');

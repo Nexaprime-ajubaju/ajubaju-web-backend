@@ -88,6 +88,9 @@ export class User {
   @Prop({ type: [String], default: [] })
   wishlist: string[];
 
+  @Prop({ type: [String], default: [] })
+  preferredCategories: string[];
+
   @Prop({
     type: {
       category: String,
@@ -135,3 +138,4 @@ export const UserSchema = SchemaFactory.createForClass(User);
 // Create indexes
 UserSchema.index({ email: 1 });
 UserSchema.index({ role: 1 });
+UserSchema.index({ preferredCategories: 1 });

@@ -15,6 +15,7 @@ import { JwtStrategy } from './strategies/jwt.strategy';
 import { KafkaModule } from '../kafka/kafka.module';
 import { AdsModule } from '../ads/ads.module';
 import { Payment, PaymentSchema } from '../payments/schemas/payment.schema';
+import { RedisModule } from '../common/services/redis.module';
 
 @Module({
   imports: [
@@ -48,8 +49,9 @@ import { Payment, PaymentSchema } from '../payments/schemas/payment.schema';
       },
       inject: [ConfigService],
     }),
-    KafkaModule, // Keep existing forwardRef
-    forwardRef(() => AdsModule), 
+    KafkaModule, // User activity, registration events
+    forwardRef(() => AdsModule),
+    RedisModule, // Cache user profiles, wishlist, preferences
   ],
   controllers: [UsersController],
   providers: [UsersService, JwtStrategy],

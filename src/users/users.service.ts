@@ -22,6 +22,8 @@ import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import { Payment, PaymentDocument, PaymentStatus } from '../payments/schemas/payment.schema';
 import { OfferLikeHistory, OfferLikeHistoryDocument } from '../offers/schemas/offer-like-history.schema';
 import { OfferPromotion, OfferPromotionDocument } from '../offers/schemas/offer-promotion.schema';
+import { RedisService } from '../common/services/redis.service';
+import { validatePreferredCategories, normalizeCategories } from '../common/constants/categories';
 
 @Injectable()
 export class UsersService implements OnModuleInit {
@@ -29,6 +31,43 @@ export class UsersService implements OnModuleInit {
   private readonly logger = new Logger(UsersService.name);
   private mailTransporter: nodemailer.Transporter | null = null;
   private mailFrom: string | null = null;
+
+  private ensureOtpMailerReady() {
+    if (this.mailTransporter && this.mailFrom) return;
+
+    const smtpHost =
+      this.configService.get<string>('SMTP_HOST') ||
+      this.configService.get<string>('EMAIL_HOST');
+    const smtpPort = Number(
+      this.configService.get<string>('SMTP_PORT') ||
+        this.configService.get<string>('EMAIL_PORT') ||
+        '587',
+    );
+    const smtpUser =
+      this.configService.get<string>('SMTP_USER') ||
+      this.configService.get<string>('EMAIL_USER');
+    const smtpPass =
+      this.configService.get<string>('SMTP_PASS') ||
+      this.configService.get<string>('EMAIL_PASSWORD');
+    this.mailFrom =
+      this.configService.get<string>('SMTP_FROM') ||
+      this.configService.get<string>('EMAIL_FROM') ||
+      smtpUser ||
+      null;
+
+    this.logger.debug(
+      `OTP mailer config host=${!!smtpHost} port=${smtpPort} user=${!!smtpUser} from=${!!this.mailFrom}`,
+    );
+
+    if (smtpHost && smtpUser && smtpPass && this.mailFrom) {
+      this.mailTransporter = nodemailer.createTransport({
+        host: smtpHost,
+        port: smtpPort,
+        secure: smtpPort === 465,
+        auth: { user: smtpUser, pass: smtpPass },
+      });
+    }
+  }
 
   /**
    * Admin: Send a warning notification to a user
@@ -70,17 +109,34 @@ export class UsersService implements OnModuleInit {
     private readonly auditLogsService: AuditLogsService,
     private configService: ConfigService,
     @Optional() private kafkaService?: KafkaService,
+    @Optional() private readonly redisService?: RedisService,
     @Optional() @Inject(forwardRef(() => AdsService)) private adsService?: AdsService,
     @Optional() @InjectModel(Payment.name) private paymentModel?: Model<PaymentDocument>,
     @Optional() @InjectModel('PendingMerchantLocation') private pendingLocationModel?: Model<any>,
     @Optional() @InjectModel(OfferLikeHistory.name) private offerLikeHistoryModel?: Model<OfferLikeHistoryDocument>,
     @Optional() @InjectModel(OfferPromotion.name) private offerPromotionModel?: Model<OfferPromotionDocument>,
   ) {
-    const smtpHost = this.configService.get<string>('SMTP_HOST');
-    const smtpPort = Number(this.configService.get<string>('SMTP_PORT') || '587');
-    const smtpUser = this.configService.get<string>('SMTP_USER');
-    const smtpPass = this.configService.get<string>('SMTP_PASS');
-    this.mailFrom = this.configService.get<string>('SMTP_FROM') || smtpUser || null;
+    // Support both SMTP_* and EMAIL_* env var conventions.
+    // The repo's `.env` currently uses EMAIL_* while OTP flow historically used SMTP_*.
+    const smtpHost =
+      this.configService.get<string>('SMTP_HOST') ||
+      this.configService.get<string>('EMAIL_HOST');
+    const smtpPort = Number(
+      this.configService.get<string>('SMTP_PORT') ||
+        this.configService.get<string>('EMAIL_PORT') ||
+        '587',
+    );
+    const smtpUser =
+      this.configService.get<string>('SMTP_USER') ||
+      this.configService.get<string>('EMAIL_USER');
+    const smtpPass =
+      this.configService.get<string>('SMTP_PASS') ||
+      this.configService.get<string>('EMAIL_PASSWORD');
+    this.mailFrom =
+      this.configService.get<string>('SMTP_FROM') ||
+      this.configService.get<string>('EMAIL_FROM') ||
+      smtpUser ||
+      null;
 
     this.logger.debug(`SMTP config host=${!!smtpHost} port=${smtpPort} user=${!!smtpUser}`);
 
@@ -551,6 +607,29 @@ export class UsersService implements OnModuleInit {
     if (updateData.profile?.interests && Array.isArray(updateData.profile.interests)) {
       allowedUpdates['profile.interests'] = updateData.profile.interests;
     }
+    
+    // Bug Fix #2: Validate preferredCategories
+    if (updateData.preferredCategories !== undefined) {
+      if (Array.isArray(updateData.preferredCategories)) {
+        // Validate categories
+        const validation = validatePreferredCategories(updateData.preferredCategories);
+        if (!validation.valid) {
+          const errorMsg = validation.errors.join('; ');
+          this.logger.warn(`Invalid categories provided: ${errorMsg}`);
+          throw new BadRequestException(`Invalid preferred categories: ${errorMsg}`);
+        }
+        
+        // Normalize: remove duplicates and ensure valid format
+        const normalizedCategories = normalizeCategories(updateData.preferredCategories);
+        allowedUpdates['preferredCategories'] = normalizedCategories;
+        this.logger.debug(`Normalized ${updateData.preferredCategories.length} categories → ${normalizedCategories.length}`);
+      } else if (updateData.preferredCategories === null) {
+        // Allow clearing categories
+        allowedUpdates['preferredCategories'] = [];
+      } else {
+        throw new BadRequestException('preferredCategories must be an array');
+      }
+    }
 
     this.logger.debug(`Updates to apply: ${JSON.stringify(Object.keys(allowedUpdates))}`);
 
@@ -562,6 +641,10 @@ export class UsersService implements OnModuleInit {
 
     if (!user) {
       throw new NotFoundException('User not found');
+    }
+
+    if (this.redisService && allowedUpdates.preferredCategories) {
+      await this.redisService.deleteByPattern(`reco:deals:user:${userId}:*`);
     }
 
     this.logger.log(`Profile updated successfully for user: ${userId}`);
@@ -949,6 +1032,8 @@ export class UsersService implements OnModuleInit {
         { new: true }
       ).exec();
 
+      this.ensureOtpMailerReady();
+
       if (!this.mailTransporter || !this.mailFrom) {
         throw new InternalServerErrorException('Email service not configured. Please contact support.');
       }
@@ -1060,6 +1145,69 @@ export class UsersService implements OnModuleInit {
           passwordChangeOTP: null,
           passwordChangeOTPExpiry: null,
           passwordChangeOTPVerified: false,
+          updatedAt: new Date(),
+        },
+        $push: {
+          passwordHistory: {
+            $each: [user.password],
+            $slice: -5,
+          },
+        },
+      },
+      { new: true }
+    ).exec();
+
+    this.logger.log(`Password changed successfully for user: ${userId}`);
+
+    return this.toResponseDto(updatedUser);
+  }
+
+  async changePasswordDirect(userId: string, currentPassword: string, newPassword: string): Promise<UserResponseDto> {
+    this.logger.log(`Changing password directly for user: ${userId}`);
+    
+    if (!currentPassword || !newPassword) {
+      throw new BadRequestException('Current password and new password are required');
+    }
+
+    if (newPassword.length < 6) {
+      throw new BadRequestException('New password must be at least 6 characters long');
+    }
+
+    const user = await this.userModel.findById(userId).exec();
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    // Verify current password
+    const isCurrentPasswordValid = await bcrypt.compare(currentPassword, user.password);
+    if (!isCurrentPasswordValid) {
+      throw new UnauthorizedException('Current password is incorrect');
+    }
+
+    // Check if new password is the same as current
+    const isCurrentPassword = await bcrypt.compare(newPassword, user.password);
+    if (isCurrentPassword) {
+      throw new BadRequestException('New password cannot be the same as your current password.');
+    }
+
+    // Check password history
+    const passwordHistory = Array.isArray(user.passwordHistory) ? user.passwordHistory : [];
+    for (const oldPasswordHash of passwordHistory) {
+      const isReusedPassword = await bcrypt.compare(newPassword, oldPasswordHash);
+      if (isReusedPassword) {
+        throw new BadRequestException('Previously used passwords are not allowed. Please choose a different password.');
+      }
+    }
+
+    // Hash new password
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    // Update password
+    const updatedUser = await this.userModel.findByIdAndUpdate(
+      userId,
+      {
+        $set: {
+          password: hashedPassword,
           updatedAt: new Date(),
         },
         $push: {
@@ -1721,6 +1869,7 @@ export class UsersService implements OnModuleInit {
       isEmailVerified: user.isEmailVerified || false,
       profile: user.profile || {},
       profilePhoto: user.profilePhoto || null,
+      preferredCategories: Array.isArray(user.preferredCategories) ? user.preferredCategories : [],
       merchantProfile,
       iWantPreference: user.iWantPreference || null,
       createdAt: user.createdAt,

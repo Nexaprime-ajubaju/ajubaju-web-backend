@@ -2,6 +2,7 @@ import {
   Controller,
   Put,
   Get,
+  Post,
   Body,
   UseGuards,
   BadRequestException,
@@ -87,5 +88,28 @@ export class MerchantsController {
 
     const userId = user.id || user._id;
     return await this.merchantsService.updateMerchantProfile(userId, updateData);
+  }
+
+  /**
+   * Update merchant notification settings
+   * POST /merchant/notification-settings
+   */
+  @Post('notification-settings')
+  @UseGuards(JwtAuthGuard)
+  async updateNotificationSettings(
+    @CurrentUser() user: any,
+    @Body() settings: {
+      emailNotifications?: boolean;
+      orderNotifications?: boolean;
+      promotionNotifications?: boolean;
+      pushNotifications?: boolean;
+    },
+  ) {
+    if (!user?.id && !user?._id) {
+      throw new BadRequestException('User authentication required');
+    }
+
+    const userId = user.id || user._id;
+    return await this.merchantsService.updateNotificationSettings(userId, settings);
   }
 }

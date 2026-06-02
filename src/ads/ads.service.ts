@@ -881,6 +881,7 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
 
   async incrementViewCount(adId: string): Promise<void> {
     try {
+      const merchantId = await this.resolveMerchantIdForAd(adId);
       let updated = await this.adModel.findOneAndUpdate(
         { adId },
         { $inc: { views: 1 }, $set: { updatedAt: new Date() } },
@@ -891,6 +892,10 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
           adId,
           { $inc: { views: 1 }, $set: { updatedAt: new Date() } },
         ).exec();
+      }
+
+      if (merchantId) {
+        await this.recordMerchantVisit(merchantId);
       }
     } catch (error: any) {
       this.logger.error(`Failed to increment view count for ${adId}: ${error.message}`);
@@ -947,8 +952,49 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
       if (!updated) {
         this.logger.warn(`trackViewWithVisitor: ad not found for adId=${resolvedAdId}`);
       }
+
+      const merchantId = await this.resolveMerchantIdForAd(resolvedAdId);
+      if (merchantId) {
+        await this.recordMerchantVisit(merchantId);
+      }
     } catch (error: any) {
       this.logger.error(`Failed to track view for user ${userId} on ad ${adId}: ${error.message}`);
+    }
+  }
+
+  private async resolveMerchantIdForAd(adId: string): Promise<string | null> {
+    try {
+      const query = /^[0-9a-fA-F]{24}$/.test(adId)
+        ? { $or: [{ adId }, { _id: adId }] }
+        : { adId };
+
+      const ad = await this.adModel
+        .findOne(query)
+        .select('userId')
+        .lean()
+        .exec();
+
+      return ad?.userId ? String(ad.userId) : null;
+    } catch (error: any) {
+      this.logger.error(`Failed to resolve merchant for ad ${adId}: ${error.message}`);
+      return null;
+    }
+  }
+
+  private async recordMerchantVisit(merchantId: string, occurredAt = new Date()): Promise<void> {
+    const redisClient = this.redisService?.getClient?.();
+    if (!redisClient || !merchantId) {
+      return;
+    }
+
+    try {
+      const dayKey = occurredAt.toISOString().slice(0, 10);
+      const redisKey = `merchant:visits:daily:${merchantId}`;
+
+      await redisClient.hIncrBy(redisKey, dayKey, 1);
+      await redisClient.expire(redisKey, 60 * 60 * 24 * 60);
+    } catch (error: any) {
+      this.logger.error(`Failed to record merchant visit for ${merchantId}: ${error.message}`);
     }
   }
 

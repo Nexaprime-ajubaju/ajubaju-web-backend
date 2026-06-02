@@ -9,6 +9,7 @@ export class UserResponseDto {
   isEmailVerified: boolean;
   profile?: any;
   profilePhoto?: string | null;
+  preferredCategories?: string[];
   merchantProfile?: any;
   iWantPreference?: {
     category?: string;

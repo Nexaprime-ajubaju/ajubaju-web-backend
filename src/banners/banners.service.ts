@@ -362,8 +362,16 @@ export class BannersService implements OnModuleInit {
     }
 
     await this.expireBannerPromotions();
+    // Support both merchant userId and legacy merchant profile _id for visibility across devices
+    const merchantProfile = await this.merchantModel.findOne({ userId: merchantId }).select('_id').lean().exec();
+    const profileId = merchantProfile?._id ? String(merchantProfile._id) : null;
+
+    const query: any = profileId
+      ? { $or: [{ merchantId }, { merchantId: profileId }], promotionType }
+      : { merchantId, promotionType };
+
     const rows = await this.bannerPromotionModel
-      .find({ merchantId, promotionType })
+      .find(query)
       .sort({ createdAt: -1 })
       .lean()
       .exec();
