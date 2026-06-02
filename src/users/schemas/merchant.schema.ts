@@ -47,6 +47,27 @@ export class Merchant {
   @Prop({ type: Object, default: null })
   offerTemplate?: any;
 
+  @Prop({
+    type: {
+      emailNotifications: { type: Boolean, default: true },
+      orderNotifications: { type: Boolean, default: true },
+      promotionNotifications: { type: Boolean, default: true },
+      pushNotifications: { type: Boolean, default: true },
+    },
+    default: {
+      emailNotifications: true,
+      orderNotifications: true,
+      promotionNotifications: true,
+      pushNotifications: true,
+    },
+  })
+  notificationSettings?: {
+    emailNotifications: boolean;
+    orderNotifications: boolean;
+    promotionNotifications: boolean;
+    pushNotifications: boolean;
+  };
+
   @Prop()
   createdAt: Date;
 

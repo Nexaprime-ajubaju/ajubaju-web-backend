@@ -288,4 +288,72 @@ export class MerchantsService {
       );
     }
   }
+
+  async updateNotificationSettings(
+    userId: string,
+    settings: {
+      emailNotifications?: boolean;
+      orderNotifications?: boolean;
+      promotionNotifications?: boolean;
+      pushNotifications?: boolean;
+    },
+  ) {
+    if (!userId) {
+      throw new BadRequestException('User ID is required');
+    }
+
+    const allowedSettings: Record<string, boolean> = {};
+    const settingKeys = [
+      'emailNotifications',
+      'orderNotifications',
+      'promotionNotifications',
+      'pushNotifications',
+    ] as const;
+
+    for (const key of settingKeys) {
+      if (settings?.[key] !== undefined) {
+        if (typeof settings[key] !== 'boolean') {
+          throw new BadRequestException(`${key} must be a boolean`);
+        }
+        allowedSettings[`notificationSettings.${key}`] = settings[key];
+      }
+    }
+
+    if (Object.keys(allowedSettings).length === 0) {
+      throw new BadRequestException('At least one notification setting is required');
+    }
+
+    try {
+      const merchant = await this.merchantModel.findOneAndUpdate(
+        { userId },
+        {
+          $set: {
+            ...allowedSettings,
+            updatedAt: new Date(),
+          },
+        },
+        { new: true, runValidators: true },
+      );
+
+      if (!merchant) {
+        throw new NotFoundException('Merchant not found');
+      }
+
+      return {
+        success: true,
+        message: 'Notification settings updated successfully',
+        data: merchant.notificationSettings,
+      };
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+      throw new BadRequestException(
+        `Failed to update notification settings: ${error.message}`,
+      );
+    }
+  }
 }
