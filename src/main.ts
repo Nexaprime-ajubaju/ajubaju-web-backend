@@ -8,9 +8,19 @@ import { json, urlencoded } from 'express';
 
 dotenv.config();
 
+const vercelOriginPattern = /^https:\/\/[a-z0-9-]+\.vercel\.app$/i;
+
 const parseBoolean = (value?: string): boolean => {
   if (!value) return false;
   return ['1', 'true', 'yes', 'on'].includes(value.toLowerCase());
+};
+
+const isAllowedOrigin = (origin: string, allowedOrigins: string[]): boolean => {
+  if (allowedOrigins.includes(origin)) {
+    return true;
+  }
+
+  return vercelOriginPattern.test(origin);
 };
 
 const validationPipe = new ValidationPipe({
@@ -67,17 +77,34 @@ async function bootstrap() {
     logger.log(`Kafka mode enabled. Brokers: ${brokers.join(', ')}`);
   }
 
-  const corsOrigins = configService.get<string[]>('config.cors.origins');
+  const corsOrigins = configService.get<string[]>('config.cors.origins') || [];
 
   app.enableCors({
-    origin: corsOrigins && corsOrigins.length > 0 ? corsOrigins : true,
+    origin: (origin, callback) => {
+      // Non-browser requests can have no Origin header.
+      if (!origin) {
+        callback(null, true);
+        return;
+      }
+
+      const allowedOrigins = corsOrigins.length > 0
+        ? corsOrigins
+        : ['http://localhost:3000', 'http://localhost:3001'];
+
+      if (isAllowedOrigin(origin, allowedOrigins)) {
+        callback(null, true);
+        return;
+      }
+
+      callback(new Error(`Origin not allowed by CORS: ${origin}`));
+    },
     credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
     allowedHeaders: ['Content-Type', 'Authorization'],
   });
 
   const port = configService.get('config.service.port');
-  await app.listen(port);
+  await app.listen(port, '0.0.0.0');
   logger.log(`HTTP mode enabled. Ads microservice is running on port ${port}`);
 }
 bootstrap();

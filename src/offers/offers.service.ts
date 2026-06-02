@@ -5,6 +5,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { KafkaService } from '../kafka/kafka.service';
 import { RedisService } from '../common/services/redis.service';
 import { OfferPromotion, OfferPromotionDocument, OfferPromotionStatus, OfferPaymentStatus } from './schemas/offer-promotion.schema';
+import { Voucher, VoucherDocument, VoucherStatus } from '../vouchers/schemas/voucher.schema';
 // Banner models removed to keep offers module independent from banners
 import { User, UserDocument } from '../users/schemas/user.schema';
 import { Merchant, MerchantDocument } from '../users/schemas/merchant.schema';
@@ -16,6 +17,7 @@ export class OffersService implements OnModuleInit {
 
   constructor(
     @InjectModel(OfferPromotion.name) private readonly offerModel: Model<OfferPromotionDocument>,
+    @InjectModel(Voucher.name) private readonly voucherModel: Model<VoucherDocument>,
     @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
     @InjectModel(Merchant.name) private readonly merchantModel: Model<MerchantDocument>,
     private readonly redisService: RedisService,
@@ -76,15 +78,40 @@ export class OffersService implements OnModuleInit {
     return !(Math.abs(latitude) < 0.000001 && Math.abs(longitude) < 0.000001);
   }
 
+  private parseCalendarDate(dateStr: string): Date | null {
+    const trimmed = String(dateStr || '').trim();
+    if (!trimmed) {
+      return null;
+    }
+
+    const dateOnlyMatch = /^\d{4}-\d{2}-\d{2}$/.exec(trimmed);
+    if (dateOnlyMatch) {
+      const [year, month, day] = trimmed.split('-').map(Number);
+      const normalized = new Date(year, month - 1, day);
+      if (Number.isNaN(normalized.getTime())) {
+        return null;
+      }
+      normalized.setHours(0, 0, 0, 0);
+      return normalized;
+    }
+
+    const parsed = new Date(trimmed);
+    if (Number.isNaN(parsed.getTime())) {
+      return null;
+    }
+
+    const normalized = new Date(
+      parsed.getFullYear(),
+      parsed.getMonth(),
+      parsed.getDate(),
+    );
+    normalized.setHours(0, 0, 0, 0);
+    return normalized;
+  }
+
   private normalizeDateStrings(dateStrings: string[] = []): Date[] {
     return Array.from(new Set(dateStrings))
-      .map((dateStr) => {
-        const parsed = new Date(dateStr);
-        if (Number.isNaN(parsed.getTime())) return null;
-        const normalized = new Date(parsed);
-        normalized.setHours(0, 0, 0, 0);
-        return normalized;
-      })
+      .map((dateStr) => this.parseCalendarDate(dateStr))
       .filter((date): date is Date => date !== null)
       .sort((a, b) => a.getTime() - b.getTime());
   }
@@ -109,7 +136,8 @@ export class OffersService implements OnModuleInit {
         this.logger.warn(`[Offers] Dropped legacy index on startup: ${indexName}`);
       }
     } catch (error) {
-      this.logger.warn(`[Offers] Index cleanup skipped: ${error?.message || 'unknown error'}`);
+      const err = error as any;
+      this.logger.warn(`[Offers] Index cleanup skipped: ${err?.message || 'unknown error'}`);
     }
   }
 
@@ -140,7 +168,7 @@ export class OffersService implements OnModuleInit {
       const hasCoords = Number.isFinite(latitude) && Number.isFinite(longitude);
       if (!hasCoords) throw new BadRequestException('Store coordinates missing. Set store location before publishing offers.');
 
-    const normalizedDates = Array.isArray(payload.selectedDates) ? payload.selectedDates.map((d: any) => new Date(d)).filter((d: any) => !Number.isNaN(d.getTime())) : [];
+    const normalizedDates = Array.isArray(payload.selectedDates) ? this.normalizeDateStrings(payload.selectedDates) : [];
     if (!normalizedDates.length) throw new BadRequestException('Please select at least one valid visibility date');
 
     const today = new Date(); today.setHours(0,0,0,0);
@@ -199,23 +227,88 @@ export class OffersService implements OnModuleInit {
     await this.redisService.deleteByPattern(`golo:offers:merchant:${merchantId}:*`);
     return request;
   } catch (error) {
-    if (error?.name === 'ValidationError' || error?.name === 'CastError') {
-      throw new BadRequestException(error?.message || 'Invalid offer payload');
+    const err = error as any;
+
+    if (err?.name === 'ValidationError' || err?.name === 'CastError') {
+      throw new BadRequestException(err?.message || 'Invalid offer payload');
     }
 
-    if (error?.code === 11000) {
-      this.logger.warn(`[submitOfferPromotionRequest] E11000 Duplicate Key Error: ${error.message}`);
+    if (err?.code === 11000) {
+      this.logger.warn(`[submitOfferPromotionRequest] E11000 Duplicate Key Error: ${err.message}`);
       throw new BadRequestException('Failed to create offer. Please try again.');
     }
 
-    this.logger.error(`[submitOfferPromotionRequest] Error: ${error.message}`, error.stack);
+    this.logger.error(`[submitOfferPromotionRequest] Error: ${err?.message || 'unknown error'}`, err?.stack);
     throw error;
   }
   }
 
   async listMerchantOffers(merchantId: string) {
     const rows = await this.offerModel.find({ merchantId }).sort({ createdAt: -1 }).lean().exec();
-    return rows;
+
+    if (!rows.length) {
+      return rows;
+    }
+
+    const offerIds = rows.map((row) => row._id);
+
+    const pendingVouchers = await this.voucherModel
+      .find({
+        offerId: { $in: offerIds },
+        status: { $in: [VoucherStatus.ACTIVE, VoucherStatus.CLAIMED] },
+      })
+      .select('offerId userId claimedAt')
+      .sort({ claimedAt: -1 })
+      .lean()
+      .exec();
+
+    const latestPendingVoucherByOfferId = new Map<string, { userId: any; claimedAt?: Date }>();
+    for (const voucher of pendingVouchers) {
+      const offerId = String(voucher.offerId);
+      if (!latestPendingVoucherByOfferId.has(offerId)) {
+        latestPendingVoucherByOfferId.set(offerId, {
+          userId: voucher.userId,
+          claimedAt: voucher.claimedAt,
+        });
+      }
+    }
+
+    const userIds = Array.from(
+      new Set(
+        Array.from(latestPendingVoucherByOfferId.values())
+          .map((item) => String(item.userId || ''))
+          .filter(Boolean),
+      ),
+    );
+
+    const users = userIds.length
+      ? await this.userModel
+          .find({ _id: { $in: userIds } })
+          .select('profile.phone')
+          .lean()
+          .exec()
+      : [];
+
+    const userPhoneById = new Map<string, string>();
+    for (const user of users) {
+      const phone = String((user as any)?.profile?.phone || '').trim();
+      if (phone) {
+        userPhoneById.set(String((user as any)._id), phone);
+      }
+    }
+
+    return rows.map((row) => {
+      const latestPending = latestPendingVoucherByOfferId.get(String(row._id));
+      const pendingCustomerContact = latestPending
+        ? userPhoneById.get(String(latestPending.userId)) || null
+        : null;
+
+      return {
+        ...row,
+        pendingCustomerContact,
+        pendingClaimedAt: latestPending?.claimedAt || null,
+      };
+    });
   }
 
   async updateMerchantOffer(requestId: string, merchantId: string, payload: any) {
@@ -226,7 +319,7 @@ export class OffersService implements OnModuleInit {
     if (payload.category !== undefined) request.category = String(payload.category).trim();
     if (payload.imageUrl !== undefined) request.imageUrl = payload.imageUrl;
     if (Array.isArray(payload.selectedDates) && payload.selectedDates.length) {
-      const normalized = payload.selectedDates.map((d: any) => new Date(d)).filter((d: any) => !Number.isNaN(d.getTime()));
+      const normalized = this.normalizeDateStrings(payload.selectedDates);
       if (!normalized.length) throw new BadRequestException('Please provide valid selectedDates');
       request.selectedDates = normalized;
       request.startDate = normalized[0];
@@ -374,7 +467,20 @@ export class OffersService implements OnModuleInit {
   }) {
     const safePage = Math.max(1, Number(params.page) || 1);
     const safeLimit = Math.min(50, Math.max(1, Number(params.limit) || 20));
-    const prefetchLimit = Math.min(300, Math.max(120, safeLimit * 8));
+    // IMPORTANT: do not prefetch too few rows before applying geo/location filtering,
+    // otherwise results look "random" (sometimes none / sometimes a few) depending on which
+    // subset was fetched. When the user is searching nearby or by location, we need a larger,
+    // deterministic sample.
+    const hasAnyFilter =
+      Boolean(String(params.location || '').trim()) ||
+      (typeof params.latitude === 'number' &&
+        !Number.isNaN(params.latitude) &&
+        typeof params.longitude === 'number' &&
+        !Number.isNaN(params.longitude)) ||
+      Boolean(String(params.query || '').trim()) ||
+      Boolean(String(params.category || '').trim());
+
+    const prefetchLimit = hasAnyFilter ? 5000 : Math.min(300, Math.max(120, safeLimit * 8));
     const safeRadiusKm = Math.min(100, Math.max(1, Number(params.radiusKm) || 5));
     const locationNeedle = String(params.location || '').trim().toLowerCase();
     const queryNeedle = String(params.query || '').trim().toLowerCase();
@@ -395,8 +501,9 @@ export class OffersService implements OnModuleInit {
           status: { $in: ['under_review', 'approved', 'active'] },
         })
         .select('requestId merchantId merchantName title category totalPrice startDate endDate status createdAt imageUrl selectedProducts')
+        .sort({ createdAt: -1 })
         .limit(prefetchLimit)
-        .maxTimeMS(7000)
+        .maxTimeMS(12000)
         .lean()
         .exec();
     } catch (error: any) {
@@ -439,6 +546,84 @@ export class OffersService implements OnModuleInit {
     }
 
     const merchantsByUserId = new Map<string, any>(merchants.map((m) => [String(m.userId), m]));
+
+    // Location matching should work even when the city/state/pincode are stored on the user profile
+    // (common for older merchant profiles). Keep this logic local to offers-service (no banners dependency).
+    let usersById = new Map<string, any>();
+    try {
+      const users = await this.userModel
+        .find({ _id: { $in: merchantIds } })
+        .select('profile.city profile.state profile.pincode name email')
+        .maxTimeMS(8000)
+        .lean()
+        .exec();
+
+      usersById = new Map<string, any>(users.map((user) => [String(user._id), user]));
+    } catch (error: any) {
+      this.logger.error(`Nearby users query failed: ${error?.message || error}`);
+      usersById = new Map<string, any>();
+    }
+
+    const buildLocationText = (merchant?: any, user?: any) => {
+      return [
+        merchant?.storeLocation,
+        user?.profile?.city,
+        user?.profile?.state,
+        user?.profile?.pincode,
+      ]
+        .filter(Boolean)
+        .map((part) => String(part).trim())
+        .join(', ')
+        .toLowerCase();
+    };
+
+    const normalizeLocationNeedle = (value: string) => {
+      const raw = String(value || '').toLowerCase();
+      // Keep unicode letters/numbers (supports Marathi/Hindi, etc.), only collapse separators.
+      return raw
+        .replace(/[^\p{L}\p{N}]+/gu, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+    };
+
+    // Lightweight alias support so users don't need to type the exact address string.
+    // Example: merchants may store "Karvir/Karveer" while users search "Kolhapur".
+    const LOCATION_ALIASES: Record<string, string[]> = {
+      kolhapur: ['kolhapur', 'karvir', 'karveer', 'karveer taluka', 'karvir taluka'],
+    };
+
+    const matchesLocationQuery = (locationQueryRaw: string, locationBlobRaw: string) => {
+      const locationBlobRawLower = String(locationBlobRaw || '').toLowerCase();
+      const locationQueryRawLower = String(locationQueryRaw || '').toLowerCase();
+      const locationBlob = normalizeLocationNeedle(locationBlobRawLower);
+      const locationQuery = normalizeLocationNeedle(locationQueryRawLower);
+      if (!locationQuery) return true;
+      if (!locationBlobRawLower && !locationBlob) return false;
+
+      // Prefer matching the city (first comma-separated segment) to avoid
+      // matches driven only by state/country tokens like "Maharashtra".
+      const citySegment = String(locationQueryRawLower).split(',')[0].trim();
+      const cityNorm = normalizeLocationNeedle(citySegment);
+      if (cityNorm && locationBlob.includes(cityNorm)) return true;
+
+      // Full substring match as fallback
+      if (locationBlobRawLower.includes(locationQueryRawLower)) return true;
+      if (locationBlob.includes(locationQuery)) return true;
+
+      const cityTokens = cityNorm ? [cityNorm] : [];
+      for (const token of cityTokens) {
+        if (token && locationBlob.includes(token)) return true;
+        const aliases = LOCATION_ALIASES[token];
+        if (aliases && aliases.length) {
+          for (const alias of aliases) {
+            const normalizedAlias = normalizeLocationNeedle(alias);
+            if (normalizedAlias && locationBlob.includes(normalizedAlias)) return true;
+          }
+        }
+      }
+
+      return false;
+    };
 
     if (!hasUserCoordinates && !locationNeedle) {
       let normalized = offerRows.map((row) => {
@@ -564,16 +749,28 @@ export class OffersService implements OnModuleInit {
 
     if (hasUserCoordinates) {
       normalized = normalized.filter((row) => {
+        // If user explicitly searched for a location (e.g. "Pune"), do not mix in radius results
+        // from the current GPS location. Only show rows matching the location text.
+        if (locationNeedle) {
+          const merchantKey = String(row?.merchant?.merchantId || '');
+          const merchant = merchantKey ? merchantsByUserId.get(merchantKey) : undefined;
+          const user = merchantKey ? usersById.get(merchantKey) : undefined;
+          return matchesLocationQuery(locationNeedle, buildLocationText(merchant, user));
+        }
+
         if (row.distanceKm === null) {
-          if (locationNeedle) {
-            return String(row.merchant.address || '').toLowerCase().includes(locationNeedle);
-          }
           return true;
         }
+
         return row.distanceKm <= safeRadiusKm;
       });
     } else if (locationNeedle) {
-      normalized = normalized.filter((row) => String(row.merchant.address || '').toLowerCase().includes(locationNeedle));
+      normalized = normalized.filter((row) => {
+        const merchantKey = String(row?.merchant?.merchantId || '');
+        const merchant = merchantKey ? merchantsByUserId.get(merchantKey) : undefined;
+        const user = merchantKey ? usersById.get(merchantKey) : undefined;
+        return matchesLocationQuery(locationNeedle, buildLocationText(merchant, user));
+      });
     }
 
     if (queryNeedle) {

@@ -82,8 +82,10 @@ export class OrdersService {
     ]);
 
     const userIds = orders.map((o) => o.userId).filter(Boolean);
-    const users = await this.userModel.find({ _id: { $in: userIds } }).select('name').lean();
-    const userMap = new Map(users.map((u: any) => [String(u._id), u.name]));
+    const users = await this.userModel.find({ _id: { $in: userIds } }).select('name profile.phone profile.avatar profilePhoto').lean();
+    const userMapName = new Map(users.map((u: any) => [String(u._id), u.name]));
+    const userMapPhone = new Map(users.map((u: any) => [String(u._id), (u.profile && u.profile.phone) || null]));
+    const userMapAvatar = new Map(users.map((u: any) => [String(u._id), (u.profile && u.profile.avatar) || u.profilePhoto || null]));
 
     return {
       success: true,
@@ -94,7 +96,9 @@ export class OrdersService {
         itemsCount: o.itemsCount,
         status: o.status,
         placedAt: o.placedAt,
-        customerName: userMap.get(String(o.userId)) || 'Unknown Customer',
+        customerName: userMapName.get(String(o.userId)) || 'Unknown Customer',
+        customerPhone: userMapPhone.get(String(o.userId)) || null,
+        customerAvatar: userMapAvatar.get(String(o.userId)) || null,
       })),
       pagination: {
         page,

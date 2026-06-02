@@ -1,75 +1,14 @@
 import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import { Merchant, MerchantDocument } from '../users/schemas/merchant.schema';
-import { User, UserDocument } from '../users/schemas/user.schema';
 import { UpdateStoreLocationDto } from '../users/dto/update-store-location.dto';
 
 @Injectable()
 export class MerchantsService {
   constructor(
     @InjectModel(Merchant.name) private merchantModel: Model<MerchantDocument>,
-    @InjectModel(User.name) private userModel: Model<UserDocument>,
   ) {}
-
-  async getPublicMerchantProfile(merchantId: string) {
-    if (!merchantId) {
-      throw new BadRequestException('Merchant ID is required');
-    }
-
-    const [user, merchant] = await Promise.all([
-      this.userModel.findById(merchantId).lean().exec(),
-      this.merchantModel.findOne({ userId: merchantId }).lean().exec(),
-    ]);
-
-    if (!user || user.accountType !== 'merchant') {
-      throw new NotFoundException('Merchant not found');
-    }
-
-    const profile = user.profile || {};
-
-    return {
-      success: true,
-      data: {
-        id: String(user._id),
-        name: user.name,
-        email: user.email,
-        accountType: user.accountType,
-        profilePhoto: merchant?.profilePhoto || user.profilePhoto || '',
-        profile: {
-          ...profile,
-          phone: profile.phone || merchant?.contactNumber || '',
-          address: profile.address || merchant?.storeLocation || '',
-          interests:
-            Array.isArray(profile.interests) && profile.interests.length > 0
-              ? profile.interests
-              : [merchant?.storeCategory, merchant?.storeSubCategory].filter(Boolean),
-        },
-        merchantProfile: merchant || null,
-      },
-    };
-  }
-
-  async getPublicStoreLocation(merchantId: string) {
-    if (!merchantId) {
-      throw new BadRequestException('Merchant ID is required');
-    }
-
-    const merchant = await this.merchantModel.findOne({ userId: merchantId }).lean().exec();
-
-    if (!merchant) {
-      throw new NotFoundException('Merchant not found');
-    }
-
-    return {
-      success: true,
-      data: {
-        address: merchant.storeLocation || null,
-        latitude: merchant.storeLocationLatitude || null,
-        longitude: merchant.storeLocationLongitude || null,
-      },
-    };
-  }
 
   /**
    * Update merchant store location with coordinates
@@ -176,6 +115,57 @@ export class MerchantsService {
         `Failed to retrieve store location: ${error.message}`,
       );
     }
+  }
+
+  async getPublicMerchantProfile(merchantId: string) {
+    if (!merchantId) {
+      throw new BadRequestException('Merchant ID is required');
+    }
+
+    const merchant = await this.findPublicMerchantById(merchantId);
+    if (!merchant) {
+      throw new NotFoundException('Merchant not found');
+    }
+
+    const data = merchant.toObject ? merchant.toObject() : merchant;
+
+    return {
+      success: true,
+      data: {
+        ...data,
+        merchantId: data.userId,
+      },
+    };
+  }
+
+  async getPublicMerchantStoreLocation(merchantId: string) {
+    if (!merchantId) {
+      throw new BadRequestException('Merchant ID is required');
+    }
+
+    const merchant = await this.findPublicMerchantById(merchantId);
+    if (!merchant) {
+      throw new NotFoundException('Merchant not found');
+    }
+
+    return {
+      success: true,
+      data: {
+        address: merchant.storeLocation || null,
+        latitude: merchant.storeLocationLatitude || null,
+        longitude: merchant.storeLocationLongitude || null,
+      },
+    };
+  }
+
+  private findPublicMerchantById(merchantId: string) {
+    const filters: any[] = [{ userId: merchantId }];
+
+    if (Types.ObjectId.isValid(merchantId)) {
+      filters.push({ _id: new Types.ObjectId(merchantId) });
+    }
+
+    return this.merchantModel.findOne({ $or: filters }).exec();
   }
 
   /**

@@ -3,7 +3,6 @@ import {
   Put,
   Get,
   Body,
-  Param,
   UseGuards,
   BadRequestException,
 } from '@nestjs/common';
@@ -14,25 +13,15 @@ import { UpdateStoreLocationDto } from '../users/dto/update-store-location.dto';
 import { UpdateMerchantProfileDto } from './dto/update-merchant-profile.dto';
 
 @Controller('merchant')
+@UseGuards(JwtAuthGuard)
 export class MerchantsController {
   constructor(private readonly merchantsService: MerchantsService) {}
-
-  @Get('public/:merchantId/profile')
-  async getPublicMerchantProfile(@Param('merchantId') merchantId: string) {
-    return await this.merchantsService.getPublicMerchantProfile(merchantId);
-  }
-
-  @Get('public/:merchantId/store-location')
-  async getPublicStoreLocation(@Param('merchantId') merchantId: string) {
-    return await this.merchantsService.getPublicStoreLocation(merchantId);
-  }
 
   /**
    * Update merchant store location with coordinates
    * PUT /merchant/store-location
    */
   @Put('store-location')
-  @UseGuards(JwtAuthGuard)
   async updateStoreLocation(
     @CurrentUser() user: any,
     @Body() locationData: UpdateStoreLocationDto,
@@ -51,7 +40,6 @@ export class MerchantsController {
    * GET /merchant/store-location
    */
   @Get('store-location')
-  @UseGuards(JwtAuthGuard)
   async getStoreLocation(@CurrentUser() user: any) {
     if (!user?.id && !user?._id) {
       throw new BadRequestException('User authentication required');
@@ -67,7 +55,6 @@ export class MerchantsController {
    * GET /merchant/nearby?lat=16.8149&lng=73.8292&radius=10
    */
   @Get('nearby')
-  @UseGuards(JwtAuthGuard)
   async getNearbyMerchants(
     @CurrentUser() user: any,
     latitude?: number,
@@ -90,7 +77,6 @@ export class MerchantsController {
    * PUT /merchant/profile
    */
   @Put('profile')
-  @UseGuards(JwtAuthGuard)
   async updateMerchantProfile(
     @CurrentUser() user: any,
     @Body() updateData: UpdateMerchantProfileDto,

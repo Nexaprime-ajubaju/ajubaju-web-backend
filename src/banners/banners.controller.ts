@@ -180,80 +180,12 @@ export class BannersController {
 
   @Get('promotions/active')
   async getActiveHomepageBanners(@Query('limit') limit?: string) {
-    const safeLimit = Math.max(1, Math.min(5, Number(limit) || 5));
+    const defaultLimit = 10;
+    const safeLimit = Math.max(1, Math.min(10, Number(limit) || defaultLimit));
     const rows = await this.bannersService.getActiveHomepageBanners(safeLimit);
     return {
       success: true,
       data: rows,
-      timestamp: new Date().toISOString(),
-    };
-  }
-
-  @Get('promotions/offers/nearby')
-  async getNearbyOffers(
-    @Query('lat') lat?: string,
-    @Query('lng') lng?: string,
-    @Query('radiusKm') radiusKm?: string,
-    @Query('location') location?: string,
-    @Query('q') q?: string,
-    @Query('category') category?: string,
-    @Query('sort') sort?: string,
-    @Query('maxPrice') maxPrice?: string,
-    @Query('page') page?: string,
-    @Query('limit') limit?: string,
-  ) {
-    const requestPayload = {
-      latitude: lat ? Number(lat) : undefined,
-      longitude: lng ? Number(lng) : undefined,
-      radiusKm: radiusKm ? Number(radiusKm) : undefined,
-      location,
-      query: q,
-      category,
-      sort,
-      maxPrice: maxPrice ? Number(maxPrice) : undefined,
-      page: page ? Number(page) : undefined,
-      limit: limit ? Number(limit) : undefined,
-    };
-
-    const fallbackPage = requestPayload.page && requestPayload.page > 0 ? requestPayload.page : 1;
-    const fallbackLimit =
-      requestPayload.limit && requestPayload.limit > 0 ? requestPayload.limit : 20;
-
-    const timeoutPromise = new Promise<{
-      data: any[];
-      pagination: { page: number; limit: number; total: number; pages: number };
-    }>((resolve) => {
-      setTimeout(() => {
-        resolve({
-          data: [],
-          pagination: {
-            page: fallbackPage,
-            limit: fallbackLimit,
-            total: 0,
-            pages: 0,
-          },
-        });
-      }, 8000);
-    });
-
-    const data = await Promise.race([
-      this.bannersService.getNearbyOffers(requestPayload),
-      timeoutPromise,
-    ]);
-
-    return {
-      success: true,
-      ...data,
-      timestamp: new Date().toISOString(),
-    };
-  }
-
-  @Get('promotions/offers/:offerId')
-  async getPublicOfferDetails(@Param('offerId') offerId: string) {
-    const data = await this.bannersService.getPublicOfferDetails(offerId);
-    return {
-      success: true,
-      data,
       timestamp: new Date().toISOString(),
     };
   }

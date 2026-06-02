@@ -3,11 +3,13 @@
   "version": "1.0.0",
   "description": "Ads posting microservice with NestJS and Kafka",
   "scripts": {
-    "build": "nest build",
+    "clean": "node scripts/clean-dist.cjs",
+    "build": "npm run clean && nest build",
     "postbuild": "node scripts/create-dist-entry.cjs",
-    "start": "nest start",
-    "start:dev": "nest start --watch",
-    "start:debug": "nest start --debug --watch",
+    "start": "npm run clean && nest start --builder webpack",
+    "start:dev": "npm run clean && nest start --watch --builder webpack",
+    "start:debug": "npm run clean && nest start --debug --watch --builder webpack",
+    "prestart:prod": "npm run build",
     "start:prod": "node dist/main.js",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
     "test": "jest",
@@ -18,8 +20,7 @@
     "docker:up": "docker-compose up -d",
     "docker:down": "docker-compose down",
     "docker:logs": "docker-compose logs -f",
-    "kafka:create-topics": "node scripts/create-topics.js",
-    "merchant:backfill-coords": "node scripts/backfill-merchant-coordinates.js"
+    "kafka:create-topics": "node scripts/create-topics.js"
   },
   "dependencies": {
     "@nestjs/common": "^10.4.22",

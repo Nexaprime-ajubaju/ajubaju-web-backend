@@ -198,6 +198,33 @@ export class MerchantProductsService implements OnModuleInit {
     };
   }
 
+  private async findProductOrThrow(productId: string) {
+    try {
+      const product = await this.merchantProductModel.findById(productId).exec();
+      if (!product) {
+        throw new NotFoundException('Product not found');
+      }
+      return product;
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      if (error?.name === 'CastError') {
+        throw new NotFoundException('Product not found');
+      }
+      throw error;
+    }
+  }
+
+  async getPublicProduct(productId: string) {
+    const product = await this.findProductOrThrow(productId);
+
+    return {
+      success: true,
+      data: this.mapProduct(product),
+    };
+  }
+
   async getProduct(merchantId: string, productId: string) {
     const cacheKey = this.cacheItemKey(merchantId, productId);
     const cached = await this.redisService.get<any>(cacheKey);
@@ -205,10 +232,7 @@ export class MerchantProductsService implements OnModuleInit {
       return cached;
     }
 
-    const product = await this.merchantProductModel.findById(productId).exec();
-    if (!product) {
-      throw new NotFoundException('Product not found');
-    }
+    const product = await this.findProductOrThrow(productId);
 
     if (String(product.merchantId) !== String(merchantId)) {
       throw new ForbiddenException('You can only view your own products');
@@ -224,10 +248,7 @@ export class MerchantProductsService implements OnModuleInit {
   }
 
   async updateProduct(merchantId: string, productId: string, dto: UpdateMerchantProductDto) {
-    const product = await this.merchantProductModel.findById(productId).exec();
-    if (!product) {
-      throw new NotFoundException('Product not found');
-    }
+    const product = await this.findProductOrThrow(productId);
 
     if (String(product.merchantId) !== String(merchantId)) {
       throw new ForbiddenException('You can only update your own products');
@@ -261,10 +282,7 @@ export class MerchantProductsService implements OnModuleInit {
   }
 
   async deleteProduct(merchantId: string, productId: string) {
-    const product = await this.merchantProductModel.findById(productId).exec();
-    if (!product) {
-      throw new NotFoundException('Product not found');
-    }
+    const product = await this.findProductOrThrow(productId);
 
     if (String(product.merchantId) !== String(merchantId)) {
       throw new ForbiddenException('You can only delete your own products');
@@ -293,6 +311,7 @@ export class MerchantProductsService implements OnModuleInit {
   private mapProduct(product: MerchantProductDocument) {
     return {
       id: String(product._id),
+      merchantId: String(product.merchantId),
       name: product.name,
       category: product.category,
       description: product.description,

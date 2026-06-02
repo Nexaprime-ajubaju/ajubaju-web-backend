@@ -6,8 +6,10 @@ import { Merchant, MerchantSchema } from '../users/schemas/merchant.schema';
 import { MerchantProduct, MerchantProductSchema } from '../merchant-products/schemas/merchant-product.schema';
 import { OfferPromotion, OfferPromotionSchema } from './schemas/offer-promotion.schema';
 import { OfferLikeHistory, OfferLikeHistorySchema } from './schemas/offer-like-history.schema';
+import { Voucher, VoucherSchema } from '../vouchers/schemas/voucher.schema';
 import { OffersController } from './offers.controller';
 import { OffersService } from './offers.service';
+import { BannersModule } from '../banners/banners.module';
 
 @Module({
   imports: [
@@ -17,8 +19,10 @@ import { OffersService } from './offers.service';
       { name: User.name, schema: UserSchema },
       { name: Merchant.name, schema: MerchantSchema },
       { name: MerchantProduct.name, schema: MerchantProductSchema },
+      { name: Voucher.name, schema: VoucherSchema },
     ]),
     forwardRef(() => KafkaModule),
+    BannersModule,
   ],
   controllers: [OffersController],
   providers: [OffersService],

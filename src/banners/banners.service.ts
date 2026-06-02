@@ -95,28 +95,6 @@ export class BannersService implements OnModuleInit {
     return !(Math.abs(latitude) < 0.000001 && Math.abs(longitude) < 0.000001);
   }
 
-  private isLikelyLegacyOffer(row: {
-    promotionType?: BannerPromotionType;
-    bannerCategory?: string;
-    bannerTitle?: string;
-  }): boolean {
-    if (row?.promotionType === BannerPromotionType.OFFER) {
-      return true;
-    }
-
-    if (row?.promotionType) {
-      return false;
-    }
-
-    const category = String(row?.bannerCategory || '').trim().toLowerCase();
-    if (this.legacyOfferCategorySet.has(category)) {
-      return true;
-    }
-
-    const title = String(row?.bannerTitle || '').trim().toLowerCase();
-    return title.includes('offer') || title.includes('deal');
-  }
-
   private merchantListByTypeCacheKey(
     merchantId: string,
     type: BannerPromotionType,
@@ -132,18 +110,40 @@ export class BannersService implements OnModuleInit {
     return `golo:banners:active:${limit}`;
   }
 
+  private parseCalendarDate(dateStr: string): Date | null {
+    const trimmed = String(dateStr || '').trim();
+    if (!trimmed) {
+      return null;
+    }
+
+    const dateOnlyMatch = /^\d{4}-\d{2}-\d{2}$/.exec(trimmed);
+    if (dateOnlyMatch) {
+      const [year, month, day] = trimmed.split('-').map(Number);
+      const normalized = new Date(year, month - 1, day);
+      if (Number.isNaN(normalized.getTime())) {
+        return null;
+      }
+      normalized.setHours(0, 0, 0, 0);
+      return normalized;
+    }
+
+    const parsed = new Date(trimmed);
+    if (Number.isNaN(parsed.getTime())) {
+      return null;
+    }
+
+    const normalized = new Date(
+      parsed.getFullYear(),
+      parsed.getMonth(),
+      parsed.getDate(),
+    );
+    normalized.setHours(0, 0, 0, 0);
+    return normalized;
+  }
+
   private normalizeDateStrings(dateStrings: string[] = []): Date[] {
     return Array.from(new Set(dateStrings))
-      .map((dateStr) => {
-        const parsed = new Date(dateStr);
-        if (Number.isNaN(parsed.getTime())) {
-          return null;
-        }
-
-        const normalized = new Date(parsed);
-        normalized.setHours(0, 0, 0, 0);
-        return normalized;
-      })
+      .map((dateStr) => this.parseCalendarDate(dateStr))
       .filter((date): date is Date => date !== null)
       .sort((a, b) => a.getTime() - b.getTime());
   }
@@ -272,16 +272,16 @@ export class BannersService implements OnModuleInit {
       );
     }
 
-    const todayUtc = new Date();
-    todayUtc.setUTCHours(0, 0, 0, 0);
-    if (normalizedDates[0] < todayUtc) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    if (normalizedDates[0] < today) {
       throw new BadRequestException('Selected dates cannot be in the past');
     }
 
     const startDate = new Date(normalizedDates[0]);
-    startDate.setUTCHours(0, 0, 0, 0);
+    startDate.setHours(0, 0, 0, 0);
     const endDate = new Date(normalizedDates[normalizedDates.length - 1]);
-    endDate.setUTCHours(23, 59, 59, 999);
+    endDate.setHours(23, 59, 59, 999);
 
     const selectedDays = normalizedDates.length;
     const dailyRate = Number(payload.dailyRate ?? 240);
@@ -553,9 +553,9 @@ export class BannersService implements OnModuleInit {
 
       request.selectedDates = normalizedDates;
       const startDate = new Date(normalizedDates[0]);
-      startDate.setUTCHours(0, 0, 0, 0);
+      startDate.setHours(0, 0, 0, 0);
       const endDate = new Date(normalizedDates[normalizedDates.length - 1]);
-      endDate.setUTCHours(23, 59, 59, 999);
+      endDate.setHours(23, 59, 59, 999);
       request.startDate = startDate;
       request.endDate = endDate;
       request.selectedDays = normalizedDates.length;
@@ -697,417 +697,5 @@ export class BannersService implements OnModuleInit {
     await this.bannerPromotionModel
       .deleteMany({ requestId: { $in: idsToDelete } })
       .exec();
-  }
-
-  async getNearbyOffers(params: {
-    latitude?: number;
-    longitude?: number;
-    radiusKm?: number;
-    location?: string;
-    query?: string;
-    category?: string;
-    sort?: string;
-    maxPrice?: number;
-    page?: number;
-    limit?: number;
-  }) {
-    const safePage = Math.max(1, Number(params.page) || 1);
-    const safeLimit = Math.min(50, Math.max(1, Number(params.limit) || 20));
-    const prefetchLimit = Math.min(300, Math.max(120, safeLimit * 8));
-    const safeRadiusKm = Math.min(100, Math.max(1, Number(params.radiusKm) || 5));
-    const locationNeedle = String(params.location || '').trim().toLowerCase();
-    const queryNeedle = String(params.query || '').trim().toLowerCase();
-    const categoryNeedle = String(params.category || '').trim().toLowerCase();
-    const sortBy = String(params.sort || '').trim().toLowerCase();
-    const maxPrice = Number(params.maxPrice);
-
-    const hasUserCoordinates =
-      typeof params.latitude === 'number' &&
-      !Number.isNaN(params.latitude) &&
-      typeof params.longitude === 'number' &&
-      !Number.isNaN(params.longitude);
-
-    let offerRows: any[] = [];
-    try {
-offerRows = await this.bannerPromotionModel
-        .find({
-          promotionType: BannerPromotionType.OFFER,
-          status: {
-            $in: [
-              BannerPromotionStatus.UNDER_REVIEW,
-              BannerPromotionStatus.APPROVED,
-              BannerPromotionStatus.ACTIVE,
-            ],
-          },
-        })
-        .select(
-          'requestId merchantId merchantName bannerTitle bannerCategory totalPrice startDate endDate status createdAt promotionType imageUrl selectedProducts',
-        )
-        .limit(prefetchLimit)
-        .maxTimeMS(7000)
-        .lean()
-        .exec();
-
-      if (!offerRows.length) {
-        const legacyRows = await this.bannerPromotionModel
-          .find({
-            status: {
-              $in: [
-                BannerPromotionStatus.UNDER_REVIEW,
-                BannerPromotionStatus.APPROVED,
-                BannerPromotionStatus.ACTIVE,
-              ],
-            },
-          })
-          .select(
-            'requestId merchantId merchantName bannerTitle bannerCategory totalPrice startDate endDate status createdAt promotionType imageUrl selectedProducts',
-          )
-          .limit(prefetchLimit)
-          .maxTimeMS(5000)
-          .lean()
-          .exec();
-
-        offerRows = legacyRows.filter((row) => this.isLikelyLegacyOffer(row));
-      }
-    } catch (error: any) {
-      this.logger.error(`Nearby offers query failed: ${error?.message || error}`);
-      return {
-        data: [],
-        pagination: {
-          page: safePage,
-          limit: safeLimit,
-          total: 0,
-          pages: 0,
-        },
-      };
-    }
-
-    if (!offerRows.length) {
-      return {
-        data: [],
-        pagination: {
-          page: safePage,
-          limit: safeLimit,
-          total: 0,
-          pages: 0,
-        },
-      };
-    }
-
-// Fetch merchant data even in fast path to get store locations
-    const merchantIds = Array.from(new Set(offerRows.map((row) => String(row.merchantId))));
-    let merchants: any[] = [];
-    try {
-      merchants = await this.merchantModel
-        .find({ userId: { $in: merchantIds } })
-        .select(
-          'userId storeName storeCategory storeSubCategory storeLocation storeLocationLatitude storeLocationLongitude profilePhoto shopPhoto',
-        )
-        .maxTimeMS(8000)
-        .lean()
-        .exec();
-    } catch (error: any) {
-      this.logger.error(`Nearby merchants query failed: ${error?.message || error}`);
-      merchants = [];
-    }
-
-    const merchantsByUserId = new Map<string, any>(
-      merchants.map((merchant) => [String(merchant.userId), merchant]),
-    );
-
-    // Fast path: no geo filtering requested.
-    if (!hasUserCoordinates && !locationNeedle) {
-      let normalized = offerRows.map((row) => {
-        const merchant = merchantsByUserId.get(String(row.merchantId));
-        return {
-          offerId: String(row._id),
-          requestId: row.requestId,
-          title: row.bannerTitle,
-          category: row.bannerCategory,
-          imageUrl: row.imageUrl || '',
-          totalPrice: Number(row.totalPrice || 0),
-          displayPrice: Number(row.totalPrice || 0),
-          discountPercent: 0,
-          startsAt: row.startDate,
-          endsAt: row.endDate,
-          status: row.status,
-          isActiveNow: false,
-          distanceKm: null as number | null,
-          merchant: {
-            merchantId: String(row.merchantId),
-            name: merchant?.storeName || row.merchantName || 'Merchant',
-            category: merchant?.storeCategory || '',
-            subCategory: merchant?.storeSubCategory || '',
-            address: merchant?.storeLocation || '',
-            latitude: merchant?.storeLocationLatitude || null,
-            longitude: merchant?.storeLocationLongitude || null,
-            profilePhoto: merchant?.profilePhoto || merchant?.shopPhoto || '',
-          },
-          selectedProducts: Array.isArray(row.selectedProducts) ? row.selectedProducts : [],
-          createdAt: row.createdAt,
-        };
-      });
-
-      if (queryNeedle) {
-        normalized = normalized.filter((row) => {
-          const blob = `${row.title || ''} ${row.category || ''} ${row.merchant.name || ''}`.toLowerCase();
-          return blob.includes(queryNeedle);
-        });
-      }
-
-      if (categoryNeedle) {
-        normalized = normalized.filter(
-          (row) => String(row.category || '').toLowerCase() === categoryNeedle,
-        );
-      }
-
-      if (!Number.isNaN(maxPrice) && maxPrice > 0) {
-        normalized = normalized.filter((row) => row.displayPrice <= maxPrice);
-      }
-
-      normalized.sort(
-        (a, b) =>
-          new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime(),
-      );
-
-      const total = normalized.length;
-      const pages = Math.ceil(total / safeLimit);
-      const start = (safePage - 1) * safeLimit;
-
-      return {
-        data: normalized.slice(start, start + safeLimit),
-        pagination: {
-          page: safePage,
-          limit: safeLimit,
-          total,
-          pages,
-        },
-      };
-}
-
-    const now = new Date();
-
-    let normalized = offerRows.map((row) => {
-      const merchant = merchantsByUserId.get(String(row.merchantId));
-      const latitude = Number(merchant?.storeLocationLatitude);
-      const longitude = Number(merchant?.storeLocationLongitude);
-      const hasMerchantCoordinates = this.hasValidMerchantCoordinates(
-        latitude,
-        longitude,
-      );
-
-      let distanceKm: number | null = null;
-      if (hasUserCoordinates && hasMerchantCoordinates) {
-        distanceKm = this.calculateDistanceKm(
-          Number(params.latitude),
-          Number(params.longitude),
-          latitude,
-          longitude,
-        );
-      }
-
-      const selectedProducts: any[] = Array.isArray(row.selectedProducts) ? row.selectedProducts : [];
-
-      const computedBestDiscountPercent = selectedProducts.reduce(
-        (best, product) => {
-          const original = Number(product?.originalPrice || 0);
-          const offer = Number(product?.offerPrice || 0);
-          if (original <= 0 || offer < 0 || offer >= original) {
-            return best;
-          }
-          const discountPercent = ((original - offer) / original) * 100;
-          return Math.max(best, discountPercent);
-        },
-        0,
-      );
-
-      const lowestOfferPrice = selectedProducts.length
-        ? selectedProducts.reduce((min, product) => {
-            const value = Number(product?.offerPrice || 0);
-            return value > 0 ? Math.min(min, value) : min;
-          }, Number.MAX_SAFE_INTEGER)
-        : Number.MAX_SAFE_INTEGER;
-
-      const startsAt = row.startDate ? new Date(row.startDate) : null;
-      const endsAt = row.endDate ? new Date(row.endDate) : null;
-      const isActiveNow =
-        Boolean(startsAt && endsAt) && startsAt <= now && endsAt >= now;
-
-      return {
-        offerId: String(row._id),
-        requestId: row.requestId,
-        title: row.bannerTitle,
-        category: row.bannerCategory,
-        imageUrl: row.imageUrl || '',
-        totalPrice: Number(row.totalPrice || 0),
-        displayPrice:
-          lowestOfferPrice !== Number.MAX_SAFE_INTEGER
-            ? lowestOfferPrice
-            : Number(row.totalPrice || 0),
-        discountPercent: Math.round(computedBestDiscountPercent),
-        startsAt: row.startDate,
-        endsAt: row.endDate,
-        status: row.status,
-        isActiveNow,
-        distanceKm,
-        merchant: {
-          merchantId: String(row.merchantId),
-          name: merchant?.storeName || row.merchantName || 'Merchant',
-          category: merchant?.storeCategory || '',
-          subCategory: merchant?.storeSubCategory || '',
-          address: merchant?.storeLocation || '',
-          latitude: hasMerchantCoordinates ? latitude : null,
-          longitude: hasMerchantCoordinates ? longitude : null,
-          profilePhoto: merchant?.profilePhoto || merchant?.shopPhoto || '',
-        },
-        selectedProducts,
-        createdAt: row.createdAt,
-      };
-    });
-
-    if (hasUserCoordinates) {
-      normalized = normalized.filter((row) => {
-        if (row.distanceKm === null) {
-          // Keep rows without coordinates visible instead of dropping all results.
-          // When location text is provided, restrict these fallback rows by address match.
-          if (locationNeedle) {
-            return String(row.merchant.address || '')
-              .toLowerCase()
-              .includes(locationNeedle);
-          }
-          return true;
-        }
-        return row.distanceKm <= safeRadiusKm;
-      });
-    } else if (locationNeedle) {
-      normalized = normalized.filter((row) =>
-        String(row.merchant.address || '').toLowerCase().includes(locationNeedle),
-      );
-    }
-
-    if (queryNeedle) {
-      normalized = normalized.filter((row) => {
-        const searchBlob = [
-          row.title,
-          row.category,
-          row.merchant.name,
-          row.merchant.address,
-        ]
-          .filter(Boolean)
-          .join(' ')
-          .toLowerCase();
-        return searchBlob.includes(queryNeedle);
-      });
-    }
-
-    if (categoryNeedle) {
-      normalized = normalized.filter(
-        (row) => String(row.category || '').toLowerCase() === categoryNeedle,
-      );
-    }
-
-    if (!Number.isNaN(maxPrice) && maxPrice > 0) {
-      normalized = normalized.filter((row) => {
-        const hasProductPrices = Array.isArray(row.selectedProducts) && row.selectedProducts.length > 0;
-        if (!hasProductPrices) {
-          // Legacy offers may not have product-level prices; do not hide them by maxPrice.
-          return true;
-        }
-        return row.displayPrice <= maxPrice;
-      });
-    }
-
-    if (sortBy === 'price_asc') {
-      normalized.sort((a, b) => a.displayPrice - b.displayPrice);
-    } else if (sortBy === 'price_desc') {
-      normalized.sort((a, b) => b.displayPrice - a.displayPrice);
-    } else if (sortBy === 'newest') {
-      normalized.sort(
-        (a, b) =>
-          new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime(),
-      );
-    } else if (hasUserCoordinates) {
-      normalized.sort((a, b) => {
-        const distanceA = a.distanceKm ?? Number.MAX_SAFE_INTEGER;
-        const distanceB = b.distanceKm ?? Number.MAX_SAFE_INTEGER;
-        return distanceA - distanceB;
-      });
-    } else {
-      normalized.sort(
-        (a, b) =>
-          new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime(),
-      );
-    }
-
-    const total = normalized.length;
-    const pages = Math.ceil(total / safeLimit);
-    const start = (safePage - 1) * safeLimit;
-    const data = normalized.slice(start, start + safeLimit);
-
-    return {
-      data,
-      pagination: {
-        page: safePage,
-        limit: safeLimit,
-        total,
-        pages,
-      },
-    };
-  }
-
-  async getPublicOfferDetails(offerId: string) {
-    if (!isValidObjectId(offerId)) {
-      throw new NotFoundException('Offer not found');
-    }
-
-    const offer = await this.bannerPromotionModel
-      .findOne({ _id: offerId })
-      .lean()
-      .exec();
-
-    if (!offer || !this.isLikelyLegacyOffer(offer)) {
-      throw new NotFoundException('Offer not found');
-    }
-
-    const merchant = await this.merchantModel
-      .findOne({ userId: String(offer.merchantId) })
-      .select(
-        'storeName storeCategory storeSubCategory storeLocation storeLocationLatitude storeLocationLongitude profilePhoto shopPhoto',
-      )
-      .lean()
-      .exec();
-
-    return {
-      offerId: String(offer._id),
-      requestId: offer.requestId,
-      title: offer.bannerTitle,
-      category: offer.bannerCategory,
-      imageUrl: offer.imageUrl,
-      totalPrice: Number(offer.totalPrice || 0),
-      startsAt: offer.startDate,
-      endsAt: offer.endDate,
-      status: offer.status,
-      selectedProducts: Array.isArray(offer.selectedProducts)
-        ? offer.selectedProducts
-        : [],
-      loyaltyRewardEnabled: Boolean(offer.loyaltyRewardEnabled),
-      loyaltyStarsToOffer: Number(offer.loyaltyStarsToOffer || 0),
-      loyaltyStarsPerPurchase: Number(offer.loyaltyStarsPerPurchase || 0),
-      loyaltyScorePerStar: Number(offer.loyaltyScorePerStar || 0),
-      promotionExpiryText: offer.promotionExpiryText || '',
-      termsAndConditions: offer.termsAndConditions || '',
-      exampleUsage: offer.exampleUsage || '',
-      merchant: {
-        merchantId: String(offer.merchantId),
-        name: merchant?.storeName || offer.merchantName || 'Merchant',
-        category: merchant?.storeCategory || '',
-        subCategory: merchant?.storeSubCategory || '',
-        address: merchant?.storeLocation || '',
-        latitude: Number(merchant?.storeLocationLatitude || 0) || null,
-        longitude: Number(merchant?.storeLocationLongitude || 0) || null,
-        profilePhoto: merchant?.profilePhoto || merchant?.shopPhoto || '',
-      },
-      createdAt: offer.createdAt,
-    };
   }
 }

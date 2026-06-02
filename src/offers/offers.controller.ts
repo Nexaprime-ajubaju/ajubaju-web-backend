@@ -10,10 +10,12 @@ import {
   UseGuards,
   BadRequestException,
   UnauthorizedException,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { OffersService } from './offers.service';
+import { BannersService } from '../banners/banners.service';
 import { KafkaService } from '../kafka/kafka.service';
 import { KAFKA_TOPICS } from '../common/constants/kafka-topics';
 import { SubmitBannerPromotionDto } from '../banners/dto/submit-banner-promotion.dto';
@@ -23,6 +25,7 @@ import { UpdateBannerPromotionDto } from '../banners/dto/update-banner-promotion
 export class OffersController {
   constructor(
     private readonly offersService: OffersService,
+    private readonly bannersService: BannersService,
     private readonly kafkaService: KafkaService,
   ) {}
 
@@ -120,8 +123,27 @@ export class OffersController {
       limit: limit ? Number(limit) : undefined,
     };
 
-    const fn = (this.offersService as any).getNearbyOffers;
-    const data = fn ? await fn.call(this.offersService, requestPayload) : { data: [], pagination: { page: 1, limit: 20, total: 0, pages: 0 } };
+    const timeoutMs = 20000;
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('Offers nearby request timed out')), timeoutMs),
+    );
+
+    let data: any;
+    try {
+      data = await Promise.race([
+        (this.offersService as any).getNearbyOffers(requestPayload),
+        timeoutPromise,
+      ]);
+    } catch (error) {
+      console.warn(`[Offers] Nearby offers failed or timed out: ${error?.message || error}`);
+      // Important: do NOT return success with empty rows on transient failures/timeouts,
+      // otherwise the UI wipes results and appears "random".
+      throw new ServiceUnavailableException('Failed to load nearby deals. Please try again.');
+    }
+    if (!data || typeof data !== 'object') {
+      throw new ServiceUnavailableException('Failed to load nearby deals. Please try again.');
+    }
+
     return { success: true, ...data, timestamp: new Date().toISOString() };
   }
 

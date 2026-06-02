@@ -47,6 +47,34 @@ export class UsersController {
     return { success: true, ...result };
   }
 
+  // ==================== ADMIN USER REPORTS ====================
+  @Get('admin/reports')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  async getAllUserReports(
+    @Query('limit') limit = '50',
+    @Query('skip') skip = '0',
+  ) {
+    const limitNum = Number(limit) || 50;
+    const skipNum = Number(skip) || 0;
+    return this.usersService.getAllUserReports(limitNum, skipNum);
+  }
+
+  @Get('admin/reports/stats')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  async getUserReportStats() {
+    const stats = await this.usersService.getUserReportStats();
+    return { success: true, data: stats };
+  }
+
+  @Get('admin/reports/:reportId')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  async getUserReportById(@Param('reportId') reportId: string) {
+    return this.usersService.getUserReportById(reportId);
+  }
+
   // ==================== ADMIN SUSPEND/UNSUSPEND ====================
   @Post('admin/users/:id/ban')
   @UseGuards(JwtAuthGuard, RolesGuard)

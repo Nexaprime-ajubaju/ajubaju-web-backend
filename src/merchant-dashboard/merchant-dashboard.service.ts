@@ -1,4 +1,4 @@
-  import { Injectable } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Ad, AdDocument } from '../ads/schemas/category-schemas/ad.schema';
@@ -236,10 +236,28 @@ export class MerchantDashboardService {
     };
   }
 
-  async getMerchantTrend(merchantId: string, period: 'weekly' | 'monthly' = 'weekly') {
+  async getMerchantLoyaltyLeaderboard(merchantId: string) {
+    const merchantKey = `merchantLoyaltyPoints.${merchantId}`;
+
+    const users = await this.userModel
+      .find({ [merchantKey]: { $exists: true, $gt: 0 } })
+      .select('name email merchantLoyaltyPoints')
+      .sort({ [merchantKey]: -1 })
+      .limit(50)
+      .lean();
+
+    return users.map((user: any, index: number) => ({
+      name: user.name || user.email || 'Customer',
+      email: user.email,
+      totalPoints: Number(user.merchantLoyaltyPoints?.[merchantId] || 0),
+      offersClaimed: 0,
+      rank: index + 1,
+    }));
+  }
+
+  async getMerchantTrend(merchantId: string) {
     const mId = new Types.ObjectId(merchantId);
-    const days = period === 'monthly' ? 30 : 7;
-    const { keys, labels, counts } = this.buildDateBuckets(days);
+    const { keys, labels, counts } = this.buildDateBuckets(7);
     const start = new Date(keys[0]);
 
     const rows = await this.orderModel.aggregate([
@@ -263,7 +281,6 @@ export class MerchantDashboardService {
     return {
       success: true,
       data: {
-        period,
         labels,
         values: keys.map((key) => counts.get(key) || 0),
       },
@@ -289,33 +306,6 @@ export class MerchantDashboardService {
         events: events.data,
         trend: trend.data,
       },
-      updatedAt: new Date().toISOString(),
-    };
-  }
-
-  // Get leaderboard of top customers by loyalty points for this merchant
-  async getLoyaltyLeaderboard(merchantId: string, limit = 10) {
-    // Find users with points for this merchant
-    const key = `merchantLoyaltyPoints.${merchantId}`;
-    const users = await this.userModel.find({
-      [key]: { $gt: 0 }
-    })
-      .sort({ [key]: -1 })
-      .limit(limit)
-      .select('name email profile loyaltyPoints merchantLoyaltyPoints')
-      .lean();
-
-    const leaderboard = users.map(u => ({
-      name: u.name,
-      email: u.email,
-      profilePhoto: u.profile?.avatar || u.profilePhoto || null,
-      points: u.merchantLoyaltyPoints?.[merchantId] || 0,
-      totalPoints: u.loyaltyPoints || 0,
-    }));
-
-    return {
-      success: true,
-      data: leaderboard,
       updatedAt: new Date().toISOString(),
     };
   }
