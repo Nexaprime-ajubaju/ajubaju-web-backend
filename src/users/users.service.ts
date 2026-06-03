@@ -69,6 +69,34 @@ export class UsersService implements OnModuleInit {
     }
   }
 
+  private toFiniteNumber(value: any): number | null {
+    if (value === null || value === undefined || value === '') {
+      return null;
+    }
+
+    const nextValue = Number(value);
+    return Number.isFinite(nextValue) ? nextValue : null;
+  }
+
+  private getMerchantCoordinates(registerDto: RegisterDto) {
+    const latitude = this.toFiniteNumber(
+      registerDto.storeLocationLatitude ?? registerDto.latitude ?? registerDto.lat,
+    );
+    const longitude = this.toFiniteNumber(
+      registerDto.storeLocationLongitude ?? registerDto.longitude ?? registerDto.lng,
+    );
+
+    const isValid =
+      latitude !== null &&
+      longitude !== null &&
+      latitude >= -90 &&
+      latitude <= 90 &&
+      longitude >= -180 &&
+      longitude <= 180;
+
+    return { latitude, longitude, isValid };
+  }
+
   /**
    * Admin: Send a warning notification to a user
    */
@@ -229,17 +257,9 @@ export class UsersService implements OnModuleInit {
         throw new BadRequestException('Store location is required for merchant registration');
       }
 
-      const latitude = Number(registerDto.storeLocationLatitude);
-      const longitude = Number(registerDto.storeLocationLongitude);
-      const hasValidCoordinates =
-        Number.isFinite(latitude) &&
-        Number.isFinite(longitude) &&
-        latitude >= -90 &&
-        latitude <= 90 &&
-        longitude >= -180 &&
-        longitude <= 180;
+      const coordinates = this.getMerchantCoordinates(registerDto);
 
-      if (!hasValidCoordinates) {
+      if (!coordinates.isValid) {
         throw new BadRequestException(
           'Please select store location on map to capture valid coordinates',
         );
@@ -269,8 +289,7 @@ export class UsersService implements OnModuleInit {
     const savedUser = await user.save();
 
     if (accountType === 'merchant') {
-      const latitude = Number(registerDto.storeLocationLatitude);
-      const longitude = Number(registerDto.storeLocationLongitude);
+      const { latitude, longitude } = this.getMerchantCoordinates(registerDto);
 
       await this.merchantModel.create({
         userId: savedUser._id.toString(),

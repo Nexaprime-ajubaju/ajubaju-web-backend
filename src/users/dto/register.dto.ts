@@ -6,9 +6,6 @@ import {
   IsOptional,
   IsPhoneNumber,
   IsIn,
-  IsNumber,
-  Min,
-  Max,
 } from 'class-validator';
 
 export class RegisterDto {
@@ -61,16 +58,22 @@ export class RegisterDto {
   storeLocation?: string;
 
   @IsOptional()
-  @IsNumber()
-  @Min(-90)
-  @Max(90)
-  storeLocationLatitude?: number;
+  storeLocationLatitude?: number | string;
 
   @IsOptional()
-  @IsNumber()
-  @Min(-180)
-  @Max(180)
-  storeLocationLongitude?: number;
+  storeLocationLongitude?: number | string;
+
+  @IsOptional()
+  latitude?: number | string;
+
+  @IsOptional()
+  longitude?: number | string;
+
+  @IsOptional()
+  lat?: number | string;
+
+  @IsOptional()
+  lng?: number | string;
 }
 
 // No separate Merchant DTO needed anymore

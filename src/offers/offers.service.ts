@@ -32,6 +32,12 @@ export class OffersService implements OnModuleInit {
     return `golo:offers:template:${merchantId}`;
   }
 
+  private isExpiredDate(value?: Date | string | null): boolean {
+    if (!value) return false;
+    const expiresAt = new Date(value).getTime();
+    return Number.isFinite(expiresAt) && expiresAt < Date.now();
+  }
+
   private readonly legacyOfferCategorySet = new Set([
     'special',
     'festival',
@@ -370,6 +376,11 @@ export class OffersService implements OnModuleInit {
 
     if (!row) throw new NotFoundException('Offer not found');
 
+    const detailEndsAt = row.endDate || (Array.isArray(row.selectedDates) ? row.selectedDates[row.selectedDates.length - 1] : null) || null;
+    if (this.isExpiredDate(detailEndsAt) || row.status === OfferPromotionStatus.EXPIRED) {
+      throw new NotFoundException('Offer not found');
+    }
+
     const merchant = await this.merchantModel
       .findOne({ userId: String(row.merchantId) })
       .select('userId storeName storeLocation storeLocationLatitude storeLocationLongitude profilePhoto shopPhoto storeCategory storeSubCategory')
@@ -395,7 +406,7 @@ export class OffersService implements OnModuleInit {
       : Number.MAX_SAFE_INTEGER;
 
     const startsAt = row.startDate || row.selectedDates?.[0] || null;
-    const endsAt = row.endDate || (Array.isArray(row.selectedDates) ? row.selectedDates[row.selectedDates.length - 1] : null) || null;
+    const endsAt = detailEndsAt;
 
     const normalized = {
       offerId: String(row._id),
@@ -494,11 +505,14 @@ export class OffersService implements OnModuleInit {
       typeof params.longitude === 'number' &&
       !Number.isNaN(params.longitude);
 
+    const now = new Date();
+
     let offerRows: any[] = [];
     try {
       offerRows = await this.offerModel
         .find({
           status: { $in: ['under_review', 'approved', 'active'] },
+          $or: [{ endDate: { $exists: false } }, { endDate: null }, { endDate: { $gte: now } }],
         })
         .select('requestId merchantId merchantName title category totalPrice startDate endDate status createdAt imageUrl selectedProducts')
         .sort({ createdAt: -1 })
@@ -683,8 +697,6 @@ export class OffersService implements OnModuleInit {
         pagination: { page: safePage, limit: safeLimit, total, pages },
       };
     }
-
-    const now = new Date();
 
     let normalized = offerRows.map((row) => {
       const merchant = merchantsByUserId.get(String(row.merchantId));

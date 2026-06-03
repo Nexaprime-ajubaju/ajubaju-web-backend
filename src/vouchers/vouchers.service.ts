@@ -443,6 +443,16 @@ if (!offerResult) {
     status?: string,
   ) {
     try {
+      const now = new Date();
+      await this.voucherModel.updateMany(
+        {
+          userId: new Types.ObjectId(userId),
+          status: { $in: [VoucherStatus.ACTIVE, VoucherStatus.CLAIMED] },
+          expiresAt: { $lt: now },
+        },
+        { $set: { status: VoucherStatus.EXPIRED } },
+      );
+
       const query: any = { userId: new Types.ObjectId(userId) };
       if (status) query.status = status;
 
