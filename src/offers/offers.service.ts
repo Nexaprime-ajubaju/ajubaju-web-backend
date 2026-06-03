@@ -600,6 +600,53 @@ export class OffersService implements OnModuleInit {
         .trim();
     };
 
+    const normalizeCategoryNeedle = (value: string) => {
+      return String(value || '')
+        .toLowerCase()
+        .replace(/&/g, ' and ')
+        .replace(/[^\p{L}\p{N}]+/gu, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+    };
+
+    const CATEGORY_ALIASES: Record<string, string[]> = {
+      'food and restaurants': ['food and restaurants', 'food restaurants', 'food dining', 'restaurants', 'restaurant', 'cafe', 'cafes'],
+      'home services': ['home services', 'cleaning', 'plumbing', 'electrical', 'appliance repair', 'maintenance'],
+      'beauty and wellness': ['beauty and wellness', 'beauty', 'salon', 'spa', 'grooming', 'personal care'],
+      'healthcare and medical': ['healthcare and medical', 'healthcare', 'medical', 'hospitals', 'clinics', 'pharmacies', 'diagnostics'],
+      'hotels and accommodation': ['hotels and accommodation', 'hotels', 'accommodation', 'lodges', 'stays', 'room bookings'],
+      'shopping and retail': ['shopping and retail', 'shopping', 'retail', 'local shops', 'groceries', 'fashion', 'electronics', 'products'],
+      'education and training': ['education and training', 'education', 'training', 'schools', 'coaching', 'institutes', 'skill development'],
+      'real estate': ['real estate', 'property buying', 'property selling', 'renting'],
+      'events and entertainment': ['events and entertainment', 'events', 'entertainment', 'event planners', 'photographers', 'djs', 'venues'],
+      'professional services': ['professional services', 'legal', 'ca', 'consulting', 'freelance services'],
+      'automotive services': ['automotive services', 'car repair', 'bike repair', 'servicing', 'rentals'],
+      'home improvement': ['home improvement', 'interior design', 'painting', 'carpentry', 'renovation'],
+      'fitness and sports': ['fitness and sports', 'fitness', 'sports', 'gyms', 'yoga', 'personal trainers', 'sports facilities'],
+      'daily needs and utilities': ['daily needs and utilities', 'daily needs', 'utilities', 'laundry', 'water supply', 'gas', 'essential services'],
+      'local businesses and vendors': ['local businesses and vendors', 'local businesses', 'vendors', 'general business listings', 'b2b', 'b2c', 'marketplace'],
+    };
+
+    const matchesCategoryQuery = (categoryQuery: string, row: any) => {
+      const categoryQueryNorm = normalizeCategoryNeedle(categoryQuery);
+      if (!categoryQueryNorm) return true;
+
+      const merchantCategory = normalizeCategoryNeedle(row?.merchant?.category);
+      const merchantSubCategory = normalizeCategoryNeedle(row?.merchant?.subCategory);
+      const offerCategory = normalizeCategoryNeedle(row?.category);
+      const searchableValues = [merchantCategory, merchantSubCategory, offerCategory].filter(Boolean);
+
+      if (searchableValues.includes(categoryQueryNorm)) return true;
+      if (searchableValues.some((value) => value.includes(categoryQueryNorm) || categoryQueryNorm.includes(value))) {
+        return true;
+      }
+
+      const aliases = CATEGORY_ALIASES[categoryQueryNorm] || [categoryQueryNorm];
+      return aliases
+        .map(normalizeCategoryNeedle)
+        .some((alias) => alias && searchableValues.some((value) => value === alias || value.includes(alias) || alias.includes(value)));
+    };
+
     // Lightweight alias support so users don't need to type the exact address string.
     // Example: merchants may store "Karvir/Karveer" while users search "Kolhapur".
     const LOCATION_ALIASES: Record<string, string[]> = {
@@ -679,7 +726,7 @@ export class OffersService implements OnModuleInit {
       }
 
       if (categoryNeedle) {
-        normalized = normalized.filter((row) => String(row.category || '').toLowerCase() === categoryNeedle);
+        normalized = normalized.filter((row) => matchesCategoryQuery(categoryNeedle, row));
       }
 
       if (!Number.isNaN(maxPrice) && maxPrice > 0) {
@@ -793,7 +840,7 @@ export class OffersService implements OnModuleInit {
     }
 
     if (categoryNeedle) {
-      normalized = normalized.filter((row) => String(row.category || '').toLowerCase() === categoryNeedle);
+      normalized = normalized.filter((row) => matchesCategoryQuery(categoryNeedle, row));
     }
 
     if (!Number.isNaN(maxPrice) && maxPrice > 0) {
