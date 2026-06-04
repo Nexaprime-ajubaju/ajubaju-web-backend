@@ -1008,6 +1008,187 @@ export class UsersService implements OnModuleInit {
     return Math.floor(100000 + Math.random() * 900000).toString();
   }
 
+  private normalizeEmail(email: string): string {
+    return String(email || '').trim().toLowerCase();
+  }
+
+  private getPasswordResetCopy(user: UserDocument, otp: string) {
+    const isMerchant = user.accountType === 'merchant';
+
+    return {
+      subject: isMerchant ? 'GOLO Merchant Password Reset OTP' : 'GOLO Password Recovery OTP',
+      intro: isMerchant
+        ? 'Your merchant account password reset OTP is:'
+        : 'Your account password recovery OTP is:',
+      otp,
+    };
+  }
+
+  private async sendPasswordResetMail(user: UserDocument, otp: string) {
+    this.ensureOtpMailerReady();
+
+    if (!this.mailTransporter || !this.mailFrom) {
+      throw new InternalServerErrorException('Email service not configured. Please contact support.');
+    }
+
+    const mailCopy = this.getPasswordResetCopy(user, otp);
+
+    await this.mailTransporter.sendMail({
+      from: this.mailFrom,
+      to: user.email,
+      subject: mailCopy.subject,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 540px; margin: 0 auto; padding: 24px;">
+          <div style="background: #F5B849; color: #fff; width: 56px; height: 56px; border-radius: 16px; display: flex; align-items: center; justify-content: center; font-size: 30px; font-weight: 800; margin-bottom: 20px;">G</div>
+          <h2 style="color: #111827; margin: 0 0 12px;">Password Reset Request</h2>
+          <p style="margin: 0 0 16px; color: #374151;">${mailCopy.intro}</p>
+          <div style="font-size: 30px; letter-spacing: 8px; font-weight: 800; color: #111827; background: #FFFBEB; border: 1px solid #FDE68A; border-radius: 16px; padding: 18px; text-align: center; margin: 18px 0;">${otp}</div>
+          <p style="color: #4B5563; margin: 0 0 8px;">This OTP is valid for 5 minutes.</p>
+          <p style="color: #9CA3AF; font-size: 13px; margin: 0;">If you did not request this, you can safely ignore this email.</p>
+        </div>
+      `,
+    });
+  }
+
+  async sendForgotPasswordOTP(email: string): Promise<any> {
+    const normalizedEmail = this.normalizeEmail(email);
+    if (!normalizedEmail) {
+      throw new BadRequestException('Registered email is required');
+    }
+
+    const user = await this.userModel.findOne({ email: normalizedEmail }).exec();
+    if (!user) {
+      throw new NotFoundException('No account found with this email address');
+    }
+
+    const otp = this.generateOTP();
+    const expiryTime = new Date(Date.now() + 5 * 60 * 1000);
+
+    await this.userModel.findByIdAndUpdate(
+      user._id,
+      {
+        $set: {
+          passwordChangeOTP: otp,
+          passwordChangeOTPExpiry: expiryTime,
+          passwordChangeOTPVerified: false,
+          updatedAt: new Date(),
+        },
+      },
+    ).exec();
+
+    await this.sendPasswordResetMail(user, otp);
+
+    return {
+      message: 'OTP sent to your registered email address',
+      accountType: user.accountType === 'merchant' ? 'merchant' : 'user',
+      expiresIn: 300,
+    };
+  }
+
+  async verifyForgotPasswordOTP(email: string, otp: string): Promise<any> {
+    const normalizedEmail = this.normalizeEmail(email);
+    const cleanOtp = String(otp || '').trim();
+
+    if (!normalizedEmail || !cleanOtp) {
+      throw new BadRequestException('Email and OTP are required');
+    }
+
+    const user = await this.userModel.findOne({ email: normalizedEmail }).exec();
+    if (!user) {
+      throw new NotFoundException('No account found with this email address');
+    }
+
+    if (!user.passwordChangeOTP) {
+      throw new BadRequestException('No OTP found. Please request a new one.');
+    }
+
+    if (!user.passwordChangeOTPExpiry || new Date() > user.passwordChangeOTPExpiry) {
+      throw new BadRequestException('OTP has expired. Please request a new one.');
+    }
+
+    if (user.passwordChangeOTP !== cleanOtp) {
+      throw new UnauthorizedException('Invalid OTP');
+    }
+
+    await this.userModel.findByIdAndUpdate(
+      user._id,
+      {
+        $set: {
+          passwordChangeOTPVerified: true,
+          updatedAt: new Date(),
+        },
+      },
+    ).exec();
+
+    return { message: 'OTP verified successfully' };
+  }
+
+  async resetForgotPassword(email: string, otp: string, newPassword: string): Promise<UserResponseDto> {
+    const normalizedEmail = this.normalizeEmail(email);
+    const cleanOtp = String(otp || '').trim();
+
+    if (!normalizedEmail || !cleanOtp || !newPassword) {
+      throw new BadRequestException('Email, OTP, and new password are required');
+    }
+
+    if (newPassword.length < 6) {
+      throw new BadRequestException('New password must be at least 6 characters long');
+    }
+
+    const user = await this.userModel.findOne({ email: normalizedEmail }).exec();
+    if (!user) {
+      throw new NotFoundException('No account found with this email address');
+    }
+
+    if (!user.passwordChangeOTPVerified) {
+      throw new BadRequestException('OTP not verified. Please verify OTP first.');
+    }
+
+    if (user.passwordChangeOTP !== cleanOtp) {
+      throw new UnauthorizedException('OTP mismatch');
+    }
+
+    if (!user.passwordChangeOTPExpiry || new Date() > user.passwordChangeOTPExpiry) {
+      throw new BadRequestException('OTP has expired. Please request a new one.');
+    }
+
+    const isCurrentPassword = await bcrypt.compare(newPassword, user.password);
+    if (isCurrentPassword) {
+      throw new BadRequestException('New password cannot be the same as your current password.');
+    }
+
+    const passwordHistory = Array.isArray(user.passwordHistory) ? user.passwordHistory : [];
+    for (const oldPasswordHash of passwordHistory) {
+      const isReusedPassword = await bcrypt.compare(newPassword, oldPasswordHash);
+      if (isReusedPassword) {
+        throw new BadRequestException('Previously used passwords are not allowed. Please choose a different password.');
+      }
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    const updatedUser = await this.userModel.findByIdAndUpdate(
+      user._id,
+      {
+        $set: {
+          password: hashedPassword,
+          passwordChangeOTP: null,
+          passwordChangeOTPExpiry: null,
+          passwordChangeOTPVerified: false,
+          updatedAt: new Date(),
+        },
+        $push: {
+          passwordHistory: {
+            $each: [user.password],
+            $slice: -5,
+          },
+        },
+      },
+      { new: true },
+    ).exec();
+
+    return this.toResponseDto(updatedUser);
+  }
+
   async sendPasswordChangeOTP(userId: string): Promise<any> {
     this.logger.log(`Sending password change OTP email for user: ${userId}`);
     
