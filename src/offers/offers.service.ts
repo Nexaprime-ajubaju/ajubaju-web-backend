@@ -38,6 +38,29 @@ export class OffersService implements OnModuleInit {
     return Number.isFinite(expiresAt) && expiresAt < Date.now();
   }
 
+  private getCalendarDateKey(value: Date | string | null | undefined): string {
+    if (!value) return '';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '';
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+
+  private isSelectedForDate(offer: any, date = new Date()): boolean {
+    const targetKey = this.getCalendarDateKey(date);
+    const selectedDates = Array.isArray(offer?.selectedDates) ? offer.selectedDates : [];
+
+    if (selectedDates.length > 0) {
+      return selectedDates.some((selectedDate) => this.getCalendarDateKey(selectedDate) === targetKey);
+    }
+
+    const startKey = this.getCalendarDateKey(offer?.startDate);
+    const endKey = this.getCalendarDateKey(offer?.endDate);
+    return Boolean(startKey && endKey && startKey <= targetKey && targetKey <= endKey);
+  }
+
   private readonly legacyOfferCategorySet = new Set([
     'special',
     'festival',
@@ -377,7 +400,11 @@ export class OffersService implements OnModuleInit {
     if (!row) throw new NotFoundException('Offer not found');
 
     const detailEndsAt = row.endDate || (Array.isArray(row.selectedDates) ? row.selectedDates[row.selectedDates.length - 1] : null) || null;
-    if (this.isExpiredDate(detailEndsAt) || row.status === OfferPromotionStatus.EXPIRED) {
+    if (
+      this.isExpiredDate(detailEndsAt) ||
+      row.status === OfferPromotionStatus.EXPIRED ||
+      !this.isSelectedForDate(row)
+    ) {
       throw new NotFoundException('Offer not found');
     }
 
@@ -420,7 +447,7 @@ export class OffersService implements OnModuleInit {
       startsAt,
       endsAt,
       status: row.status,
-      isActiveNow: Boolean(startsAt && endsAt) && new Date(startsAt) <= new Date() && new Date(endsAt) >= new Date(),
+      isActiveNow: this.isSelectedForDate(row),
       merchant: {
         merchantId: String(row.merchantId),
         name: merchant?.storeName || row.merchantName || 'Merchant',
@@ -514,7 +541,7 @@ export class OffersService implements OnModuleInit {
           status: { $in: ['under_review', 'approved', 'active'] },
           $or: [{ endDate: { $exists: false } }, { endDate: null }, { endDate: { $gte: now } }],
         })
-        .select('requestId merchantId merchantName title category totalPrice startDate endDate status createdAt imageUrl selectedProducts')
+        .select('requestId merchantId merchantName title category totalPrice selectedDates startDate endDate status createdAt imageUrl selectedProducts')
         .sort({ createdAt: -1 })
         .limit(prefetchLimit)
         .maxTimeMS(12000)
@@ -532,6 +559,20 @@ export class OffersService implements OnModuleInit {
         },
       };
     }
+
+    if (!offerRows.length) {
+      return {
+        data: [],
+        pagination: {
+          page: safePage,
+          limit: safeLimit,
+          total: 0,
+          pages: 0,
+        },
+      };
+    }
+
+    offerRows = offerRows.filter((row) => this.isSelectedForDate(row, now));
 
     if (!offerRows.length) {
       return {
@@ -717,7 +758,7 @@ export class OffersService implements OnModuleInit {
           startsAt: row.startDate,
           endsAt: row.endDate,
           status: row.status,
-          isActiveNow: false,
+          isActiveNow: this.isSelectedForDate(row, now),
           distanceKm: null,
           merchant: {
             merchantId: String(row.merchantId),
@@ -789,9 +830,7 @@ export class OffersService implements OnModuleInit {
           }, Number.MAX_SAFE_INTEGER)
         : Number.MAX_SAFE_INTEGER;
 
-      const startsAt = row.startDate ? new Date(row.startDate) : null;
-      const endsAt = row.endDate ? new Date(row.endDate) : null;
-      const isActiveNow = Boolean(startsAt && endsAt) && startsAt <= now && endsAt >= now;
+      const isActiveNow = this.isSelectedForDate(row, now);
 
       return {
         offerId: String(row._id),
