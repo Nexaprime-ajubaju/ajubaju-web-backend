@@ -1,4 +1,4 @@
-import { IsNumber, IsOptional, IsString, MaxLength, Min } from 'class-validator';
+import { IsArray, IsNumber, IsOptional, IsString, MaxLength, Min } from 'class-validator';
 
 export class UpdateMerchantProductDto {
   @IsOptional()
@@ -25,4 +25,9 @@ export class UpdateMerchantProductDto {
   @IsString()
   @MaxLength(1000)
   description?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  images?: string[];
 }
