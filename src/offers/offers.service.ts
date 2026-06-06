@@ -651,6 +651,23 @@ export class OffersService implements OnModuleInit {
     // Example: merchants may store "Karvir/Karveer" while users search "Kolhapur".
     const LOCATION_ALIASES: Record<string, string[]> = {
       kolhapur: ['kolhapur', 'karvir', 'karveer', 'karveer taluka', 'karvir taluka'],
+      sangli: ['sangli'],
+      mumbai: ['mumbai', 'bombay', 'navi mumbai'],
+      pune: ['pune', 'poona'],
+    };
+
+    const resolveKnownLocationCity = (locationQuery: string) => {
+      const normalizedQuery = normalizeLocationNeedle(locationQuery);
+      if (!normalizedQuery) return '';
+
+      for (const [city, aliases] of Object.entries(LOCATION_ALIASES)) {
+        const candidates = [city, ...aliases].map((alias) => normalizeLocationNeedle(alias)).filter(Boolean);
+        if (candidates.some((candidate) => normalizedQuery.includes(candidate))) {
+          return city;
+        }
+      }
+
+      return normalizeLocationNeedle(String(locationQuery || '').split(',')[0] || locationQuery);
     };
 
     const matchesLocationQuery = (locationQueryRaw: string, locationBlobRaw: string) => {
@@ -663,8 +680,7 @@ export class OffersService implements OnModuleInit {
 
       // Prefer matching the city (first comma-separated segment) to avoid
       // matches driven only by state/country tokens like "Maharashtra".
-      const citySegment = String(locationQueryRawLower).split(',')[0].trim();
-      const cityNorm = normalizeLocationNeedle(citySegment);
+      const cityNorm = resolveKnownLocationCity(locationQueryRawLower);
       if (cityNorm && locationBlob.includes(cityNorm)) return true;
 
       // Full substring match as fallback
