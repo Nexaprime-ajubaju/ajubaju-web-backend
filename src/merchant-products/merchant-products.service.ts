@@ -282,6 +282,11 @@ export class MerchantProductsService implements OnModuleInit {
       product.stockQuantity = dto.stockQuantity;
       product.status = this.deriveStatus(dto.stockQuantity);
     }
+    if (Array.isArray(dto.images)) {
+      product.images = dto.images
+        .map((image) => String(image || '').trim())
+        .filter(Boolean);
+    }
 
     await product.save();
     await this.invalidateMerchantProductCache(merchantId);
