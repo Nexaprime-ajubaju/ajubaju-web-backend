@@ -347,6 +347,14 @@ export class OffersService implements OnModuleInit {
     if (payload.title !== undefined) request.title = String(payload.title).trim();
     if (payload.category !== undefined) request.category = String(payload.category).trim();
     if (payload.imageUrl !== undefined) request.imageUrl = payload.imageUrl;
+    if (payload.promotionExpiryText !== undefined) request.promotionExpiryText = String(payload.promotionExpiryText || '');
+    if (payload.termsAndConditions !== undefined) request.termsAndConditions = String(payload.termsAndConditions || '');
+    if (payload.loyaltyRewardEnabled !== undefined) request.loyaltyRewardEnabled = Boolean(payload.loyaltyRewardEnabled);
+    if (payload.loyaltyPointsPerPurchase !== undefined) request.loyaltyPointsPerPurchase = Number(payload.loyaltyPointsPerPurchase || 0);
+    if (payload.loyaltyStarsToOffer !== undefined) request.loyaltyStarsToOffer = Number(payload.loyaltyStarsToOffer || 0);
+    if (payload.loyaltyStarsPerPurchase !== undefined) request.loyaltyStarsPerPurchase = Number(payload.loyaltyStarsPerPurchase || 1);
+    if (payload.loyaltyScorePerStar !== undefined) request.loyaltyScorePerStar = Number(payload.loyaltyScorePerStar || 10);
+    if (Array.isArray(payload.selectedProducts)) request.selectedProducts = payload.selectedProducts;
     if (Array.isArray(payload.selectedDates) && payload.selectedDates.length) {
       const normalized = this.normalizeDateStrings(payload.selectedDates);
       if (!normalized.length) throw new BadRequestException('Please provide valid selectedDates');

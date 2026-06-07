@@ -89,7 +89,7 @@ async function bootstrap() {
 
       const allowedOrigins = corsOrigins.length > 0
         ? corsOrigins
-        : ['http://localhost:3000', 'http://localhost:3001'];
+        : ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:3004'];
 
       if (isAllowedOrigin(origin, allowedOrigins)) {
         callback(null, true);
