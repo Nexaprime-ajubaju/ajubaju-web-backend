@@ -727,8 +727,35 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
     if (typeof filters?.maxPrice === 'number') mongoQuery.price = { ...(mongoQuery.price || {}), $lte: filters.maxPrice };
 
     if (query && query.trim().length > 0) {
-      // Prefer text index when available
-      mongoQuery.$text = { $search: query };
+      const searchTokens = String(query)
+        .toLowerCase()
+        .replace(/[^\p{L}\p{N}]+/gu, ' ')
+        .split(' ')
+        .map((token) => token.trim())
+        .filter((token) => token.length >= 2 && !['a', 'an', 'and', 'the', 'for', 'near', 'nearby', 'in', 'at', 'of', 'to', 'me', 'my', 'show', 'find', 'search'].includes(token));
+
+      const searchOr = searchTokens.flatMap((token) => {
+        const escapedToken = token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const tokenRegex = new RegExp(escapedToken, 'i');
+        return [
+          { title: tokenRegex },
+          { description: tokenRegex },
+          { category: tokenRegex },
+          { subCategory: tokenRegex },
+          { brand: tokenRegex },
+          { location: tokenRegex },
+          { city: tokenRegex },
+        ];
+      });
+
+      if (searchOr.length) {
+        if (mongoQuery.$or) {
+          mongoQuery.$and = [{ $or: mongoQuery.$or }, { $or: searchOr }];
+          delete mongoQuery.$or;
+        } else {
+          mongoQuery.$or = searchOr;
+        }
+      }
     }
 
     let sort: any = {};

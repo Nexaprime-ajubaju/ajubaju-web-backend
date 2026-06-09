@@ -52,6 +52,8 @@ export class User {
       pincode: String,
       avatar: String,
       bio: String,
+      dateOfBirth: Date,
+      gender: String,
       interests: [String]
     }
   })
@@ -63,6 +65,8 @@ export class User {
     pincode?: string;
     avatar?: string;
     bio?: string;
+    dateOfBirth?: Date;
+    gender?: 'male' | 'female' | 'others' | 'prefer_not_to_say';
     interests?: string[];
   };
 
@@ -74,6 +78,8 @@ export class User {
     lastLoginAt?: Date;
     lastLoginIp?: string;
     registeredIp?: string;
+    platform?: string;
+    userAgent?: string;
   };
 
   @Prop()

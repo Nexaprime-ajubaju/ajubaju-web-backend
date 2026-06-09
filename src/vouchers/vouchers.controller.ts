@@ -42,7 +42,11 @@ export class VouchersController {
       throw new BadRequestException('User ID not found');
     }
 
-    return await this.vouchersService.claimOffer(userId, claimOfferDto.offerId);
+    return await this.vouchersService.claimOffer(userId, claimOfferDto.offerId, {
+      latitude: claimOfferDto.latitude,
+      longitude: claimOfferDto.longitude,
+      location: claimOfferDto.location,
+    });
   }
 
   /**

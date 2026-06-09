@@ -1,6 +1,6 @@
 import { 
   Controller, Post, Body, Get, Put, Delete, Param, 
-  UseGuards, Query, Ip, NotFoundException 
+  UseGuards, Query, Ip, NotFoundException, Req
 } from '@nestjs/common';
 
 import { UsersService } from './users.service';
@@ -102,20 +102,20 @@ export class UsersController {
 
   // ==================== PUBLIC ROUTES ====================
   @Post('register')
-  async register(@Body() dto: RegisterDto, @Ip() ip: string) {
-    const user = await this.usersService.register(dto);
+  async register(@Body() dto: RegisterDto, @Ip() ip: string, @Req() req: any) {
+    const user = await this.usersService.register(dto, ip, req?.headers?.['user-agent']);
     return { success: true, message: 'User registered successfully', data: user };
   }
 
   @Post('login')
-  async login(@Body() dto: LoginDto, @Ip() ip: string) {
-    const result = await this.usersService.login(dto, ip);
+  async login(@Body() dto: LoginDto, @Ip() ip: string, @Req() req: any) {
+    const result = await this.usersService.login(dto, ip, req?.headers?.['user-agent']);
     return { success: true, message: 'Login successful', data: result };
   }
 
   @Post('social-auth')
-  async socialAuth(@Body() dto: SocialAuthDto, @Ip() ip: string) {
-    const result = await this.usersService.socialAuth(dto, ip);
+  async socialAuth(@Body() dto: SocialAuthDto, @Ip() ip: string, @Req() req: any) {
+    const result = await this.usersService.socialAuth(dto, ip, req?.headers?.['user-agent']);
     return { success: true, message: 'Social login successful', data: result };
   }
 

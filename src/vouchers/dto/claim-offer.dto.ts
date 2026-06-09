@@ -3,6 +3,18 @@ import { IsString, IsEmail, IsOptional, IsNumber } from 'class-validator';
 export class ClaimOfferDto {
   @IsString()
   offerId: string;
+
+  @IsOptional()
+  @IsNumber()
+  latitude?: number;
+
+  @IsOptional()
+  @IsNumber()
+  longitude?: number;
+
+  @IsOptional()
+  @IsString()
+  location?: string;
 }
 
 export class ShareVoucherDto {

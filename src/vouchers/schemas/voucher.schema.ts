@@ -57,6 +57,15 @@ export class Voucher {
   @Prop({ type: Date, index: true })
   claimedAt: Date;
 
+  @Prop({ default: '' })
+  claimLocation?: string;
+
+  @Prop({ type: Number, default: null })
+  claimLatitude?: number;
+
+  @Prop({ type: Number, default: null })
+  claimLongitude?: number;
+
   @Prop({ type: Date })
   redeemedAt?: Date;
 

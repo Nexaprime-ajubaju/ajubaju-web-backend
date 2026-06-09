@@ -32,6 +32,15 @@ export class UsersService implements OnModuleInit {
   private mailTransporter: nodemailer.Transporter | null = null;
   private mailFrom: string | null = null;
 
+  private getPlatformFromUserAgent(userAgent?: string): string {
+    const value = String(userAgent || '').toLowerCase();
+    if (!value) return 'Unknown';
+    if (value.includes('ipad') || value.includes('tablet')) return 'Tablet';
+    if (value.includes('mobile') || value.includes('android') || value.includes('iphone')) return 'Mobile';
+    if (value.includes('windows') || value.includes('macintosh') || value.includes('linux') || value.includes('x11')) return 'Desktop';
+    return 'Unknown';
+  }
+
   private ensureOtpMailerReady() {
     if (this.mailTransporter && this.mailFrom) return;
 
@@ -228,7 +237,7 @@ export class UsersService implements OnModuleInit {
     const resolved = await this.userReportModel.countDocuments({ status: { $in: ['resolved', 'dismissed'] } });
     return { total, pending, underInvestigation, resolved };
   }
-  async register(registerDto: RegisterDto): Promise<UserResponseDto> {
+  async register(registerDto: RegisterDto, ip?: string, userAgent?: string): Promise<UserResponseDto> {
     this.logger.log(`Registering new user: ${registerDto.email}`);
     
     // Check if user exists
@@ -279,9 +288,17 @@ export class UsersService implements OnModuleInit {
       accountType,
       profile: {
         phone: registerDto.phone,
+        ...(accountType === 'user' && registerDto.dateOfBirth
+          ? { dateOfBirth: new Date(registerDto.dateOfBirth) }
+          : {}),
+        ...(accountType === 'user' && registerDto.gender
+          ? { gender: registerDto.gender }
+          : {}),
       },
       metadata: {
-        registeredIp: '0.0.0.0',
+        registeredIp: ip || '0.0.0.0',
+        platform: this.getPlatformFromUserAgent(userAgent),
+        userAgent: userAgent || '',
       },
       refreshTokens: [],
     });
@@ -321,7 +338,7 @@ export class UsersService implements OnModuleInit {
     return this.toResponseDto(savedUser);
   }
 
-  async login(loginDto: LoginDto, ip?: string): Promise<{ accessToken: string; refreshToken: string; user: UserResponseDto }> {
+  async login(loginDto: LoginDto, ip?: string, userAgent?: string): Promise<{ accessToken: string; refreshToken: string; user: UserResponseDto }> {
     this.logger.log(`Login attempt: ${loginDto.email} (accountType: ${loginDto.accountType})`);
     
     const user = await this.userModel.findOne({ email: loginDto.email }).exec();
@@ -391,7 +408,12 @@ export class UsersService implements OnModuleInit {
       { _id: user._id },
       {
         $push: { refreshTokens: refreshToken },
-        $set: { 'metadata.lastLoginAt': new Date(), 'metadata.lastLoginIp': ip },
+        $set: {
+          'metadata.lastLoginAt': new Date(),
+          'metadata.lastLoginIp': ip,
+          'metadata.platform': this.getPlatformFromUserAgent(userAgent),
+          'metadata.userAgent': userAgent || '',
+        },
       }
     ).exec();
 
@@ -422,6 +444,7 @@ export class UsersService implements OnModuleInit {
   async socialAuth(
     socialAuthDto: SocialAuthDto,
     ip?: string,
+    userAgent?: string,
   ): Promise<{ accessToken: string; refreshToken: string; user: UserResponseDto }> {
     this.logger.log(`Social auth: ${socialAuthDto.email} via ${socialAuthDto.provider}`);
 
@@ -444,6 +467,8 @@ export class UsersService implements OnModuleInit {
         },
         metadata: {
           registeredIp: ip || '0.0.0.0',
+          platform: this.getPlatformFromUserAgent(userAgent),
+          userAgent: userAgent || '',
         },
         refreshTokens: [],
       });
@@ -480,6 +505,8 @@ export class UsersService implements OnModuleInit {
             'profile.phone': user.profile?.phone || socialAuthDto.phone,
             'metadata.lastLoginAt': new Date(),
             'metadata.lastLoginIp': ip,
+            'metadata.platform': this.getPlatformFromUserAgent(userAgent),
+            'metadata.userAgent': userAgent || '',
           },
         },
       )
@@ -1693,21 +1720,52 @@ export class UsersService implements OnModuleInit {
       return { offers: [], products: [] };
     }
 
+    const offerIdentifiers = Array.from(
+      new Set(
+        (likes as any[])
+          .flatMap((row) => [row.offerPublicId, row.offerRequestId])
+          .map((value) => String(value || '').trim())
+          .filter(Boolean),
+      ),
+    );
+    const offerDetails = this.offerPromotionModel && offerIdentifiers.length
+      ? await this.offerPromotionModel
+          .find({
+            $or: [
+              { _id: { $in: offerIdentifiers.filter((id) => isValidObjectId(id)) } },
+              { requestId: { $in: offerIdentifiers } },
+            ],
+          })
+          .select('_id requestId imageUrl title category selectedProducts')
+          .lean()
+          .exec()
+      : [];
+    const offerDetailMap = new Map<string, any>();
+    for (const offer of offerDetails as any[]) {
+      offerDetailMap.set(String(offer._id), offer);
+      if (offer.requestId) {
+        offerDetailMap.set(String(offer.requestId), offer);
+      }
+    }
+
     const offerMap = new Map<string, any>();
     for (const row of likes as any[]) {
       const offerKey = String(row.offerPublicId || row.offerRequestId || '');
       if (!offerKey) continue;
+      const offerDetail = offerDetailMap.get(String(row.offerPublicId || '')) || offerDetailMap.get(String(row.offerRequestId || '')) || null;
 
       if (!offerMap.has(offerKey)) {
         offerMap.set(offerKey, {
           offerId: offerKey,
           requestId: String(row.offerRequestId || ''),
-          name: String(row.offerTitle || 'Untitled Offer'),
-          type: String(row.offerCategory || 'General'),
-          image: '/images/deal2.avif',
+          name: String(offerDetail?.title || row.offerTitle || 'Untitled Offer'),
+          type: String(offerDetail?.category || row.offerCategory || 'General'),
+          image: String(offerDetail?.imageUrl || ''),
           likes: 0,
           customerSet: new Set<string>(),
-          selectedProducts: Array.isArray(row.selectedProducts) ? row.selectedProducts : [],
+          selectedProducts: Array.isArray(offerDetail?.selectedProducts) && offerDetail.selectedProducts.length
+            ? offerDetail.selectedProducts
+            : (Array.isArray(row.selectedProducts) ? row.selectedProducts : []),
         });
       }
 
@@ -1751,7 +1809,7 @@ export class UsersService implements OnModuleInit {
             productId: key,
             name: String(product?.productName || product?.name || 'Untitled Product'),
             type: String(product?.category || offer.type || 'General'),
-            image: String(product?.imageUrl || '/images/deal2.avif'),
+            image: String(product?.imageUrl || ''),
             likes: 0,
             customerSet: new Set<string>(),
             offerName: offer.name,

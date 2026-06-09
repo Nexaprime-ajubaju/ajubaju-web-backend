@@ -266,7 +266,11 @@ private isLikelyOffer(offer: {
   /**
     * Claim an offer - User claims a deal and gets a voucher/QR code
     */
-  async claimOffer(userId: string, offerId: string) {
+  async claimOffer(
+    userId: string,
+    offerId: string,
+    claimLocation?: { latitude?: number; longitude?: number; location?: string },
+  ) {
     try {
       if (!isValidObjectId(offerId)) {
         throw new NotFoundException('Offer not found');
@@ -325,6 +329,15 @@ if (!offerResult) {
       const imageUrl = isFromOfferCollection
         ? offer.imageUrl
         : offer.imageUrl;
+      const claimLatitude = Number(claimLocation?.latitude);
+      const claimLongitude = Number(claimLocation?.longitude);
+      const hasValidClaimCoordinates =
+        Number.isFinite(claimLatitude) &&
+        Number.isFinite(claimLongitude) &&
+        claimLatitude >= -90 &&
+        claimLatitude <= 90 &&
+        claimLongitude >= -180 &&
+        claimLongitude <= 180;
 
       // Create voucher
       const voucher = await this.voucherModel.create({
@@ -341,6 +354,9 @@ if (!offerResult) {
         offerImage: imageUrl,
         status: VoucherStatus.ACTIVE,
         claimedAt: new Date(),
+        claimLocation: String(claimLocation?.location || '').trim(),
+        claimLatitude: hasValidClaimCoordinates ? claimLatitude : null,
+        claimLongitude: hasValidClaimCoordinates ? claimLongitude : null,
         expiresAt,
         validityHours: 720, // 30 days
       });

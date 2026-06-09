@@ -6,6 +6,7 @@ import {
   IsOptional,
   IsPhoneNumber,
   IsIn,
+  IsDateString,
 } from 'class-validator';
 
 export class RegisterDto {
@@ -24,6 +25,14 @@ export class RegisterDto {
   @IsPhoneNumber()
   @IsOptional()
   phone?: string;
+
+  @IsOptional()
+  @IsDateString()
+  dateOfBirth?: string;
+
+  @IsOptional()
+  @IsIn(['male', 'female', 'others', 'prefer_not_to_say'])
+  gender?: 'male' | 'female' | 'others' | 'prefer_not_to_say';
 
   @IsOptional()
   @IsIn(['user', 'merchant'])

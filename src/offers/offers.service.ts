@@ -658,6 +658,76 @@ export class OffersService implements OnModuleInit {
         .trim();
     };
 
+    const normalizeSearchText = (value: string) => {
+      return String(value || '')
+        .toLowerCase()
+        .replace(/&/g, ' and ')
+        .replace(/[^\p{L}\p{N}]+/gu, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+    };
+
+    const getSearchTokens = (value: string) => {
+      const stopWords = new Set(['a', 'an', 'and', 'the', 'for', 'near', 'nearby', 'in', 'at', 'of', 'to', 'me', 'my', 'with', 'show', 'find', 'search']);
+      return normalizeSearchText(value)
+        .split(' ')
+        .map((token) => token.trim())
+        .filter((token) => token.length >= 2 && !stopWords.has(token));
+    };
+
+    const levenshteinDistance = (left: string, right: string) => {
+      if (left === right) return 0;
+      if (!left) return right.length;
+      if (!right) return left.length;
+
+      const previous = Array.from({ length: right.length + 1 }, (_, index) => index);
+      const current = Array(right.length + 1).fill(0);
+
+      for (let i = 1; i <= left.length; i += 1) {
+        current[0] = i;
+        for (let j = 1; j <= right.length; j += 1) {
+          const insertCost = current[j - 1] + 1;
+          const deleteCost = previous[j] + 1;
+          const replaceCost = previous[j - 1] + (left[i - 1] === right[j - 1] ? 0 : 1);
+          current[j] = Math.min(insertCost, deleteCost, replaceCost);
+        }
+        previous.splice(0, previous.length, ...current);
+      }
+
+      return previous[right.length];
+    };
+
+    const tokensAreSimilar = (queryToken: string, candidateToken: string) => {
+      if (!queryToken || !candidateToken) return false;
+      if (candidateToken.includes(queryToken) || queryToken.includes(candidateToken)) return true;
+
+      const minLength = Math.min(queryToken.length, candidateToken.length);
+      if (minLength < 4) return false;
+
+      const distance = levenshteinDistance(queryToken, candidateToken);
+      const maxAllowedDistance = minLength >= 8 ? 2 : 1;
+      return distance <= maxAllowedDistance;
+    };
+
+    const matchesFlexibleSearch = (searchQuery: string, values: Array<string | undefined | null>) => {
+      const normalizedQuery = normalizeSearchText(searchQuery);
+      if (!normalizedQuery) return true;
+
+      const searchableText = normalizeSearchText(values.filter(Boolean).join(' '));
+      if (!searchableText) return false;
+      if (searchableText.includes(normalizedQuery)) return true;
+
+      const queryTokens = getSearchTokens(normalizedQuery);
+      if (!queryTokens.length) return true;
+
+      const searchableTokens = getSearchTokens(searchableText);
+      const matchedTokens = queryTokens.filter((queryToken) =>
+        searchableTokens.some((candidateToken) => tokensAreSimilar(queryToken, candidateToken)),
+      );
+
+      return matchedTokens.length >= 1;
+    };
+
     const CATEGORY_ALIASES: Record<string, string[]> = {
       'food and restaurants': ['food and restaurants', 'food restaurants', 'food dining', 'restaurants', 'restaurant', 'cafe', 'cafes'],
       'home services': ['home services', 'cleaning', 'plumbing', 'electrical', 'appliance repair', 'maintenance'],
@@ -785,8 +855,16 @@ export class OffersService implements OnModuleInit {
 
       if (queryNeedle) {
         normalized = normalized.filter((row) => {
-          const blob = `${row.title || ''} ${row.category || ''} ${row.merchant.name || ''}`.toLowerCase();
-          return blob.includes(queryNeedle);
+          return matchesFlexibleSearch(queryNeedle, [
+            row.title,
+            row.category,
+            row.merchant.name,
+            row.merchant.category,
+            row.merchant.subCategory,
+            ...(Array.isArray(row.selectedProducts)
+              ? row.selectedProducts.flatMap((product) => [product?.productName, product?.name])
+              : []),
+          ]);
         });
       }
 
@@ -897,8 +975,17 @@ export class OffersService implements OnModuleInit {
 
     if (queryNeedle) {
       normalized = normalized.filter((row) => {
-        const searchBlob = [row.title, row.category, row.merchant.name, row.merchant.address].filter(Boolean).join(' ').toLowerCase();
-        return searchBlob.includes(queryNeedle);
+        return matchesFlexibleSearch(queryNeedle, [
+          row.title,
+          row.category,
+          row.merchant.name,
+          row.merchant.category,
+          row.merchant.subCategory,
+          row.merchant.address,
+          ...(Array.isArray(row.selectedProducts)
+            ? row.selectedProducts.flatMap((product) => [product?.productName, product?.name])
+            : []),
+        ]);
       });
     }
 

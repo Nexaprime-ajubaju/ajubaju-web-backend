@@ -7,6 +7,7 @@ import { Product, ProductDocument } from '../products/schemas/product.schema';
 import { Review, ReviewDocument } from '../reviews/schemas/review.schema';
 import { User, UserDocument } from '../users/schemas/user.schema';
 import { Voucher, VoucherDocument } from '../vouchers/schemas/voucher.schema';
+import { OfferLikeHistory, OfferLikeHistoryDocument } from '../offers/schemas/offer-like-history.schema';
 import { RedisService } from '../common/services/redis.service';
 
 @Injectable()
@@ -18,6 +19,7 @@ export class MerchantDashboardService {
     @InjectModel(Review.name) private readonly reviewModel: Model<ReviewDocument>,
     @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
     @InjectModel(Voucher.name) private readonly voucherModel: Model<VoucherDocument>,
+    @InjectModel(OfferLikeHistory.name) private readonly offerLikeHistoryModel: Model<OfferLikeHistoryDocument>,
     private readonly redisService: RedisService,
   ) {}
 
@@ -71,6 +73,100 @@ export class MerchantDashboardService {
       Desktop: Math.round((normalized.Desktop / total) * 100),
       Tablet: Math.max(0, 100 - Math.round((normalized.Mobile / total) * 100) - Math.round((normalized.Desktop / total) * 100)),
     };
+  }
+
+  private getPlatformFromUserAgent(userAgent?: string): string {
+    const value = String(userAgent || '').toLowerCase();
+    if (!value) return 'Unknown';
+    if (value.includes('ipad') || value.includes('tablet')) return 'Tablet';
+    if (value.includes('mobile') || value.includes('android') || value.includes('iphone')) return 'Mobile';
+    if (value.includes('windows') || value.includes('macintosh') || value.includes('linux') || value.includes('x11')) return 'Desktop';
+    return 'Unknown';
+  }
+
+  private normalizeGender(value?: string) {
+    const gender = String(value || '').toLowerCase();
+    if (gender === 'male') return 'male';
+    if (gender === 'female') return 'female';
+    return 'other';
+  }
+
+  private getAgeGroup(dateOfBirth?: Date | string) {
+    if (!dateOfBirth) return null;
+    const birthDate = new Date(dateOfBirth);
+    if (Number.isNaN(birthDate.getTime())) return null;
+
+    const today = new Date();
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const monthDelta = today.getMonth() - birthDate.getMonth();
+    if (monthDelta < 0 || (monthDelta === 0 && today.getDate() < birthDate.getDate())) {
+      age -= 1;
+    }
+
+    if (age < 18) return null;
+    if (age <= 24) return '18-24';
+    if (age <= 34) return '25-34';
+    if (age <= 44) return '35-44';
+    if (age <= 64) return '45-64';
+    return '65+';
+  }
+
+  private getLocationLabel(user: any, mode: 'city' | 'state' = 'city') {
+    const profile = user?.profile || {};
+    if (mode === 'state' && profile.state) return String(profile.state).trim();
+    if (profile.city) return String(profile.city).trim();
+    if (profile.address) {
+      const parts = String(profile.address).split(',').map((part) => part.trim()).filter(Boolean);
+      if (parts.length >= 3) return parts[parts.length - 3];
+      if (parts.length) return parts[0];
+    }
+    if (profile.state) return String(profile.state).trim();
+    return '';
+  }
+
+  private getClaimLocationLabel(value?: string) {
+    const parts = String(value || '')
+      .split(',')
+      .map((part) => part.trim())
+      .filter(Boolean)
+      .filter((part) => !/^\d{4,}$/.test(part));
+
+    const knownCity = parts.find((part) =>
+      /\b(kolhapur|mumbai|pune|sangli|delhi|bangalore|bengaluru|hyderabad|karvir|ichalkaranji)\b/i.test(part),
+    );
+    if (knownCity) return knownCity;
+
+    if (parts.length >= 4) return parts[parts.length - 4];
+    if (parts.length >= 2) return parts[parts.length - 2];
+    return parts[0] || '';
+  }
+
+  private async getMerchantCustomerUserIds(merchantId: string) {
+    const merchantObjectId = Types.ObjectId.isValid(merchantId) ? new Types.ObjectId(merchantId) : null;
+    const [orderUserIds, voucherUserIds, likedUserIds] = await Promise.all([
+      merchantObjectId ? this.orderModel.distinct('userId', { merchantId: merchantObjectId }) : Promise.resolve([]),
+      merchantObjectId ? this.voucherModel.distinct('userId', { merchantId: merchantObjectId }) : Promise.resolve([]),
+      this.offerLikeHistoryModel.distinct('userId', { merchantId: String(merchantId) }),
+    ]);
+
+    return Array.from(
+      new Set(
+        [...orderUserIds, ...voucherUserIds, ...likedUserIds]
+          .map((value: any) => String(value || '').trim())
+          .filter((value) => Types.ObjectId.isValid(value)),
+      ),
+    );
+  }
+
+  private async getMerchantCustomerUsers(merchantId: string) {
+    const userIds = await this.getMerchantCustomerUserIds(merchantId);
+    if (!userIds.length) return [];
+
+    return this.userModel
+      .find({ _id: { $in: userIds.map((id) => new Types.ObjectId(id)) } })
+      .select('name profile metadata createdAt')
+      .lean()
+      .exec();
   }
 
   private getRedemptionRedisKey(merchantId: string) {
@@ -220,10 +316,23 @@ export class MerchantDashboardService {
   }
 
   async getMerchantDeviceBreakdown(merchantId: string) {
-    const rows = await this.adModel.aggregate([
-      { $match: { userId: merchantId, 'metadata.platform': { $exists: true, $ne: null } } },
-      { $group: { _id: '$metadata.platform', count: { $sum: 1 } } },
-    ]);
+    const customers = await this.getMerchantCustomerUsers(merchantId);
+    const customerDeviceCounts = new Map<string, number>();
+
+    for (const customer of customers as any[]) {
+      const platform = customer?.metadata?.platform || this.getPlatformFromUserAgent(customer?.metadata?.userAgent);
+      if (!platform || platform === 'Unknown') continue;
+      customerDeviceCounts.set(platform, (customerDeviceCounts.get(platform) || 0) + 1);
+    }
+
+    let rows = Array.from(customerDeviceCounts.entries()).map(([platform, count]) => ({ _id: platform, count }));
+
+    if (!rows.length) {
+      rows = await this.adModel.aggregate([
+        { $match: { userId: merchantId, 'metadata.platform': { $exists: true, $ne: null } } },
+        { $group: { _id: '$metadata.platform', count: { $sum: 1 } } },
+      ]);
+    }
 
     return {
       success: true,
@@ -233,12 +342,35 @@ export class MerchantDashboardService {
   }
 
   async getMerchantTopRegions(merchantId: string) {
-    const rows = await this.adModel.aggregate([
-      { $match: { userId: merchantId, city: { $exists: true, $ne: '' } } },
-      { $group: { _id: '$city', count: { $sum: 1 } } },
-      { $sort: { count: -1 as 1 | -1 } },
-      { $limit: 5 },
-    ]);
+    const merchantObjectId = Types.ObjectId.isValid(merchantId) ? new Types.ObjectId(merchantId) : null;
+    const regionCounts = new Map<string, number>();
+
+    if (merchantObjectId) {
+      const claimRows = await this.voucherModel
+        .find({ merchantId: merchantObjectId, claimLocation: { $exists: true, $ne: '' } })
+        .select('claimLocation')
+        .lean()
+        .exec();
+
+      for (const voucher of claimRows as any[]) {
+        const label = this.getClaimLocationLabel(voucher?.claimLocation);
+        if (!label) continue;
+        regionCounts.set(label, (regionCounts.get(label) || 0) + 1);
+      }
+    }
+
+    const customers = regionCounts.size ? [] : await this.getMerchantCustomerUsers(merchantId);
+
+    for (const customer of customers as any[]) {
+      const label = this.getLocationLabel(customer, 'city');
+      if (!label) continue;
+      regionCounts.set(label, (regionCounts.get(label) || 0) + 1);
+    }
+
+    const rows = Array.from(regionCounts.entries())
+      .map(([region, count]) => ({ _id: region, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5);
 
     const total = rows.reduce((sum, row) => sum + Number(row.count || 0), 0);
     const regions = rows.map((row) => ({
@@ -250,6 +382,40 @@ export class MerchantDashboardService {
     return {
       success: true,
       data: regions,
+      updatedAt: new Date().toISOString(),
+    };
+  }
+
+  async getMerchantDemographics(merchantId: string) {
+    const customers = await this.getMerchantCustomerUsers(merchantId);
+    const labels = ['18-24', '25-34', '35-44', '45-64', '65+'];
+    const buckets = new Map(labels.map((label) => [label, { label, maleCount: 0, femaleCount: 0, otherCount: 0, count: 0 }]));
+
+    for (const customer of customers as any[]) {
+      const group = this.getAgeGroup(customer?.profile?.dateOfBirth);
+      if (!group || !buckets.has(group)) continue;
+
+      const bucket = buckets.get(group)!;
+      const gender = this.normalizeGender(customer?.profile?.gender);
+      bucket.count += 1;
+      if (gender === 'male') bucket.maleCount += 1;
+      else if (gender === 'female') bucket.femaleCount += 1;
+      else bucket.otherCount += 1;
+    }
+
+    const totalCustomersWithAge = Array.from(buckets.values()).reduce((sum, bucket) => sum + bucket.count, 0);
+    const rows = Array.from(buckets.values()).map((bucket) => ({
+      label: bucket.label,
+      male: bucket.count ? Math.round((bucket.maleCount / bucket.count) * 100) : 0,
+      female: bucket.count ? Math.round((bucket.femaleCount / bucket.count) * 100) : 0,
+      other: bucket.count ? Math.round((bucket.otherCount / bucket.count) * 100) : 0,
+      count: bucket.count,
+      total: totalCustomersWithAge ? `${Number(((bucket.count / totalCustomersWithAge) * 100).toFixed(1))}%` : '0%',
+    }));
+
+    return {
+      success: true,
+      data: rows,
       updatedAt: new Date().toISOString(),
     };
   }
@@ -362,12 +528,13 @@ export class MerchantDashboardService {
   }
 
   async getRealtimeAnalytics(merchantId: string) {
-    const [device, regions, products, events, trend] = await Promise.all([
+    const [device, regions, products, events, trend, demographics] = await Promise.all([
       this.getMerchantDeviceBreakdown(merchantId),
       this.getMerchantTopRegions(merchantId),
       this.getMerchantTopProducts(merchantId),
       this.getMerchantEventStats(merchantId),
       this.getMerchantTrend(merchantId),
+      this.getMerchantDemographics(merchantId),
     ]);
 
     const redemptions = await this.getRedemptionTrend(merchantId, 'weekly');
@@ -380,6 +547,7 @@ export class MerchantDashboardService {
         products: products.data,
         events: events.data,
         trend: trend.data,
+        demographics: demographics.data,
         redemptions,
       },
       updatedAt: new Date().toISOString(),
