@@ -26,7 +26,7 @@ export class OffersController {
   constructor(
     private readonly offersService: OffersService,
     private readonly bannersService: BannersService,
-    private readonly kafkaService: KafkaService,
+    private readonly kafkaService: KafkaService,  
   ) {}
 
   @Post('request')

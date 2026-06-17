@@ -80,6 +80,12 @@ export class Ad {
   @Prop()
   pincode: string;
 
+  @Prop()
+  latitude: number;
+
+  @Prop()
+  longitude: number;
+
   @Prop({
     type: {
       type: String,

@@ -18,7 +18,12 @@ import { UpdateAdDto } from './dto/update-ad.dto';
 import { KafkaService } from '../kafka/kafka.service';
 import { KAFKA_TOPICS } from '../common/constants/kafka-topics';
 import { User, UserDocument } from '../users/schemas/user.schema';
-import { Report, ReportDocument, ReportReason, ReportStatus } from './schemas/report.schema';
+import {
+  Report,
+  ReportDocument,
+  ReportReason,
+  ReportStatus,
+} from './schemas/report.schema';
 import { ConfigService } from '@nestjs/config';
 import * as nodemailer from 'nodemailer';
 import { v4 as uuidv4 } from 'uuid';
@@ -27,7 +32,6 @@ import { AuditLogsService } from '../audit-logs/audit-logs.service';
 
 @Injectable()
 export class AdsService implements OnModuleInit, OnModuleDestroy {
-
   /**
    * Get a single report by reportId, with ad and merchant enrichment
    */
@@ -49,32 +53,37 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
           $addFields: {
             adUserObjectId: {
               $cond: [
-                { $regexMatch: { input: '$ad.userId', regex: /^[0-9a-fA-F]{24}$/ } },
+                {
+                  $regexMatch: {
+                    input: '$ad.userId',
+                    regex: /^[0-9a-fA-F]{24}$/,
+                  },
+                },
                 { $toObjectId: '$ad.userId' },
-                null
-              ]
+                null,
+              ],
             },
-            adUserIdString: '$ad.userId'
-          }
+            adUserIdString: '$ad.userId',
+          },
         },
         {
-         $lookup: {
-             from: 'users',
-             let: { adUserObjectId: '$adUserObjectId' },
-             pipeline: [
-               { 
-                 $match: { 
-                   $expr: { 
-                     $and: [
-                       { $eq: ['$_id', '$$adUserObjectId'] },
-                       { $in: ['$_id', [{ $toObjectId: '$_id' }]] }
-                     ]
-                   } 
-                 } 
-               },
-             ],
-             as: 'uploader',
-           },
+          $lookup: {
+            from: 'users',
+            let: { adUserObjectId: '$adUserObjectId' },
+            pipeline: [
+              {
+                $match: {
+                  $expr: {
+                    $and: [
+                      { $eq: ['$_id', '$$adUserObjectId'] },
+                      { $in: ['$_id', [{ $toObjectId: '$_id' }]] },
+                    ],
+                  },
+                },
+              },
+            ],
+            as: 'uploader',
+          },
         },
         { $unwind: { path: '$uploader', preserveNullAndEmptyArrays: true } },
         // Always set uploader.userId from uploader._id if uploader exists
@@ -84,17 +93,26 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
               $cond: [
                 { $ifNull: ['$uploader._id', false] },
                 { $toString: '$uploader._id' },
-                '$uploader.userId'
-              ]
-            }
-          }
+                '$uploader.userId',
+              ],
+            },
+          },
         },
         {
           $lookup: {
             from: 'ads',
             let: { uploaderUserId: '$uploader._id' },
             pipeline: [
-              { $match: { $expr: { $and: [ { $eq: [ { $toObjectId: '$userId' }, '$$uploaderUserId' ] }, { $eq: ['$status', 'active'] } ] } } },
+              {
+                $match: {
+                  $expr: {
+                    $and: [
+                      { $eq: [{ $toObjectId: '$userId' }, '$$uploaderUserId'] },
+                      { $eq: ['$status', 'active'] },
+                    ],
+                  },
+                },
+              },
             ],
             as: 'uploaderActiveAds',
           },
@@ -107,16 +125,31 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
                 '$uploader',
                 {
                   $cond: [
-                    { $and: [
-                      { $ifNull: ['$adUserIdString', false] },
-                      { $regexMatch: { input: '$adUserIdString', regex: /^[0-9a-fA-F]{24}$/ } }
-                    ] },
+                    {
+                      $and: [
+                        { $ifNull: ['$adUserIdString', false] },
+                        {
+                          $regexMatch: {
+                            input: '$adUserIdString',
+                            regex: /^[0-9a-fA-F]{24}$/,
+                          },
+                        },
+                      ],
+                    },
                     {
                       $let: {
-                        vars: { fallbackUserId: { $toObjectId: '$adUserIdString' } },
+                        vars: {
+                          fallbackUserId: { $toObjectId: '$adUserIdString' },
+                        },
                         in: {
                           $mergeObjects: [
-                            { name: 'No user info', accountType: '-', role: '-', email: '-', userId: '$adUserIdString' },
+                            {
+                              name: 'No user info',
+                              accountType: '-',
+                              role: '-',
+                              email: '-',
+                              userId: '$adUserIdString',
+                            },
                             {
                               $arrayElemAt: [
                                 {
@@ -125,8 +158,13 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
                                       $filter: {
                                         input: '$$ROOT',
                                         as: 'root',
-                                        cond: { $eq: ['$$root._id', '$$fallbackUserId'] }
-                                      }
+                                        cond: {
+                                          $eq: [
+                                            '$$root._id',
+                                            '$$fallbackUserId',
+                                          ],
+                                        },
+                                      },
                                     },
                                     as: 'user',
                                     in: {
@@ -134,23 +172,31 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
                                       accountType: '$$user.accountType',
                                       role: '$$user.role',
                                       email: '$$user.email',
-                                      userId: { $toString: '$$user._id' }
-                                    }
-                                  }
+                                      userId: { $toString: '$$user._id' },
+                                    },
+                                  },
                                 },
-                                0
-                              ]
-                            }
-                          ]
-                        }
-                      }
+                                0,
+                              ],
+                            },
+                          ],
+                        },
+                      },
                     },
-                    { name: 'No user info', accountType: '-', role: '-', email: '-', userId: '-' }
-                  ]
-                }
-              ]
+                    {
+                      name: 'No user info',
+                      accountType: '-',
+                      role: '-',
+                      email: '-',
+                      userId: '-',
+                    },
+                  ],
+                },
+              ],
             },
-            uploaderListingCount: { $size: { $ifNull: ['$uploaderActiveAds', []] } },
+            uploaderListingCount: {
+              $size: { $ifNull: ['$uploaderActiveAds', []] },
+            },
           },
         },
         {
@@ -185,7 +231,12 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
       ]);
       let result = results[0] || null;
       // Always ensure uploader.userId is present if uploader exists
-      if (result && result.uploader && !result.uploader.userId && result.uploader.email) {
+      if (
+        result &&
+        result.uploader &&
+        !result.uploader.userId &&
+        result.uploader.email
+      ) {
         if (result.ad && result.ad.userId) {
           // Try to use ad.userId if uploader is the ad owner
           result.uploader.userId = result.ad.userId;
@@ -195,9 +246,16 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
         }
       }
       // FINAL fallback: if uploader.userId is missing or '-', try direct query
-      if (result && (!result.uploader || !result.uploader.userId || result.uploader.userId === '-' || result.uploader.name === 'No user info')) {
+      if (
+        result &&
+        (!result.uploader ||
+          !result.uploader.userId ||
+          result.uploader.userId === '-' ||
+          result.uploader.name === 'No user info')
+      ) {
         // Try to fetch user by ad.userId directly
-        const adUserId = result.ad && result.ad.userId ? result.ad.userId : null;
+        const adUserId =
+          result.ad && result.ad.userId ? result.ad.userId : null;
         if (adUserId && /^[0-9a-fA-F]{24}$/.test(adUserId)) {
           const userDoc = await this.userModel.findById(adUserId).lean();
           if (userDoc) {
@@ -218,34 +276,37 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-    /**
-     * Get real-time report stats for admin panel cards
-     */
-    public async getReportStats() {
-      const [
-        total,
-        pending,
-        reviewed,
-        actionTaken,
-        policyViolations,
-        resolved24h
-      ] = await Promise.all([
-        this.reportModel.countDocuments(),
-        this.reportModel.countDocuments({ status: 'pending' }),
-        this.reportModel.countDocuments({ status: 'reviewed' }),
-        this.reportModel.countDocuments({ status: 'action_taken' }),
-        this.reportModel.countDocuments({ reason: 'policy_violation' }),
-        this.reportModel.countDocuments({ status: 'action_taken', reviewedAt: { $gte: new Date(Date.now() - 24*60*60*1000) } }),
-      ]);
-      return {
-        total,
-        pending,
-        reviewed,
-        actionTaken,
-        policyViolations,
-        resolved24h
-      };
-    }
+  /**
+   * Get real-time report stats for admin panel cards
+   */
+  public async getReportStats() {
+    const [
+      total,
+      pending,
+      reviewed,
+      actionTaken,
+      policyViolations,
+      resolved24h,
+    ] = await Promise.all([
+      this.reportModel.countDocuments(),
+      this.reportModel.countDocuments({ status: 'pending' }),
+      this.reportModel.countDocuments({ status: 'reviewed' }),
+      this.reportModel.countDocuments({ status: 'action_taken' }),
+      this.reportModel.countDocuments({ reason: 'policy_violation' }),
+      this.reportModel.countDocuments({
+        status: 'action_taken',
+        reviewedAt: { $gte: new Date(Date.now() - 24 * 60 * 60 * 1000) },
+      }),
+    ]);
+    return {
+      total,
+      pending,
+      reviewed,
+      actionTaken,
+      policyViolations,
+      resolved24h,
+    };
+  }
   private readonly logger = new Logger(AdsService.name);
   private emailTransporter: any;
   private emailEnabled: boolean;
@@ -259,7 +320,8 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
   constructor(
     @InjectModel(Ad.name) private readonly adModel: Model<AdDocument>,
     @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
-    @InjectModel(Report.name) private readonly reportModel: Model<ReportDocument>,
+    @InjectModel(Report.name)
+    private readonly reportModel: Model<ReportDocument>,
     private readonly auditLogsService: AuditLogsService,
     private configService: ConfigService,
     public redisService: RedisService, // Make public for controller access
@@ -270,7 +332,7 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
   ) {
     // Initialize email transporter
     this.emailEnabled = !!this.configService.get('EMAIL_USER');
-    
+
     if (this.emailEnabled) {
       this.emailTransporter = nodemailer.createTransport({
         host: this.configService.get('EMAIL_HOST'),
@@ -284,14 +346,18 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
 
       this.emailTransporter.verify((error: any, success: any) => {
         if (error) {
-          this.logger.error(`Email service verification failed: ${error.message}`);
+          this.logger.error(
+            `Email service verification failed: ${error.message}`,
+          );
           this.emailEnabled = false;
         } else {
           this.logger.log('✅ Email service ready and connected');
         }
       });
     } else {
-      this.logger.warn('⚠️ Email service not configured - emails will be logged only');
+      this.logger.warn(
+        '⚠️ Email service not configured - emails will be logged only',
+      );
     }
   }
 
@@ -355,19 +421,21 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
   async deactivateExpiredAds(): Promise<number> {
     const now = new Date();
 
-    const result = await this.adModel.updateMany(
-      {
-        status: 'active',
-        expiryDate: { $lte: now },
-      },
-      {
-        $set: {
-          status: 'expired',
-          expiredAt: now,
-          updatedAt: now,
+    const result = await this.adModel
+      .updateMany(
+        {
+          status: 'active',
+          expiryDate: { $lte: now },
         },
-      },
-    ).exec();
+        {
+          $set: {
+            status: 'expired',
+            expiredAt: now,
+            updatedAt: now,
+          },
+        },
+      )
+      .exec();
 
     const count = result.modifiedCount ?? 0;
     if (count > 0) {
@@ -408,18 +476,24 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
     // Also delete associated reports
     const adIdsToDelete = adsToDelete.map((ad) => ad.adId).filter(Boolean);
     if (adIdsToDelete.length > 0) {
-      await this.reportModel.deleteMany({ adId: { $in: adIdsToDelete } }).exec();
+      await this.reportModel
+        .deleteMany({ adId: { $in: adIdsToDelete } })
+        .exec();
     }
 
     // Permanently delete the ads
-    const result = await this.adModel.deleteMany({
-      status: 'expired',
-      expiredAt: { $lte: gracePeriodCutoff },
-    }).exec();
+    const result = await this.adModel
+      .deleteMany({
+        status: 'expired',
+        expiredAt: { $lte: gracePeriodCutoff },
+      })
+      .exec();
 
     const count = result.deletedCount ?? 0;
     if (count > 0) {
-      this.logger.log(`🗑️ Permanently deleted ${count} expired ads (grace period ended)`);
+      this.logger.log(
+        `🗑️ Permanently deleted ${count} expired ads (grace period ended)`,
+      );
 
       // Emit Kafka events
       if (this.kafkaService) {
@@ -441,14 +515,17 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
      CACHE KEY HELPERS
   ============================================================ */
 
-  public getCacheKey(prefix: string, ...parts: (string | number | undefined)[]): string {
-    const validParts = parts.filter(p => p !== undefined && p !== null);
+  public getCacheKey(
+    prefix: string,
+    ...parts: (string | number | undefined)[]
+  ): string {
+    const validParts = parts.filter((p) => p !== undefined && p !== null);
     return `golo:${prefix}:${validParts.join(':')}`;
   }
 
   public async invalidateAdsCache(): Promise<void> {
     if (!this.redisService.isEnabled()) return;
-    
+
     // Invalidate homepage and category caches when ads change
     await this.redisService.deleteByPattern('golo:ads:homepage:*');
     await this.redisService.deleteByPattern('golo:ads:category:*');
@@ -515,7 +592,8 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
         categorySpecificData = payload.employmentData || {};
         break;
       case 'Lost & Found':
-        categorySpecificData = payload.lostFoundData || payload.lostAndFoundData || {};
+        categorySpecificData =
+          payload.lostFoundData || payload.lostAndFoundData || {};
         break;
       case 'Personal':
         categorySpecificData = payload.personalData || {};
@@ -531,7 +609,10 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
         break;
     }
 
-    if (!categorySpecificData || Object.keys(categorySpecificData).length === 0) {
+    if (
+      !categorySpecificData ||
+      Object.keys(categorySpecificData).length === 0
+    ) {
       categorySpecificData = payload.categorySpecificData || {};
     }
 
@@ -543,7 +624,9 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
     const expiryDate = (() => {
       if (createAdDto.selectedDates && createAdDto.selectedDates.length > 0) {
         const lastDate = new Date(
-          Math.max(...createAdDto.selectedDates.map((d) => new Date(d).getTime())),
+          Math.max(
+            ...createAdDto.selectedDates.map((d) => new Date(d).getTime()),
+          ),
         );
         lastDate.setHours(23, 59, 59, 999);
         return lastDate;
@@ -554,8 +637,35 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
       );
     })();
 
+    const latitude =
+      createAdDto.latitude !== undefined && createAdDto.latitude !== null
+        ? Number(createAdDto.latitude)
+        : undefined;
+    const longitude =
+      createAdDto.longitude !== undefined && createAdDto.longitude !== null
+        ? Number(createAdDto.longitude)
+        : undefined;
+
+    const locationCoordinates =
+      latitude !== undefined &&
+      longitude !== undefined &&
+      !Number.isNaN(latitude) &&
+      !Number.isNaN(longitude)
+        ? {
+            type: 'Point' as const,
+            coordinates: [longitude, latitude] as [number, number],
+          }
+        : undefined;
+
     const adData: any = {
       ...createAdDto,
+      ...(latitude !== undefined && !Number.isNaN(latitude)
+        ? { latitude }
+        : {}),
+      ...(longitude !== undefined && !Number.isNaN(longitude)
+        ? { longitude }
+        : {}),
+      ...(locationCoordinates ? { locationCoordinates } : {}),
       categorySpecificData,
       adId: uuidv4(),
       status: 'active',
@@ -578,9 +688,13 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
      ADMIN
   ============================================================ */
 
-  async adminDeleteAd(adId: string, adminId?: string, adminEmail?: string): Promise<void> {
+  async adminDeleteAd(
+    adId: string,
+    adminId?: string,
+    adminEmail?: string,
+  ): Promise<void> {
     const ad: any = await this.adModel.findOneAndDelete({ adId }).exec();
-    
+
     if (adminId && adminEmail && ad) {
       await this.auditLogsService.log({
         action: 'AD_DELETED_BY_ADMIN',
@@ -588,12 +702,17 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
         adminEmail,
         targetId: adId,
         targetType: 'Ad',
-        details: { title: ad.title, category: ad.category }
+        details: { title: ad.title, category: ad.category },
       });
     }
   }
 
-  async adminUpdateAd(adId: string, updateData: UpdateAdDto, adminId?: string, adminEmail?: string): Promise<Ad> {
+  async adminUpdateAd(
+    adId: string,
+    updateData: UpdateAdDto,
+    adminId?: string,
+    adminEmail?: string,
+  ): Promise<Ad> {
     const updatedAd = await this.adModel
       .findOneAndUpdate(
         { adId },
@@ -613,7 +732,7 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
         adminEmail,
         targetId: adId,
         targetType: 'Ad',
-        details: { updateData }
+        details: { updateData },
       });
     }
 
@@ -636,10 +755,7 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
 
       if (!userIdStr.match(/^[0-9a-fA-F]{24}$/)) return false;
 
-      const user = await this.userModel
-        .findById(userIdStr)
-        .lean()
-        .exec();
+      const user = await this.userModel.findById(userIdStr).lean().exec();
 
       return !!user;
     } catch (error: any) {
@@ -712,7 +828,10 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
     if (filters?.category) mongoQuery.category = filters.category;
     if (filters?.location && String(filters.location).trim()) {
       const normalizedLocation = String(filters.location).trim();
-      const escapedLocation = normalizedLocation.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const escapedLocation = normalizedLocation.replace(
+        /[.*+?^${}()|[\]\\]/g,
+        '\\$&',
+      );
       const locationRegex = new RegExp(escapedLocation, 'i');
 
       mongoQuery.$or = [
@@ -723,8 +842,16 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
         { cities: { $elemMatch: { $regex: locationRegex } } },
       ];
     }
-    if (typeof filters?.minPrice === 'number') mongoQuery.price = { ...(mongoQuery.price || {}), $gte: filters.minPrice };
-    if (typeof filters?.maxPrice === 'number') mongoQuery.price = { ...(mongoQuery.price || {}), $lte: filters.maxPrice };
+    if (typeof filters?.minPrice === 'number')
+      mongoQuery.price = {
+        ...(mongoQuery.price || {}),
+        $gte: filters.minPrice,
+      };
+    if (typeof filters?.maxPrice === 'number')
+      mongoQuery.price = {
+        ...(mongoQuery.price || {}),
+        $lte: filters.maxPrice,
+      };
 
     if (query && query.trim().length > 0) {
       const searchTokens = String(query)
@@ -732,7 +859,28 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
         .replace(/[^\p{L}\p{N}]+/gu, ' ')
         .split(' ')
         .map((token) => token.trim())
-        .filter((token) => token.length >= 2 && !['a', 'an', 'and', 'the', 'for', 'near', 'nearby', 'in', 'at', 'of', 'to', 'me', 'my', 'show', 'find', 'search'].includes(token));
+        .filter(
+          (token) =>
+            token.length >= 2 &&
+            ![
+              'a',
+              'an',
+              'and',
+              'the',
+              'for',
+              'near',
+              'nearby',
+              'in',
+              'at',
+              'of',
+              'to',
+              'me',
+              'my',
+              'show',
+              'find',
+              'search',
+            ].includes(token),
+        );
 
       const searchOr = searchTokens.flatMap((token) => {
         const escapedToken = token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -745,6 +893,9 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
           { brand: tokenRegex },
           { location: tokenRegex },
           { city: tokenRegex },
+          { state: tokenRegex },
+          { pincode: tokenRegex },
+          { cities: { $elemMatch: { $regex: tokenRegex } } },
         ];
       });
 
@@ -774,12 +925,7 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
     }
 
     const [ads, total] = await Promise.all([
-      this.adModel
-        .find(mongoQuery)
-        .sort(sort)
-        .skip(skip)
-        .limit(limit)
-        .exec(),
+      this.adModel.find(mongoQuery).sort(sort).skip(skip).limit(limit).exec(),
       this.adModel.countDocuments(countQuery),
     ]);
 
@@ -809,7 +955,7 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
           $maxDistance: maxDistance,
         },
       } as any;
-      
+
       // $near fails in countDocuments, use $geoWithin $centerSphere instead
       countQuery.locationCoordinates = {
         $geoWithin: {
@@ -819,18 +965,18 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
     }
 
     const [ads, total] = await Promise.all([
-      this.adModel
-        .find(geoQuery)
-        .skip(skip)
-        .limit(limit)
-        .exec(),
+      this.adModel.find(geoQuery).skip(skip).limit(limit).exec(),
       this.adModel.countDocuments(countQuery),
     ]);
 
     return { ads, total };
   }
 
-  async getAdsByUser(userId: string, page = 1, limit = 10): Promise<{ ads: Ad[]; total: number }> {
+  async getAdsByUser(
+    userId: string,
+    page = 1,
+    limit = 10,
+  ): Promise<{ ads: Ad[]; total: number }> {
     const skip = (page - 1) * limit;
 
     // Show both 'active' AND 'expired' ads — expired ads remain visible to the
@@ -839,7 +985,12 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
     const query = { userId, status: { $in: ['active', 'expired'] } };
 
     const [ads, total] = await Promise.all([
-      this.adModel.find(query).sort({ createdAt: -1 }).skip(skip).limit(limit).exec(),
+      this.adModel
+        .find(query)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .exec(),
       this.adModel.countDocuments(query),
     ]);
 
@@ -866,15 +1017,21 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
       .exec();
 
     // Extract just the titles and remove duplicates
-    const titles = [...new Set(docs.map(doc => doc.title).filter(Boolean))];
+    const titles = [...new Set(docs.map((doc) => doc.title).filter(Boolean))];
     return titles.slice(0, limit);
   }
 
-  async getRecommendedDeals(userId: string | undefined, limit = 10): Promise<Ad[]> {
+  async getRecommendedDeals(
+    userId: string | undefined,
+    limit = 10,
+  ): Promise<Ad[]> {
     // Simple recommendation: if user provided, try same city from user's profile
     if (userId) {
       try {
-        const user = await this.userModel.findById(String(userId)).lean().exec();
+        const user = await this.userModel
+          .findById(String(userId))
+          .lean()
+          .exec();
         const city = user?.profile?.city;
         if (city) {
           return this.adModel
@@ -889,7 +1046,11 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
     }
 
     // Fallback: most recent active ads
-    return this.adModel.find({ status: 'active' }).sort({ createdAt: -1 }).limit(limit).exec();
+    return this.adModel
+      .find({ status: 'active' })
+      .sort({ createdAt: -1 })
+      .limit(limit)
+      .exec();
   }
 
   async getPopularPlaces(limit = 10): Promise<string[]> {
@@ -903,29 +1064,35 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
     ];
 
     const results = await (this.adModel as any).aggregate(pipeline).exec();
-    return results.map(r => r._id).filter(Boolean);
+    return results.map((r) => r._id).filter(Boolean);
   }
 
   async incrementViewCount(adId: string): Promise<void> {
     try {
       const merchantId = await this.resolveMerchantIdForAd(adId);
-      let updated = await this.adModel.findOneAndUpdate(
-        { adId },
-        { $inc: { views: 1 }, $set: { updatedAt: new Date() } },
-      ).exec();
+      let updated = await this.adModel
+        .findOneAndUpdate(
+          { adId },
+          { $inc: { views: 1 }, $set: { updatedAt: new Date() } },
+        )
+        .exec();
 
       if (!updated && /^[0-9a-fA-F]{24}$/.test(adId)) {
-        await this.adModel.findByIdAndUpdate(
-          adId,
-          { $inc: { views: 1 }, $set: { updatedAt: new Date() } },
-        ).exec();
+        await this.adModel
+          .findByIdAndUpdate(adId, {
+            $inc: { views: 1 },
+            $set: { updatedAt: new Date() },
+          })
+          .exec();
       }
 
       if (merchantId) {
         await this.recordMerchantVisit(merchantId);
       }
     } catch (error: any) {
-      this.logger.error(`Failed to increment view count for ${adId}: ${error.message}`);
+      this.logger.error(
+        `Failed to increment view count for ${adId}: ${error.message}`,
+      );
     }
   }
 
@@ -940,44 +1107,59 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
   async trackViewWithVisitor(adId: string, userId: string): Promise<void> {
     try {
       if (!userId) {
-        this.logger.warn(`trackViewWithVisitor: No userId provided for ad ${adId}`);
+        this.logger.warn(
+          `trackViewWithVisitor: No userId provided for ad ${adId}`,
+        );
         return;
       }
 
       // Resolve to UUID adId if a MongoDB _id was passed
       let resolvedAdId = adId;
       if (/^[0-9a-fA-F]{24}$/.test(adId)) {
-        const found = await this.adModel.findById(adId).select('adId').lean().exec();
+        const found = await this.adModel
+          .findById(adId)
+          .select('adId')
+          .lean()
+          .exec();
         if (found?.adId) resolvedAdId = found.adId;
       }
 
       // Add userId to viewHistory and sync views = viewHistory.length atomically
-      const updated = await this.adModel.findOneAndUpdate(
-        { adId: resolvedAdId },
-        [
-          {
-            $set: {
-              viewHistory: {
-                $cond: {
-                  if: { $in: [userId, { $ifNull: ['$viewHistory', []] }] },
-                  then: '$viewHistory',
-                  else: { $concatArrays: [{ $ifNull: ['$viewHistory', []] }, [userId]] },
+      const updated = await this.adModel
+        .findOneAndUpdate(
+          { adId: resolvedAdId },
+          [
+            {
+              $set: {
+                viewHistory: {
+                  $cond: {
+                    if: { $in: [userId, { $ifNull: ['$viewHistory', []] }] },
+                    then: '$viewHistory',
+                    else: {
+                      $concatArrays: [
+                        { $ifNull: ['$viewHistory', []] },
+                        [userId],
+                      ],
+                    },
+                  },
                 },
+                updatedAt: new Date(),
               },
-              updatedAt: new Date(),
             },
-          },
-          {
-            $set: {
-              views: { $size: '$viewHistory' },
+            {
+              $set: {
+                views: { $size: '$viewHistory' },
+              },
             },
-          },
-        ],
-        { new: true },
-      ).exec();
+          ],
+          { new: true },
+        )
+        .exec();
 
       if (!updated) {
-        this.logger.warn(`trackViewWithVisitor: ad not found for adId=${resolvedAdId}`);
+        this.logger.warn(
+          `trackViewWithVisitor: ad not found for adId=${resolvedAdId}`,
+        );
       }
 
       const merchantId = await this.resolveMerchantIdForAd(resolvedAdId);
@@ -985,7 +1167,9 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
         await this.recordMerchantVisit(merchantId);
       }
     } catch (error: any) {
-      this.logger.error(`Failed to track view for user ${userId} on ad ${adId}: ${error.message}`);
+      this.logger.error(
+        `Failed to track view for user ${userId} on ad ${adId}: ${error.message}`,
+      );
     }
   }
 
@@ -1003,12 +1187,17 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
 
       return ad?.userId ? String(ad.userId) : null;
     } catch (error: any) {
-      this.logger.error(`Failed to resolve merchant for ad ${adId}: ${error.message}`);
+      this.logger.error(
+        `Failed to resolve merchant for ad ${adId}: ${error.message}`,
+      );
       return null;
     }
   }
 
-  private async recordMerchantVisit(merchantId: string, occurredAt = new Date()): Promise<void> {
+  private async recordMerchantVisit(
+    merchantId: string,
+    occurredAt = new Date(),
+  ): Promise<void> {
     const redisClient = this.redisService?.getClient?.();
     if (!redisClient || !merchantId) {
       return;
@@ -1021,7 +1210,9 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
       await redisClient.hIncrBy(redisKey, dayKey, 1);
       await redisClient.expire(redisKey, 60 * 60 * 24 * 60);
     } catch (error: any) {
-      this.logger.error(`Failed to record merchant visit for ${merchantId}: ${error.message}`);
+      this.logger.error(
+        `Failed to record merchant visit for ${merchantId}: ${error.message}`,
+      );
     }
   }
 
@@ -1030,19 +1221,25 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
    */
   async trackContactClick(adId: string): Promise<void> {
     try {
-      let updated = await this.adModel.findOneAndUpdate(
-        { adId },
-        { $inc: { contactClicks: 1 }, $set: { updatedAt: new Date() } },
-      ).exec();
+      let updated = await this.adModel
+        .findOneAndUpdate(
+          { adId },
+          { $inc: { contactClicks: 1 }, $set: { updatedAt: new Date() } },
+        )
+        .exec();
 
       if (!updated && /^[0-9a-fA-F]{24}$/.test(adId)) {
-        await this.adModel.findByIdAndUpdate(
-          adId,
-          { $inc: { contactClicks: 1 }, $set: { updatedAt: new Date() } },
-        ).exec();
+        await this.adModel
+          .findByIdAndUpdate(adId, {
+            $inc: { contactClicks: 1 },
+            $set: { updatedAt: new Date() },
+          })
+          .exec();
       }
     } catch (error: any) {
-      this.logger.error(`Failed to track contact click for ${adId}: ${error.message}`);
+      this.logger.error(
+        `Failed to track contact click for ${adId}: ${error.message}`,
+      );
     }
   }
 
@@ -1069,37 +1266,55 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
 
     const ads = await this.adModel
       .find({ userId })
-      .select('adId title description category subCategory status views viewHistory contactClicks isPromoted promotedUntil createdAt updatedAt price images videos city state pincode location locationCoordinates contactInfo primaryContact cities language selectedDates templateId tags expiryDate metadata categorySpecificData reportCount isUnderReview autoDisabled disabledAt disabledReason negotiable')
+      .select(
+        'adId title description category subCategory status views viewHistory contactClicks isPromoted promotedUntil createdAt updatedAt price images videos city state pincode location locationCoordinates contactInfo primaryContact cities language selectedDates templateId tags expiryDate metadata categorySpecificData reportCount isUnderReview autoDisabled disabledAt disabledReason negotiable',
+      )
       .sort({ createdAt: -1 })
       .lean()
       .exec();
 
-    const adIds = ads.map(a => a.adId).filter(Boolean);
+    const adIds = ads.map((a) => a.adId).filter(Boolean);
 
     // Count how many users have each ad in their wishlist
     const wishlistCounts: Record<string, number> = {};
     if (adIds.length > 0) {
-      const wishlistAgg = await this.userModel.aggregate([
-        { $match: { wishlist: { $in: adIds } } },
-        { $unwind: '$wishlist' },
-        { $match: { wishlist: { $in: adIds } } },
-        { $group: { _id: '$wishlist', count: { $sum: 1 } } },
-      ]).exec();
+      const wishlistAgg = await this.userModel
+        .aggregate([
+          { $match: { wishlist: { $in: adIds } } },
+          { $unwind: '$wishlist' },
+          { $match: { wishlist: { $in: adIds } } },
+          { $group: { _id: '$wishlist', count: { $sum: 1 } } },
+        ])
+        .exec();
       for (const item of wishlistAgg) {
         wishlistCounts[item._id] = item.count;
       }
     }
 
     const totalAds = ads.length;
-    const activeAds = ads.filter(a => a.status === 'active').length;
-    const promotedAds = ads.filter(a => a.isPromoted && a.promotedUntil && new Date(a.promotedUntil) > new Date()).length;
+    const activeAds = ads.filter((a) => a.status === 'active').length;
+    const promotedAds = ads.filter(
+      (a) =>
+        a.isPromoted &&
+        a.promotedUntil &&
+        new Date(a.promotedUntil) > new Date(),
+    ).length;
     // views = unique visitors only (viewHistory.length is the source of truth)
-    const totalViews = ads.reduce((sum, a) => sum + (a.viewHistory?.length || 0), 0);
+    const totalViews = ads.reduce(
+      (sum, a) => sum + (a.viewHistory?.length || 0),
+      0,
+    );
     const uniqueVisitors = totalViews; // same — views IS unique visitors
-    const totalContactClicks = ads.reduce((sum, a) => sum + (a.contactClicks || 0), 0);
-    const totalWishlistSaves = Object.values(wishlistCounts).reduce((sum, c) => sum + c, 0);
+    const totalContactClicks = ads.reduce(
+      (sum, a) => sum + (a.contactClicks || 0),
+      0,
+    );
+    const totalWishlistSaves = Object.values(wishlistCounts).reduce(
+      (sum, c) => sum + c,
+      0,
+    );
 
-    const adsWithAnalytics = ads.map(ad => ({
+    const adsWithAnalytics = ads.map((ad) => ({
       adId: ad.adId,
       title: ad.title,
       description: ad.description,
@@ -1118,13 +1333,30 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
       imageCount: ad.images?.length || 0,
       videoCount: ad.videos?.length || 0,
       templateId: ad.templateId || 1,
-      views: ad.viewHistory?.length || 0,          // unique visitors = views
+      views: ad.viewHistory?.length || 0, // unique visitors = views
       uniqueVisitors: ad.viewHistory?.length || 0, // kept for compatibility
       viewerIds: ad.viewHistory || [],
       contactClicks: ad.contactClicks || 0,
       wishlistCount: wishlistCounts[ad.adId] || 0,
-      clickThroughRate: (ad.viewHistory?.length || 0) > 0 ? Number((((ad.contactClicks || 0) / (ad.viewHistory?.length || 0)) * 100).toFixed(2)) : 0,
-      wishlistRate: (ad.viewHistory?.length || 0) > 0 ? Number((((wishlistCounts[ad.adId] || 0) / (ad.viewHistory?.length || 0)) * 100).toFixed(2)) : 0,
+      clickThroughRate:
+        (ad.viewHistory?.length || 0) > 0
+          ? Number(
+              (
+                ((ad.contactClicks || 0) / (ad.viewHistory?.length || 0)) *
+                100
+              ).toFixed(2),
+            )
+          : 0,
+      wishlistRate:
+        (ad.viewHistory?.length || 0) > 0
+          ? Number(
+              (
+                ((wishlistCounts[ad.adId] || 0) /
+                  (ad.viewHistory?.length || 0)) *
+                100
+              ).toFixed(2),
+            )
+          : 0,
       isPromoted: ad.isPromoted || false,
       promotedUntil: ad.promotedUntil || null,
       expiryDate: ad.expiryDate || null,
@@ -1151,7 +1383,15 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
     }));
 
     return {
-      summary: { totalAds, activeAds, totalViews, uniqueVisitors, totalContactClicks, promotedAds, totalWishlistSaves },
+      summary: {
+        totalAds,
+        activeAds,
+        totalViews,
+        uniqueVisitors,
+        totalContactClicks,
+        promotedAds,
+        totalWishlistSaves,
+      },
       ads: adsWithAnalytics,
     };
   }
@@ -1188,7 +1428,9 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
         .exec();
       return count;
     } catch (error: any) {
-      this.logger.error(`Failed to get wishlist count for ${adId}: ${error.message}`);
+      this.logger.error(
+        `Failed to get wishlist count for ${adId}: ${error.message}`,
+      );
       return 0;
     }
   }
@@ -1202,12 +1444,11 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
    * Fixes all existing ads that have inflated view counts from non-unique tracking.
    */
   async resyncViewCounts(): Promise<{ updated: number }> {
-    const result = await (this.adModel as any).updateMany(
-      {},
-      [
+    const result = await (this.adModel as any)
+      .updateMany({}, [
         { $set: { views: { $size: { $ifNull: ['$viewHistory', []] } } } },
-      ],
-    ).exec();
+      ])
+      .exec();
     return { updated: result.modifiedCount ?? result.nModified ?? 0 };
   }
 
@@ -1219,13 +1460,13 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
     const ad = await this.getAdById(adId);
 
     if (ad.userId !== userId) {
-      throw new ForbiddenException(
-        'You can only update your own ads',
-      );
+      throw new ForbiddenException('You can only update your own ads');
     }
 
-    const currentEditCount = typeof (ad as any).editCount === 'number' ? (ad as any).editCount : 0;
-    const hasUsedEdit = Boolean((ad as any).hasUsedEdit) || currentEditCount >= 1;
+    const currentEditCount =
+      typeof (ad as any).editCount === 'number' ? (ad as any).editCount : 0;
+    const hasUsedEdit =
+      Boolean((ad as any).hasUsedEdit) || currentEditCount >= 1;
 
     if (hasUsedEdit) {
       throw new ForbiddenException('You can edit an ad only once');
@@ -1247,8 +1488,7 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
       )
       .exec();
 
-    if (!updatedAd)
-      throw new NotFoundException(`Ad ${adId} not found`);
+    if (!updatedAd) throw new NotFoundException(`Ad ${adId} not found`);
 
     await this.emitAdUpdated(updatedAd, uuidv4());
 
@@ -1259,16 +1499,11 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
     const ad = await this.getAdById(adId);
 
     if (ad.userId !== userId) {
-      throw new ForbiddenException(
-        'You can only delete your own ads',
-      );
+      throw new ForbiddenException('You can only delete your own ads');
     }
 
     await this.adModel
-      .findOneAndUpdate(
-        { adId },
-        { status: 'deleted', updatedAt: new Date() },
-      )
+      .findOneAndUpdate({ adId }, { status: 'deleted', updatedAt: new Date() })
       .exec();
 
     await this.emitAdDeleted(adId, userId, uuidv4());
@@ -1278,75 +1513,75 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
      ✅ SAFE KAFKA EVENTS (PUBLIC NOW)
   ============================================================ */
 
-   async emitAdCreated(ad: Ad, correlationId: string): Promise<void> {
-     if (!this.kafkaService) {
-       this.logger.debug('Kafka disabled - AD_CREATED event not emitted');
-       return;
-     }
+  async emitAdCreated(ad: Ad, correlationId: string): Promise<void> {
+    if (!this.kafkaService) {
+      this.logger.debug('Kafka disabled - AD_CREATED event not emitted');
+      return;
+    }
 
-     try {
-       await this.kafkaService.emit(
-         KAFKA_TOPICS.AD_CREATED,
-         {
-           adId: ad.adId,
-           userId: ad.userId,
-           title: ad.title,
-           category: ad.category,
-           price: ad.price,
-           timestamp: new Date().toISOString(),
-         },
-         correlationId,
-       );
-     } catch (error) {
-       this.logger.error(`Failed to emit AD_CREATED event: ${error.message}`);
-     }
-   }
+    try {
+      await this.kafkaService.emit(
+        KAFKA_TOPICS.AD_CREATED,
+        {
+          adId: ad.adId,
+          userId: ad.userId,
+          title: ad.title,
+          category: ad.category,
+          price: ad.price,
+          timestamp: new Date().toISOString(),
+        },
+        correlationId,
+      );
+    } catch (error) {
+      this.logger.error(`Failed to emit AD_CREATED event: ${error.message}`);
+    }
+  }
 
-   async emitAdUpdated(ad: Ad, correlationId: string): Promise<void> {
-     if (!this.kafkaService) {
-       this.logger.debug('Kafka disabled - AD_UPDATED event not emitted');
-       return;
-     }
+  async emitAdUpdated(ad: Ad, correlationId: string): Promise<void> {
+    if (!this.kafkaService) {
+      this.logger.debug('Kafka disabled - AD_UPDATED event not emitted');
+      return;
+    }
 
-     try {
-       await this.kafkaService.emit(
-         KAFKA_TOPICS.AD_UPDATED,
-         {
-           adId: ad.adId,
-           userId: ad.userId,
-           timestamp: new Date().toISOString(),
-         },
-         correlationId,
-       );
-     } catch (error) {
-       this.logger.error(`Failed to emit AD_UPDATED event: ${error.message}`);
-     }
-   }
+    try {
+      await this.kafkaService.emit(
+        KAFKA_TOPICS.AD_UPDATED,
+        {
+          adId: ad.adId,
+          userId: ad.userId,
+          timestamp: new Date().toISOString(),
+        },
+        correlationId,
+      );
+    } catch (error) {
+      this.logger.error(`Failed to emit AD_UPDATED event: ${error.message}`);
+    }
+  }
 
-   async emitAdDeleted(
-     adId: string,
-     userId: string,
-     correlationId: string,
-   ): Promise<void> {
-     if (!this.kafkaService) {
-       this.logger.debug('Kafka disabled - AD_DELETED event not emitted');
-       return;
-     }
+  async emitAdDeleted(
+    adId: string,
+    userId: string,
+    correlationId: string,
+  ): Promise<void> {
+    if (!this.kafkaService) {
+      this.logger.debug('Kafka disabled - AD_DELETED event not emitted');
+      return;
+    }
 
-     try {
-       await this.kafkaService.emit(
-         KAFKA_TOPICS.AD_DELETED,
-         {
-           adId,
-           userId,
-           timestamp: new Date().toISOString(),
-         },
-         correlationId,
-       );
-     } catch (error) {
-       this.logger.error(`Failed to emit AD_DELETED event: ${error.message}`);
-     }
-   }
+    try {
+      await this.kafkaService.emit(
+        KAFKA_TOPICS.AD_DELETED,
+        {
+          adId,
+          userId,
+          timestamp: new Date().toISOString(),
+        },
+        correlationId,
+      );
+    } catch (error) {
+      this.logger.error(`Failed to emit AD_DELETED event: ${error.message}`);
+    }
+  }
 
   /* ============================================================
      REPORTING & MODERATION
@@ -1362,13 +1597,19 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
     description?: string,
   ): Promise<{ success: boolean; message: string; reportId: string }> {
     try {
-      this.logger.log(`User ${userId} reporting ad ${adId} for reason: ${reason}`);
+      this.logger.log(
+        `User ${userId} reporting ad ${adId} for reason: ${reason}`,
+      );
 
       // Resolve adId - could be UUID or MongoDB _id
       let resolvedAdId = adId;
       if (/^[0-9a-fA-F]{24}$/.test(adId)) {
         // If it looks like MongoDB _id, get the UUID adId
-        const found = await this.adModel.findById(adId).select('adId').lean().exec();
+        const found = await this.adModel
+          .findById(adId)
+          .select('adId')
+          .lean()
+          .exec();
         if (found?.adId) {
           resolvedAdId = found.adId;
         }
@@ -1389,7 +1630,7 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
       const existingReport = await this.reportModel
         .findOne({ adId: resolvedAdId, reportedBy: userId })
         .exec();
-      
+
       if (existingReport) {
         throw new BadRequestException('You have already reported this ad');
       }
@@ -1405,18 +1646,23 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
       });
 
       // Increment report count on ad
-      const updatedAd = await this.adModel.findOneAndUpdate(
-        { adId: resolvedAdId },
-        {
-          $inc: { reportCount: 1 },
-          $set: { isUnderReview: true },
-        },
-        { new: true },
-      ).exec();
+      const updatedAd = await this.adModel
+        .findOneAndUpdate(
+          { adId: resolvedAdId },
+          {
+            $inc: { reportCount: 1 },
+            $set: { isUnderReview: true },
+          },
+          { new: true },
+        )
+        .exec();
 
       // Auto-disable if 10 or more reports
       if ((updatedAd?.reportCount ?? 0) >= 10) {
-        await this.autoDisableAd(resolvedAdId, `Auto-disabled: ${updatedAd?.reportCount} reports`);
+        await this.autoDisableAd(
+          resolvedAdId,
+          `Auto-disabled: ${updatedAd?.reportCount} reports`,
+        );
       }
 
       // Emit Kafka event for notifications
@@ -1444,9 +1690,13 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
       // Send email notification to admin
       if (this.emailEnabled && this.emailTransporter) {
         try {
-          const adData = await this.adModel.findOne({ adId: resolvedAdId }).select('title').lean().exec();
+          const adData = await this.adModel
+            .findOne({ adId: resolvedAdId })
+            .select('title')
+            .lean()
+            .exec();
           const adminEmail = this.configService.get('ADMIN_EMAIL');
-          
+
           if (adminEmail) {
             const mailOptions = {
               from: this.configService.get('EMAIL_FROM'),
@@ -1466,7 +1716,9 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
             this.logger.log(`✅ Email sent to admin: ${adminEmail}`);
           }
         } catch (emailError: any) {
-          this.logger.error(`Failed to send report email: ${emailError.message}`);
+          this.logger.error(
+            `Failed to send report email: ${emailError.message}`,
+          );
           // Don't throw - email failure shouldn't break report submission
         }
       }
@@ -1489,21 +1741,26 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
     try {
       this.logger.warn(`Auto-disabling ad ${adId}: ${reason}`);
 
-      await this.adModel.findOneAndUpdate(
-        { adId },
-        {
-          $set: {
-            autoDisabled: true,
-            disabledAt: new Date(),
-            disabledReason: reason,
-            status: 'expired', // Mark as expired so it won't show in listings
+      await this.adModel
+        .findOneAndUpdate(
+          { adId },
+          {
+            $set: {
+              autoDisabled: true,
+              disabledAt: new Date(),
+              disabledReason: reason,
+              status: 'expired', // Mark as expired so it won't show in listings
+            },
           },
-        },
-      ).exec();
+        )
+        .exec();
 
       // Get ad owner to notify
-      const ad = await this.adModel.findOne({ adId }).select('userId title').exec();
-      
+      const ad = await this.adModel
+        .findOne({ adId })
+        .select('userId title')
+        .exec();
+
       if (ad && this.kafkaService) {
         await this.kafkaService.emit(KAFKA_TOPICS.AD_AUTO_DISABLED, {
           adId,
@@ -1527,44 +1784,67 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
 
       const reports = await this.reportModel.aggregate([
         { $match: { adId } },
-        { $lookup: {
+        {
+          $lookup: {
             from: 'ads',
             localField: 'adId',
             foreignField: 'adId',
             as: 'ad',
-        }},
+          },
+        },
         { $unwind: { path: '$ad', preserveNullAndEmptyArrays: true } },
         // Convert ad.userId (string) to ObjectId for user lookup
-        { $addFields: {
+        {
+          $addFields: {
             adUserObjectId: {
               $cond: [
-                { $regexMatch: { input: '$ad.userId', regex: /^[0-9a-fA-F]{24}$/ } },
+                {
+                  $regexMatch: {
+                    input: '$ad.userId',
+                    regex: /^[0-9a-fA-F]{24}$/,
+                  },
+                },
                 { $toObjectId: '$ad.userId' },
-                null
-              ]
+                null,
+              ],
             },
-            adUserIdString: '$ad.userId'
-        }},
+            adUserIdString: '$ad.userId',
+          },
+        },
         // Lookup uploader (user or merchant) by _id
-        { $lookup: {
+        {
+          $lookup: {
             from: 'users',
             let: { adUserObjectId: '$adUserObjectId' },
             pipeline: [
               { $match: { $expr: { $eq: ['$_id', '$$adUserObjectId'] } } },
             ],
             as: 'uploader',
-        }},
+          },
+        },
         { $unwind: { path: '$uploader', preserveNullAndEmptyArrays: true } },
         // Lookup all active ads for this uploader to count listings
-        { $lookup: {
+        {
+          $lookup: {
             from: 'ads',
             let: { uploaderUserId: '$uploader._id' },
             pipeline: [
-              { $match: { $expr: { $and: [ { $eq: [ { $toObjectId: '$userId' }, '$$uploaderUserId' ] }, { $eq: ['$status', 'active'] } ] } } },
+              {
+                $match: {
+                  $expr: {
+                    $and: [
+                      { $eq: [{ $toObjectId: '$userId' }, '$$uploaderUserId'] },
+                      { $eq: ['$status', 'active'] },
+                    ],
+                  },
+                },
+              },
             ],
             as: 'uploaderActiveAds',
-        }},
-        { $addFields: {
+          },
+        },
+        {
+          $addFields: {
             uploader: {
               $cond: [
                 { $ifNull: ['$uploader.userId', false] },
@@ -1572,15 +1852,31 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
                 {
                   $cond: [
                     { $ifNull: ['$adUserIdString', false] },
-                    { name: 'No user info', accountType: '-', role: '-', email: '-', userId: '$adUserIdString' },
-                    { name: 'No user info', accountType: '-', role: '-', email: '-', userId: '-' }
-                  ]
-                }
-              ]
+                    {
+                      name: 'No user info',
+                      accountType: '-',
+                      role: '-',
+                      email: '-',
+                      userId: '$adUserIdString',
+                    },
+                    {
+                      name: 'No user info',
+                      accountType: '-',
+                      role: '-',
+                      email: '-',
+                      userId: '-',
+                    },
+                  ],
+                },
+              ],
             },
-            uploaderListingCount: { $size: { $ifNull: ['$uploaderActiveAds', []] } },
-        }},
-        { $project: {
+            uploaderListingCount: {
+              $size: { $ifNull: ['$uploaderActiveAds', []] },
+            },
+          },
+        },
+        {
+          $project: {
             reportId: 1,
             adId: 1,
             reportedBy: 1,
@@ -1606,7 +1902,8 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
             'uploader.email': 1,
             'uploader.userId': 1,
             uploaderListingCount: 1,
-        }},
+          },
+        },
         { $sort: { createdAt: -1 } },
       ]);
 
@@ -1635,15 +1932,18 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
 
       const reports = await this.reportModel.aggregate([
         { $match: {} },
-        { $lookup: {
+        {
+          $lookup: {
             from: 'ads',
             localField: 'adId',
             foreignField: 'adId',
             as: 'ad',
-        }},
+          },
+        },
         { $unwind: { path: '$ad', preserveNullAndEmptyArrays: false } }, // Only keep if ad exists
         { $match: { 'ad.status': { $nin: ['deleted', 'hidden'] } } }, // Exclude deleted/hidden ads
-        { $project: {
+        {
+          $project: {
             reportId: 1,
             adId: 1,
             reportedBy: 1,
@@ -1656,14 +1956,20 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
             'ad.title': 1,
             'ad.status': 1,
             'ad.reportCount': 1,
-        }},
+          },
+        },
         { $sort: { createdAt: -1 } },
       ]);
 
-      this.logger.log(`✅ Successfully fetched ${reports.length} reports with ad details (excluding deleted/hidden/missing ads)`);
+      this.logger.log(
+        `✅ Successfully fetched ${reports.length} reports with ad details (excluding deleted/hidden/missing ads)`,
+      );
       return reports;
     } catch (error: any) {
-      this.logger.error(`❌ Error fetching reports: ${error.message}`, error.stack);
+      this.logger.error(
+        `❌ Error fetching reports: ${error.message}`,
+        error.stack,
+      );
       throw error;
     }
   }
@@ -1681,18 +1987,20 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
     try {
       this.logger.log(`Updating report ${reportId} status to: ${status}`);
 
-      const report = await this.reportModel.findOneAndUpdate(
-        { reportId },
-        {
-          $set: {
-            status,
-            adminNotes: adminNotes || '',
-            reviewedAt: new Date(),
-            reviewedBy: reviewerId || '',
+      const report = await this.reportModel
+        .findOneAndUpdate(
+          { reportId },
+          {
+            $set: {
+              status,
+              adminNotes: adminNotes || '',
+              reviewedAt: new Date(),
+              reviewedBy: reviewerId || '',
+            },
           },
-        },
-        { new: true },
-      ).exec();
+          { new: true },
+        )
+        .exec();
 
       if (!report) {
         throw new NotFoundException('Report not found');
@@ -1705,7 +2013,7 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
           adminEmail: reviewerEmail,
           targetId: reportId,
           targetType: 'Report',
-          details: { newStatus: status, adminNotes }
+          details: { newStatus: status, adminNotes },
         });
       }
 
@@ -1774,7 +2082,9 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
 
     const ad = await this.adModel.findOne({ adId: report.adId }).lean().exec();
     if (!ad || String(ad.userId) !== String(merchantId)) {
-      throw new ForbiddenException('You can only update reports for your own ads');
+      throw new ForbiddenException(
+        'You can only update reports for your own ads',
+      );
     }
 
     await this.reportModel
@@ -1823,25 +2133,30 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
         updateData.disabledReason = '';
       } else if (decision === 'remove') {
         updateData.status = 'deleted';
-        updateData.rejectionReason = adminNotes || 'Removed by admin after review';
+        updateData.rejectionReason =
+          adminNotes || 'Removed by admin after review';
       } else if (decision === 'request_changes') {
         updateData.status = 'pending';
         updateData.rejectionReason = adminNotes || 'Changes requested by admin';
       }
 
-      await this.adModel.findOneAndUpdate({ adId }, { $set: updateData }).exec();
+      await this.adModel
+        .findOneAndUpdate({ adId }, { $set: updateData })
+        .exec();
 
       // Mark all pending reports for this ad as action_taken
-      await this.reportModel.updateMany(
-        { adId, status: ReportStatus.PENDING },
-        {
-          $set: {
-            status: ReportStatus.ACTION_TAKEN,
-            reviewedAt: new Date(),
-            reviewedBy: reviewerId || '',
+      await this.reportModel
+        .updateMany(
+          { adId, status: ReportStatus.PENDING },
+          {
+            $set: {
+              status: ReportStatus.ACTION_TAKEN,
+              reviewedAt: new Date(),
+              reviewedBy: reviewerId || '',
+            },
           },
-        },
-      ).exec();
+        )
+        .exec();
 
       if (reviewerId && reviewerEmail) {
         await this.auditLogsService.log({
@@ -1850,7 +2165,7 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
           adminEmail: reviewerEmail,
           targetId: adId,
           targetType: 'Ad',
-          details: { decision, adminNotes }
+          details: { decision, adminNotes },
         });
       }
 
@@ -1882,10 +2197,9 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
 
       let updated = 0;
       for (const item of result) {
-        await this.adModel.updateOne(
-          { adId: item._id },
-          { $set: { reportCount: item.count } },
-        ).exec();
+        await this.adModel
+          .updateOne({ adId: item._id }, { $set: { reportCount: item.count } })
+          .exec();
         updated++;
       }
 
@@ -1907,8 +2221,18 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
     reportedBy: string;
     reportCount: number;
   }): string {
-    const urgencyColor = data.reportCount >= 10 ? '#dc2626' : data.reportCount >= 5 ? '#ea580c' : '#ca8a04';
-    const urgencyText = data.reportCount >= 10 ? 'CRITICAL - Auto-Disabled' : data.reportCount >= 5 ? 'High Priority' : 'New Report';
+    const urgencyColor =
+      data.reportCount >= 10
+        ? '#dc2626'
+        : data.reportCount >= 5
+          ? '#ea580c'
+          : '#ca8a04';
+    const urgencyText =
+      data.reportCount >= 10
+        ? 'CRITICAL - Auto-Disabled'
+        : data.reportCount >= 5
+          ? 'High Priority'
+          : 'New Report';
 
     const emojis: Record<string, string> = {
       spam: '📢',
@@ -1963,12 +2287,16 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
                 </div>
               </div>
 
-              ${data.description ? `
+              ${
+                data.description
+                  ? `
                 <div class="detail-row">
                   <div class="label">Reporter's Description</div>
                   <div class="value" style="font-style: italic;">"${data.description}"</div>
                 </div>
-              ` : ''}
+              `
+                  : ''
+              }
 
               <div class="detail-row">
                 <div class="label">Reported By (User ID)</div>
@@ -1981,14 +2309,18 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
                 </a>
               </div>
 
-              ${data.reportCount >= 10 ? `
+              ${
+                data.reportCount >= 10
+                  ? `
                 <div style="margin-top: 20px; padding: 15px; background: #fef2f2; border: 2px solid #dc2626; border-radius: 8px;">
                   <strong style="color: #dc2626;">⚠️ AUTO-DISABLED</strong>
                   <p style="margin: 10px 0 0 0; color: #991b1b; font-size: 14px;">
                     This ad has been automatically disabled due to reaching 10 reports. Please review immediately.
                   </p>
                 </div>
-              ` : ''}
+              `
+                  : ''
+              }
 
               <div class="footer">
                 <p>This is an automated notification from GOLO's content moderation system.</p>
@@ -2047,72 +2379,80 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
       this.adModel.distinct('category').exec(),
       this.adModel.distinct('category', { status: 'active' }).exec(),
       this.adModel.distinct('subCategory').exec(),
-      this.adModel.aggregate([
-        {
-          $group: {
-            _id: '$category',
-            listings: { $sum: 1 },
-            products: { $addToSet: '$subCategory' },
-          },
-        },
-        { $sort: { listings: -1 } },
-        { $limit: 6 },
-        {
-          $project: {
-            _id: 0,
-            label: '$_id',
-            products: { $slice: ['$products', 8] },
-          },
-        },
-      ]).exec(),
-      this.adModel.aggregate([
-        {
-          $group: {
-            _id: {
-              category: '$category',
-              subCategory: '$subCategory',
+      this.adModel
+        .aggregate([
+          {
+            $group: {
+              _id: '$category',
+              listings: { $sum: 1 },
+              products: { $addToSet: '$subCategory' },
             },
-            listings: { $sum: 1 },
-            activeListings: {
-              $sum: {
-                $cond: [{ $eq: ['$status', 'active'] }, 1, 0],
+          },
+          { $sort: { listings: -1 } },
+          { $limit: 6 },
+          {
+            $project: {
+              _id: 0,
+              label: '$_id',
+              products: { $slice: ['$products', 8] },
+            },
+          },
+        ])
+        .exec(),
+      this.adModel
+        .aggregate([
+          {
+            $group: {
+              _id: {
+                category: '$category',
+                subCategory: '$subCategory',
+              },
+              listings: { $sum: 1 },
+              activeListings: {
+                $sum: {
+                  $cond: [{ $eq: ['$status', 'active'] }, 1, 0],
+                },
+              },
+              lastUpdated: { $max: '$updatedAt' },
+            },
+          },
+          { $sort: { listings: -1 } },
+          { $limit: safeLimit },
+          {
+            $project: {
+              _id: 0,
+              name: '$_id.subCategory',
+              parent: '$_id.category',
+              listings: 1,
+              status: {
+                $cond: [{ $gt: ['$activeListings', 0] }, 'Active', 'Hidden'],
+              },
+              lastUpdated: {
+                $ifNull: ['$lastUpdated', new Date()],
               },
             },
-            lastUpdated: { $max: '$updatedAt' },
           },
-        },
-        { $sort: { listings: -1 } },
-        { $limit: safeLimit },
-        {
-          $project: {
-            _id: 0,
-            name: '$_id.subCategory',
-            parent: '$_id.category',
-            listings: 1,
-            status: {
-              $cond: [{ $gt: ['$activeListings', 0] }, 'Active', 'Hidden'],
-            },
-            lastUpdated: {
-              $ifNull: ['$lastUpdated', new Date()],
+        ])
+        .exec(),
+      this.adModel
+        .aggregate([
+          {
+            $group: {
+              _id: {
+                category: '$category',
+                subCategory: '$subCategory',
+              },
             },
           },
-        },
-      ]).exec(),
-      this.adModel.aggregate([
-        {
-          $group: {
-            _id: {
-              category: '$category',
-              subCategory: '$subCategory',
-            },
-          },
-        },
-        { $count: 'total' },
-      ]).exec(),
+          { $count: 'total' },
+        ])
+        .exec(),
     ]);
 
     const totalCategories = (categoryValues || []).filter(Boolean).length;
-    const activeCategories = (activeCategoryValues || []).filter(Boolean).length;
+    const activeCategories = (activeCategoryValues || []).filter(
+      Boolean,
+    ).length;
     const subcategories = (subcategoryValues || []).filter(Boolean).length;
     const disabledHidden = Math.max(totalCategories - activeCategories, 0);
 
