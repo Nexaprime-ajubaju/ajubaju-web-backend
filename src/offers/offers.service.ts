@@ -418,7 +418,7 @@ export class OffersService implements OnModuleInit {
 
     const merchant = await this.merchantModel
       .findOne({ userId: String(row.merchantId) })
-      .select('userId storeName storeLocation storeLocationLatitude storeLocationLongitude profilePhoto shopPhoto storeCategory storeSubCategory')
+      .select('userId storeName storeLocation storeLocationLatitude storeLocationLongitude profilePhoto shopPhoto storeCategory storeSubCategory contactNumber phoneNumber mobile mobileNumber merchantPhone storePhone')
       .lean()
       .exec();
 
@@ -465,6 +465,11 @@ export class OffersService implements OnModuleInit {
         latitude: merchant?.storeLocationLatitude || null,
         longitude: merchant?.storeLocationLongitude || null,
         profilePhoto: merchant?.profilePhoto || merchant?.shopPhoto || '',
+        contactNumber: merchant?.contactNumber || merchant?.phoneNumber || merchant?.mobile || merchant?.mobileNumber || merchant?.merchantPhone || merchant?.storePhone || null,
+        phone: merchant?.phoneNumber || merchant?.contactNumber || merchant?.mobile || merchant?.mobileNumber || merchant?.merchantPhone || merchant?.storePhone || null,
+        phoneNumber: merchant?.phoneNumber || merchant?.contactNumber || merchant?.mobile || merchant?.mobileNumber || merchant?.merchantPhone || merchant?.storePhone || null,
+        mobile: merchant?.mobile || merchant?.mobileNumber || merchant?.phoneNumber || merchant?.contactNumber || merchant?.merchantPhone || merchant?.storePhone || null,
+        mobileNumber: merchant?.mobileNumber || merchant?.mobile || merchant?.phoneNumber || merchant?.contactNumber || merchant?.merchantPhone || merchant?.storePhone || null,
       },
       selectedProducts,
       createdAt: rowAny.createdAt,
