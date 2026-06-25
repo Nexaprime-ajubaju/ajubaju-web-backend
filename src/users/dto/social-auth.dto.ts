@@ -16,4 +16,8 @@ export class SocialAuthDto {
   @IsOptional()
   @IsPhoneNumber()
   phone?: string;
+
+  @IsOptional()
+  @IsIn(['user', 'merchant'])
+  accountType?: 'user' | 'merchant';
 }
