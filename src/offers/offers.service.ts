@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, Logger, NotFoundException, OnModuleInit, Optional } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException, OnModuleInit, Optional } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, isValidObjectId } from 'mongoose';
 import { v4 as uuidv4 } from 'uuid';
@@ -9,6 +9,8 @@ import { Voucher, VoucherDocument, VoucherStatus } from '../vouchers/schemas/vou
 // Banner models removed to keep offers module independent from banners
 import { User, UserDocument } from '../users/schemas/user.schema';
 import { Merchant, MerchantDocument } from '../users/schemas/merchant.schema';
+import { MerchantProduct, MerchantProductDocument } from '../merchant-products/schemas/merchant-product.schema';
+import { MerchantPlanService } from '../merchant-plan/merchant-plan.service';
 import { KAFKA_TOPICS } from '../common/constants/kafka-topics';
 
 @Injectable()
@@ -20,6 +22,8 @@ export class OffersService implements OnModuleInit {
     @InjectModel(Voucher.name) private readonly voucherModel: Model<VoucherDocument>,
     @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
     @InjectModel(Merchant.name) private readonly merchantModel: Model<MerchantDocument>,
+    @InjectModel(MerchantProduct.name) private readonly merchantProductModel: Model<MerchantProductDocument>,
+    private readonly merchantPlanService: MerchantPlanService,
     private readonly redisService: RedisService,
     @Optional() private readonly kafkaService?: KafkaService,
   ) {}
@@ -204,6 +208,66 @@ export class OffersService implements OnModuleInit {
     if (normalizedDates[0] < today) throw new BadRequestException('Selected dates cannot be in the past');
 
     const selectedDays = normalizedDates.length;
+    
+    // Free Tier Validation
+    const merchantDoc = await this.merchantModel.findOne({ userId: merchantId }).exec();
+    if (merchantDoc) {
+      const planDetails = await this.merchantPlanService.getPlanDetails(merchantDoc);
+      const features = planDetails.planFeatures;
+
+      // 1. Product Eligibility Validation
+      if (Array.isArray(payload.selectedProducts) && payload.selectedProducts.length > 0) {
+        const top10Products = await this.merchantProductModel
+          .find({ merchantId })
+          .sort({ createdAt: -1 })
+          .limit(10)
+          .select('_id')
+          .lean()
+          .exec();
+        
+        const eligibleProductIds = new Set(top10Products.map(p => String(p._id)));
+        const invalidProducts = payload.selectedProducts.filter(id => !eligibleProductIds.has(String(id)));
+        
+        if (invalidProducts.length > 0) {
+          throw new BadRequestException({
+            success: false,
+            statusCode: 400,
+            errorCode: 'PRODUCT_NOT_ELIGIBLE',
+            message: 'Offers can only be created on your 10 most recently added products.'
+          });
+        }
+      }
+
+      // 2. Monthly Limit Validation
+      const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+      const offersThisMonth = await this.offerModel.countDocuments({
+        merchantId,
+        createdAt: { $gte: startOfMonth },
+      });
+
+      // Note: use maxMonthlyOffers instead of monthlyOffersLimit
+      const monthlyLimit = features.maxMonthlyOffers === -1 ? Infinity : features.maxMonthlyOffers;
+      if (offersThisMonth >= monthlyLimit) {
+        throw new BadRequestException({
+          success: false,
+          statusCode: 400,
+          errorCode: 'MONTHLY_OFFER_LIMIT_REACHED',
+          message: `You have reached your monthly limit of ${monthlyLimit} offers. Please upgrade to Premium.`
+        });
+      }
+
+      // 3. Duration Validation
+      const maxDuration = features.maxOfferDurationDays === -1 ? Infinity : features.maxOfferDurationDays;
+      if (selectedDays > maxDuration) {
+        throw new BadRequestException({
+          success: false,
+          statusCode: 400,
+          errorCode: 'OFFER_DURATION_EXCEEDED',
+          message: `Your current plan limits offer duration to ${maxDuration} days.`
+        });
+      }
+    }
+
     const dailyRate = Number(payload.dailyRate ?? 240);
     const platformFee = Number(payload.platformFee ?? (selectedDays > 0 ? 49 : 0));
     const computedTotal = dailyRate * selectedDays + platformFee;
@@ -341,6 +405,14 @@ export class OffersService implements OnModuleInit {
   }
 
   async updateMerchantOffer(requestId: string, merchantId: string, payload: any) {
+    const merchantDoc = await this.merchantModel.findOne({ userId: merchantId }).exec();
+    if (merchantDoc) {
+      const planDetails = await this.merchantPlanService.getPlanDetails(merchantDoc);
+      if (!planDetails.planFeatures.canEditOffer) {
+        throw new ForbiddenException('Free Tier merchants cannot edit offers. Please upgrade to Premium.');
+      }
+    }
+
     const request = await this.offerModel.findOne({ requestId, merchantId }).exec();
     if (!request) throw new NotFoundException('Offer not found');
 
@@ -382,11 +454,19 @@ export class OffersService implements OnModuleInit {
   }
 
   async deleteMerchantOffer(requestId: string, merchantId: string) {
+    const merchantDoc = await this.merchantModel.findOne({ userId: merchantId }).exec();
+    if (merchantDoc) {
+      const planDetails = await this.merchantPlanService.getPlanDetails(merchantDoc);
+      if (!planDetails.planFeatures.canDeleteOffer) {
+        throw new ForbiddenException('Free Tier merchants cannot delete offers. Please upgrade to Premium.');
+      }
+    }
+
     const offer = await this.offerModel.findOne({ requestId, merchantId }).exec();
     if (!offer) throw new NotFoundException('Offer not found');
     await this.offerModel.deleteOne({ requestId, merchantId }).exec();
     if (this.kafkaService) {
-      try { await this.kafkaService.emit(KAFKA_TOPICS.OFFER_PROMOTION_DELETED, { requestId, merchantId }); } catch {}
+      try { await this.kafkaService.emit(KAFKA_TOPICS.OFFER_PROMOTION_DELETED, { requestId, merchantId }); } catch (error) { console.error('[Offers] Kafka emit error:', error.message); }
     }
     await this.redisService.deleteByPattern(this.offerMerchantCacheKey(merchantId));
     return offer;

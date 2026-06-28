@@ -24,6 +24,7 @@ import { OfferLikeHistory, OfferLikeHistoryDocument } from '../offers/schemas/of
 import { OfferPromotion, OfferPromotionDocument } from '../offers/schemas/offer-promotion.schema';
 import { RedisService } from '../common/services/redis.service';
 import { OutboxService } from '../outbox/outbox.service';
+import { MerchantPlanService } from '../merchant-plan/merchant-plan.service';
 
 import { validatePreferredCategories, normalizeCategories } from '../common/constants/categories';
 
@@ -155,6 +156,7 @@ export class UsersService implements OnModuleInit {
     @Optional() @InjectModel(OfferLikeHistory.name) private offerLikeHistoryModel?: Model<OfferLikeHistoryDocument>,
     @Optional() @InjectModel(OfferPromotion.name) private offerPromotionModel?: Model<OfferPromotionDocument>,
     @Optional() private outboxService?: OutboxService,
+    private readonly merchantPlanService?: MerchantPlanService,
   ) {
     // Support both SMTP_* and EMAIL_* env var conventions.
     // The repo's `.env` currently uses EMAIL_* while OTP flow historically used SMTP_*.
@@ -311,6 +313,14 @@ export class UsersService implements OnModuleInit {
     if (accountType === 'merchant') {
       const { latitude, longitude } = this.getMerchantCoordinates(registerDto);
 
+      let trialStartDate: Date | undefined;
+      let trialEndDate: Date | undefined;
+      if (this.merchantPlanService) {
+        const dates = await this.merchantPlanService.calculateInitialTrialDates();
+        trialStartDate = dates.trialStartDate;
+        trialEndDate = dates.trialEndDate;
+      }
+
       await this.merchantModel.create({
         userId: savedUser._id.toString(),
         storeName: registerDto.storeName?.trim(),
@@ -323,6 +333,8 @@ export class UsersService implements OnModuleInit {
         storeLocationLatitude: latitude,
         storeLocationLongitude: longitude,
         status: 'active',
+        trialStartDate,
+        trialEndDate,
       });
     }
 
@@ -582,9 +594,26 @@ export class UsersService implements OnModuleInit {
     if (!user) {
       throw new NotFoundException('User not found');
     }
-    const merchantProfile = user.accountType === 'merchant'
-      ? await this.merchantModel.findOne({ userId: user._id.toString() }).lean().exec()
-      : null;
+    
+    let merchantProfile = null;
+    if (user.accountType === 'merchant') {
+      let doc = await this.merchantModel.findOne({ userId: user._id.toString() }).exec();
+      if (doc) {
+        if (this.merchantPlanService) {
+          doc = (await this.merchantPlanService.ensureTrialEndDate(doc)) as any;
+        }
+        merchantProfile = doc.toObject ? doc.toObject() : doc;
+        if (this.merchantPlanService) {
+          const planDetails = await this.merchantPlanService.getPlanDetails(doc);
+          merchantProfile = { 
+            ...merchantProfile, 
+            ...planDetails, // Backward compatibility for older frontends that expect merchantProfile.planFeatures
+            plan: planDetails 
+          };
+        }
+      }
+    }
+    
     return this.toResponseDto(user, merchantProfile);
   }
 
@@ -598,14 +627,28 @@ export class UsersService implements OnModuleInit {
     let merchant = await this.merchantModel.findOne({ userId: user._id.toString() }).exec();
     if (!merchant) {
       // Auto-create merchant profile to avoid 404s in the frontend
+      let trialStartDate: Date | undefined;
+      let trialEndDate: Date | undefined;
+      if (this.merchantPlanService) {
+        const dates = await this.merchantPlanService.calculateInitialTrialDates();
+        trialStartDate = dates.trialStartDate;
+        trialEndDate = dates.trialEndDate;
+      }
       merchant = await this.merchantModel.create({
         userId: user._id.toString(),
         storeName: user.name || '',
         storeEmail: user.email || '',
         status: 'active',
+        trialStartDate,
+        trialEndDate,
       });
     }
-    return merchant.toObject ? merchant.toObject() : merchant;
+    
+    let result: any = merchant.toObject ? merchant.toObject() : merchant;
+    if (this.merchantPlanService) {
+      result = { ...result, ...(await this.merchantPlanService.getPlanDetails(merchant)) };
+    }
+    return result;
   }
 
   async updateProfile(userId: string, updateData: any): Promise<UserResponseDto> {

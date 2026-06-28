@@ -9,15 +9,20 @@ import { Order, OrderSchema } from './schemas/order.schema';
 import { KafkaModule } from '../kafka/kafka.module';
 import { RedisModule } from '../common/services/redis.module';
 
+import { Merchant, MerchantSchema } from '../users/schemas/merchant.schema';
+import { MerchantPlanModule } from '../merchant-plan/merchant-plan.module';
+
 @Module({
   imports: [
     MongooseModule.forFeature([
       { name: Order.name, schema: OrderSchema },
       { name: User.name, schema: UserSchema },
       { name: Notification.name, schema: NotificationSchema },
+      { name: Merchant.name, schema: MerchantSchema },
     ]),
     KafkaModule, // Order placement, status updates, fulfillment events
     RedisModule, // Cache order history, status lookups
+    MerchantPlanModule,
   ],
   controllers: [OrdersController, OrdersKafkaController],
   providers: [OrdersService],

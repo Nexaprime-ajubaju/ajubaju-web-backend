@@ -7,6 +7,7 @@ import {
 import { ClientKafka } from '@nestjs/microservices';
 import { ConfigService } from '@nestjs/config';
 import { KAFKA_TOPICS } from '../common/constants/kafka-topics';
+import { lastValueFrom } from 'rxjs';
 
 @Injectable()
 export class KafkaService implements OnModuleInit, OnModuleDestroy {
@@ -166,7 +167,7 @@ export class KafkaService implements OnModuleInit, OnModuleDestroy {
 
       this.logger.debug(`Emitting to topic ${topic}`);
       
-      await this.kafkaClient.emit(topic, { value: message, headers }).toPromise();
+      await lastValueFrom(this.kafkaClient.emit(topic, { value: message, headers }));
     } catch (error) {
       this.logger.error(`Failed to emit to topic ${topic}: ${error.message}`);
       
@@ -199,7 +200,7 @@ export class KafkaService implements OnModuleInit, OnModuleDestroy {
 
       this.logger.debug(`Sending to topic ${topic}`);
       
-      return await this.kafkaClient.send(topic, { value: message, headers }).toPromise();
+      return await lastValueFrom(this.kafkaClient.send(topic, { value: message, headers }));
     } catch (error) {
       this.logger.error(`Failed to send to topic ${topic}: ${error.message}`);
       
@@ -225,7 +226,7 @@ export class KafkaService implements OnModuleInit, OnModuleDestroy {
           timestamp: new Date().toISOString(),
           correlationId: correlationId || this.generateCorrelationId()
         }
-      }).toPromise();
+      });
     } catch (dlqError) {
       this.logger.error(`Failed to send to DLQ: ${dlqError.message}`);
     }

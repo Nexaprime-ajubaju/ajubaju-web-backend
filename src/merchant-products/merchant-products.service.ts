@@ -18,6 +18,8 @@ import {
   MerchantProduct,
   MerchantProductDocument,
 } from './schemas/merchant-product.schema';
+import { MerchantPlanService } from '../merchant-plan/merchant-plan.service';
+import { Merchant, MerchantDocument } from '../users/schemas/merchant.schema';
 
 @Injectable()
 export class MerchantProductsService implements OnModuleInit {
@@ -26,6 +28,8 @@ export class MerchantProductsService implements OnModuleInit {
   constructor(
     @InjectModel(MerchantProduct.name)
     private readonly merchantProductModel: Model<MerchantProductDocument>,
+    @InjectModel(Merchant.name) private readonly merchantModel: Model<MerchantDocument>,
+    private readonly merchantPlanService: MerchantPlanService,
     private readonly redisService: RedisService,
     @Optional() private readonly kafkaService?: KafkaService,
   ) {}
@@ -59,6 +63,22 @@ export class MerchantProductsService implements OnModuleInit {
   }
 
   async create(merchantId: string, dto: CreateMerchantProductDto) {
+    const merchant = await this.merchantModel.findOne({ userId: merchantId }).exec();
+    if (merchant) {
+      const planDetails = await this.merchantPlanService.getPlanDetails(merchant);
+      if (planDetails.planFeatures.maxProducts !== -1) {
+        const totalProducts = await this.merchantProductModel.countDocuments({ merchantId }).exec();
+        if (totalProducts >= planDetails.planFeatures.maxProducts) {
+          throw new ForbiddenException({
+            success: false,
+            statusCode: 403,
+            errorCode: 'PRODUCT_LIMIT_REACHED',
+            message: `Free Tier merchants can only add up to ${planDetails.planFeatures.maxProducts} products. Please upgrade to Premium.`
+          });
+        }
+      }
+    }
+
     const payload = {
       merchantId,
       name: dto.name.trim(),
@@ -109,7 +129,7 @@ export class MerchantProductsService implements OnModuleInit {
       filter.$or = [{ name: searchRegex }, { category: searchRegex }];
     }
 
-    const [products, total, totalProducts, lowStockProducts, outOfStockProducts, inventoryAgg] =
+    const [products, total, totalProducts, lowStockProducts, outOfStockProducts, inventoryAgg, top10Products] =
       await Promise.all([
         this.merchantProductModel
           .find(filter)
@@ -135,14 +155,29 @@ export class MerchantProductsService implements OnModuleInit {
             },
           },
         ]),
+        this.merchantProductModel
+          .find({ merchantId })
+          .sort({ createdAt: -1 })
+          .limit(10)
+          .select('_id')
+          .lean()
+          .exec(),
       ]);
 
     const inventoryValue = inventoryAgg[0]?.total || 0;
+    const eligibleIds = new Set(top10Products.map(p => String(p._id)));
 
     const response = {
       success: true,
       data: {
-        products: products.map((product) => this.mapProduct(product)),
+        products: products.map((product) => {
+          const isEligible = eligibleIds.has(String(product._id));
+          return {
+            ...this.mapProduct(product),
+            offerEligible: isEligible,
+            ...(isEligible ? {} : { offerEligibilityReason: "Only your 10 most recently created products can receive offers on the Free Tier." }),
+          };
+        }),
         stats: {
           totalProducts,
           inventoryValue,
@@ -174,7 +209,7 @@ export class MerchantProductsService implements OnModuleInit {
       filter.$or = [{ name: searchRegex }, { category: searchRegex }];
     }
 
-    const [products, total] = await Promise.all([
+    const [products, total, top10Products] = await Promise.all([
       this.merchantProductModel
         .find(filter)
         .sort({ createdAt: -1 })
@@ -182,12 +217,28 @@ export class MerchantProductsService implements OnModuleInit {
         .limit(limit)
         .exec(),
       this.merchantProductModel.countDocuments(filter),
+      this.merchantProductModel
+        .find({ merchantId })
+        .sort({ createdAt: -1 })
+        .limit(10)
+        .select('_id')
+        .lean()
+        .exec(),
     ]);
+
+    const eligibleIds = new Set(top10Products.map(p => String(p._id)));
 
     return {
       success: true,
       data: {
-        products: products.map((product) => this.mapProduct(product)),
+        products: products.map((product) => {
+          const isEligible = eligibleIds.has(String(product._id));
+          return {
+            ...this.mapProduct(product),
+            offerEligible: isEligible,
+            ...(isEligible ? {} : { offerEligibilityReason: "Only your 10 most recently created products can receive offers on the Free Tier." }),
+          };
+        }),
       },
       pagination: {
         total,
@@ -299,6 +350,19 @@ export class MerchantProductsService implements OnModuleInit {
   }
 
   async deleteProduct(merchantId: string, productId: string) {
+    const merchant = await this.merchantModel.findOne({ userId: merchantId }).exec();
+    if (merchant) {
+      const planDetails = await this.merchantPlanService.getPlanDetails(merchant);
+      if (!planDetails.planFeatures.canDeleteProduct) {
+        throw new ForbiddenException({
+          success: false,
+          statusCode: 403,
+          errorCode: 'PRODUCT_DELETE_NOT_ALLOWED',
+          message: 'Free Tier merchants cannot delete products. Please upgrade to Premium.'
+        });
+      }
+    }
+
     const product = await this.findProductOrThrow(productId);
 
     if (String(product.merchantId) !== String(merchantId)) {

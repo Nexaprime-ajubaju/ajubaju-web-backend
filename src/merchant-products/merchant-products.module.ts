@@ -9,13 +9,18 @@ import {
 import { MerchantProductsController } from './merchant-products.controller';
 import { MerchantProductsService } from './merchant-products.service';
 
+import { MerchantPlanModule } from '../merchant-plan/merchant-plan.module';
+import { Merchant, MerchantSchema } from '../users/schemas/merchant.schema';
+
 @Module({
   imports: [
     MongooseModule.forFeature([
       { name: MerchantProduct.name, schema: MerchantProductSchema },
+      { name: Merchant.name, schema: MerchantSchema },
     ]),
     KafkaModule,
     RedisModule, // Cache merchant product listings, inventory
+    MerchantPlanModule,
   ],
   controllers: [MerchantProductsController],
   providers: [MerchantProductsService],

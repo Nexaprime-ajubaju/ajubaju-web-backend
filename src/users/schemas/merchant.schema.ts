@@ -69,6 +69,12 @@ export class Merchant {
   };
 
   @Prop()
+  trialStartDate?: Date;
+
+  @Prop()
+  trialEndDate?: Date;
+
+  @Prop()
   createdAt: Date;
 
   @Prop()

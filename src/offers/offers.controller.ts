@@ -85,7 +85,7 @@ export class OffersController {
   @UseGuards(JwtAuthGuard)
   async updateMyOffer(@Param('requestId') requestId: string, @Body() body: UpdateOfferPromotionDto, @CurrentUser() user: any) {
     const updated = await this.offersService.updateMerchantOffer(requestId, user.id, body);
-    try { await this.kafkaService.emit(KAFKA_TOPICS.OFFER_PROMOTION_REVIEWED, { requestId, merchantId: user.id }); } catch {}
+    try { await this.kafkaService.emit(KAFKA_TOPICS.OFFER_PROMOTION_REVIEWED, { requestId, merchantId: user.id }); } catch (error) { console.error('[Offers] Kafka emit error:', error.message); }
     return { success: true, message: 'Offer updated', data: updated, timestamp: new Date().toISOString() };
   }
 
@@ -93,7 +93,7 @@ export class OffersController {
   @UseGuards(JwtAuthGuard)
   async deleteMyOffer(@Param('requestId') requestId: string, @CurrentUser() user: any) {
     const result = await this.offersService.deleteMerchantOffer(requestId, user.id);
-    try { await this.kafkaService.emit(KAFKA_TOPICS.OFFER_PROMOTION_DELETED, { requestId, merchantId: user.id }); } catch {}
+    try { await this.kafkaService.emit(KAFKA_TOPICS.OFFER_PROMOTION_DELETED, { requestId, merchantId: user.id }); } catch (error) { console.error('[Offers] Kafka emit error:', error.message); }
     return { success: true, message: 'Offer deleted', data: result, timestamp: new Date().toISOString() };
   }
 

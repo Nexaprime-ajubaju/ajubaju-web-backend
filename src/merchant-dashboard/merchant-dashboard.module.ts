@@ -1,4 +1,6 @@
 import { Module } from '@nestjs/common';
+import { MerchantPlanModule } from '../merchant-plan/merchant-plan.module';
+import { Merchant, MerchantSchema } from '../users/schemas/merchant.schema';
 import { MongooseModule } from '@nestjs/mongoose';
 import { Ad, AdSchema } from '../ads/schemas/category-schemas/ad.schema';
 import { Order, OrderSchema } from '../orders/schemas/order.schema';
@@ -21,7 +23,9 @@ import { MerchantDashboardService } from './merchant-dashboard.service';
       { name: User.name, schema: UserSchema },
       { name: Voucher.name, schema: VoucherSchema },
       { name: OfferLikeHistory.name, schema: OfferLikeHistorySchema },
+      { name: Merchant.name, schema: MerchantSchema },
     ]),
+    MerchantPlanModule,
   ],
   controllers: [MerchantDashboardController, MerchantDashboardKafkaController],
   providers: [MerchantDashboardService],

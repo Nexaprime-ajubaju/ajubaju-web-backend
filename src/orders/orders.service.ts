@@ -1,9 +1,11 @@
-import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { UserDocument } from '../users/schemas/user.schema';
+import { Merchant, MerchantDocument } from '../users/schemas/merchant.schema';
 import { Order, OrderDocument, OrderStatus } from './schemas/order.schema';
 import { Notification, NotificationDocument } from '../users/schemas/notification.schema';
+import { MerchantPlanService } from '../merchant-plan/merchant-plan.service';
 
 @Injectable()
 export class OrdersService {
@@ -13,6 +15,8 @@ export class OrdersService {
     @InjectModel(Order.name) private readonly orderModel: Model<OrderDocument>,
     @InjectModel('User') private readonly userModel: Model<UserDocument>,
     @InjectModel('Notification') private readonly notificationModel: Model<NotificationDocument>,
+    @InjectModel(Merchant.name) private readonly merchantModel: Model<MerchantDocument>,
+    private readonly merchantPlanService: MerchantPlanService,
   ) {}
 
   async createOrder(userId: string, merchantId: string, amount: number, itemsCount = 1, voucherId?: string) {
@@ -140,6 +144,20 @@ export class OrdersService {
   async updateOrderStatus(merchantId: string, orderId: string, status: OrderStatus) {
     if (!Object.values(OrderStatus).includes(status)) {
       throw new BadRequestException('Invalid order status');
+    }
+
+    const merchant = await this.merchantModel.findOne({ userId: merchantId }).exec();
+    if (merchant) {
+      const planDetails = await this.merchantPlanService.getPlanDetails(merchant);
+      const allowedStatuses = planDetails.planFeatures.ordersStatusAllowed;
+      if (!allowedStatuses.includes(status)) {
+        throw new ForbiddenException({
+          success: false,
+          statusCode: 403,
+          errorCode: 'PLAN_RESTRICTION',
+          message: `Free Tier merchants can only change order status to: ${allowedStatuses.join(', ')}. Please upgrade to Premium.`
+        });
+      }
     }
 
     const order = await this.orderModel.findOne({

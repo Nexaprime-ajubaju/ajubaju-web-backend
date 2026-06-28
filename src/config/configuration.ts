@@ -26,13 +26,12 @@ export default registerAs('config', () => ({
   },
   
   mongodb: {
-    // Use external IP that definitely works
-    uri: process.env.MONGODB_URI || 'mongodb://mongo:nexaprime123@62.72.23.96:27017/?authSource=admin&directConnection=true',
-    host: process.env.MONGODB_HOST || '62.72.23.96',
+    uri: process.env.MONGODB_URI || 'mongodb://localhost:27017/golo',
+    host: process.env.MONGODB_HOST || 'localhost',
     port: parseInt(process.env.MONGODB_PORT || '27017', 10),
-    username: process.env.MONGODB_USERNAME || 'mongo',
-    password: process.env.MONGODB_PASSWORD || 'nexaprime123',
-    database: process.env.MONGODB_DATABASE || 'admin',
+    username: process.env.MONGODB_USERNAME || '',
+    password: process.env.MONGODB_PASSWORD || '',
+    database: process.env.MONGODB_DATABASE || 'golo',
 },
   
   kafka: {

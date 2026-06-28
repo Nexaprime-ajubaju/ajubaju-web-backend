@@ -14,8 +14,10 @@ import { OfferPromotion, OfferPromotionSchema } from '../offers/schemas/offer-pr
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { KafkaModule } from '../kafka/kafka.module';
 import { AdsModule } from '../ads/ads.module';
+import { OutboxModule } from '../outbox/outbox.module';
 import { Payment, PaymentSchema } from '../payments/schemas/payment.schema';
 import { RedisModule } from '../common/services/redis.module';
+import { MerchantPlanModule } from '../merchant-plan/merchant-plan.module';
 
 @Module({
   imports: [
@@ -50,8 +52,10 @@ import { RedisModule } from '../common/services/redis.module';
       inject: [ConfigService],
     }),
     KafkaModule, // User activity, registration events
+    OutboxModule, // Consistent events
     forwardRef(() => AdsModule),
     RedisModule, // Cache user profiles, wishlist, preferences
+    MerchantPlanModule,
   ],
   controllers: [UsersController],
   providers: [UsersService, JwtStrategy],

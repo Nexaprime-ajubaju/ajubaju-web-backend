@@ -9,6 +9,8 @@ import { User, UserDocument } from '../users/schemas/user.schema';
 import { Voucher, VoucherDocument } from '../vouchers/schemas/voucher.schema';
 import { OfferLikeHistory, OfferLikeHistoryDocument } from '../offers/schemas/offer-like-history.schema';
 import { RedisService } from '../common/services/redis.service';
+import { MerchantPlanService } from '../merchant-plan/merchant-plan.service';
+import { Merchant, MerchantDocument } from '../users/schemas/merchant.schema';
 
 @Injectable()
 export class MerchantDashboardService {
@@ -20,7 +22,9 @@ export class MerchantDashboardService {
     @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
     @InjectModel(Voucher.name) private readonly voucherModel: Model<VoucherDocument>,
     @InjectModel(OfferLikeHistory.name) private readonly offerLikeHistoryModel: Model<OfferLikeHistoryDocument>,
+    @InjectModel(Merchant.name) private readonly merchantModel: Model<MerchantDocument>,
     private readonly redisService: RedisService,
+    private readonly merchantPlanService: MerchantPlanService,
   ) {}
 
   private buildDateBuckets(days: number) {
@@ -528,7 +532,7 @@ export class MerchantDashboardService {
   }
 
   async getRealtimeAnalytics(merchantId: string) {
-    const [device, regions, products, events, trend, demographics] = await Promise.all([
+    let [device, regions, products, events, trend, demographics] = await Promise.all([
       this.getMerchantDeviceBreakdown(merchantId),
       this.getMerchantTopRegions(merchantId),
       this.getMerchantTopProducts(merchantId),
@@ -536,6 +540,15 @@ export class MerchantDashboardService {
       this.getMerchantTrend(merchantId),
       this.getMerchantDemographics(merchantId),
     ]);
+
+    const merchantDoc = await this.merchantModel.findOne({ userId: merchantId }).exec();
+    if (merchantDoc) {
+      const planDetails = await this.merchantPlanService.getPlanDetails(merchantDoc);
+      if (!planDetails.planFeatures.canViewAdvancedAnalytics) {
+        device.data = { Mobile: 0, Desktop: 0, Tablet: 0 };
+        demographics.data = [];
+      }
+    }
 
     const redemptions = await this.getRedemptionTrend(merchantId, 'weekly');
 

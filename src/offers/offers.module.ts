@@ -11,6 +11,8 @@ import { OffersController } from './offers.controller';
 import { OffersService } from './offers.service';
 import { BannersModule } from '../banners/banners.module';
 
+import { MerchantPlanModule } from '../merchant-plan/merchant-plan.module';
+
 @Module({
   imports: [
     MongooseModule.forFeature([
@@ -23,6 +25,7 @@ import { BannersModule } from '../banners/banners.module';
     ]),
     forwardRef(() => KafkaModule),
     BannersModule,
+    MerchantPlanModule,
   ],
   controllers: [OffersController],
   providers: [OffersService],

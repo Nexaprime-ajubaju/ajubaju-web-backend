@@ -4,17 +4,29 @@ import { Model } from 'mongoose';
 import { v4 as uuidv4 } from 'uuid';
 import { Product, ProductDocument } from './schemas/product.schema';
 import { CreateProductDto, UpdateProductDto } from './dto/create-product.dto';
+import { MerchantPlanService } from '../merchant-plan/merchant-plan.service';
+import { Merchant, MerchantDocument } from '../users/schemas/merchant.schema';
 
 @Injectable()
 export class ProductsService {
   constructor(
     @InjectModel(Product.name) private productModel: Model<ProductDocument>,
+    @InjectModel(Merchant.name) private merchantModel: Model<MerchantDocument>,
+    private readonly merchantPlanService: MerchantPlanService,
   ) {}
 
   async createProduct(
     merchantId: string,
     createProductDto: CreateProductDto,
   ): Promise<Product> {
+    const merchant = await this.merchantModel.findOne({ userId: merchantId }).exec();
+    if (merchant) {
+      const planDetails = await this.merchantPlanService.getPlanDetails(merchant);
+      if (!planDetails.planFeatures.canAddProduct) {
+        throw new ForbiddenException('Free Tier merchants cannot add new products. Please upgrade to Premium.');
+      }
+    }
+
     const productId = `PROD_${uuidv4()}`;
 
     const product = new this.productModel({
@@ -45,7 +57,16 @@ export class ProductsService {
       this.productModel.countDocuments({ merchantId, isVisible: true }),
     ]);
 
-    return { data, total };
+    // Compute offerEligible for the latest 10 created products
+    const processedData = data.map((product, index) => {
+      const globalIndex = skip + index;
+      return {
+        ...product,
+        offerEligible: globalIndex < 10,
+      };
+    });
+
+    return { data: processedData as Product[], total };
   }
 
   async getProductById(
@@ -89,6 +110,14 @@ export class ProductsService {
     productId: string,
     merchantId: string,
   ): Promise<Product> {
+    const merchant = await this.merchantModel.findOne({ userId: merchantId }).exec();
+    if (merchant) {
+      const planDetails = await this.merchantPlanService.getPlanDetails(merchant);
+      if (!planDetails.planFeatures.canDeleteProduct) {
+        throw new ForbiddenException('Free Tier merchants cannot delete products. Please upgrade to Premium.');
+      }
+    }
+
     const product = await this.productModel
       .findOne({ productId, merchantId })
       .exec();
