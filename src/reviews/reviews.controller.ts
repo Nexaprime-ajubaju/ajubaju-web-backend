@@ -49,6 +49,11 @@ export class ReviewsController {
     return this.reviewsService.getMerchantReviewStats(merchantId);
   }
 
+  @Get('merchant/:merchantId/public-stats')
+  async getPublicMerchantReviewStats(@Param('merchantId') merchantId: string) {
+    return this.reviewsService.getPublicMerchantReviewStats(merchantId);
+  }
+
   @Patch(':reviewId/status')
   @UseGuards(JwtAuthGuard)
   async updateReviewStatus(
