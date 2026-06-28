@@ -23,6 +23,8 @@ import { Payment, PaymentDocument, PaymentStatus } from '../payments/schemas/pay
 import { OfferLikeHistory, OfferLikeHistoryDocument } from '../offers/schemas/offer-like-history.schema';
 import { OfferPromotion, OfferPromotionDocument } from '../offers/schemas/offer-promotion.schema';
 import { RedisService } from '../common/services/redis.service';
+// OutboxService import removed as the module is not present in the repository
+
 import { validatePreferredCategories, normalizeCategories } from '../common/constants/categories';
 
 @Injectable()
@@ -152,6 +154,7 @@ export class UsersService implements OnModuleInit {
     @Optional() @InjectModel('PendingMerchantLocation') private pendingLocationModel?: Model<any>,
     @Optional() @InjectModel(OfferLikeHistory.name) private offerLikeHistoryModel?: Model<OfferLikeHistoryDocument>,
     @Optional() @InjectModel(OfferPromotion.name) private offerPromotionModel?: Model<OfferPromotionDocument>,
+    @Optional() private outboxService?: any,
   ) {
     // Support both SMTP_* and EMAIL_* env var conventions.
     // The repo's `.env` currently uses EMAIL_* while OTP flow historically used SMTP_*.
@@ -240,10 +243,12 @@ export class UsersService implements OnModuleInit {
   async register(registerDto: RegisterDto, ip?: string, userAgent?: string): Promise<UserResponseDto> {
     this.logger.log(`Registering new user: ${registerDto.email}`);
     
-    // Check if user exists
-    const existingUser = await this.userModel.findOne({ email: registerDto.email }).exec();
+    const accountType = registerDto.accountType === 'merchant' ? 'merchant' : 'user';
+
+    // Check if user exists with the specific account type
+    const existingUser = await this.userModel.findOne({ email: registerDto.email, accountType }).exec();
     if (existingUser) {
-      throw new ConflictException('User with this email already exists');
+      throw new ConflictException(`An account of type ${accountType} with this email already exists`);
     }
 
     // Hash password
@@ -252,8 +257,6 @@ export class UsersService implements OnModuleInit {
     // Check for admin email in config
     const adminEmail = this.configService.get<string>('ADMIN_EMAIL');
     const isSystemAdmin = adminEmail && registerDto.email.toLowerCase() === adminEmail.toLowerCase();
-
-    const accountType = registerDto.accountType === 'merchant' ? 'merchant' : 'user';
 
     if (accountType === 'merchant') {
       if (!registerDto.storeName?.trim()) {
@@ -341,12 +344,18 @@ export class UsersService implements OnModuleInit {
   async login(loginDto: LoginDto, ip?: string, userAgent?: string): Promise<{ accessToken: string; refreshToken: string; user: UserResponseDto }> {
     this.logger.log(`Login attempt: ${loginDto.email} (accountType: ${loginDto.accountType})`);
     
-    const user = await this.userModel.findOne({ email: loginDto.email }).exec();
+    const accountType = loginDto.accountType === 'merchant' ? 'merchant' : 'user';
+    const user = await this.userModel.findOne({ email: loginDto.email, accountType }).exec();
+    
     if (!user) {
-      this.logger.warn(`Login failed - user not found: ${loginDto.email}`);
-      if (loginDto.accountType === 'merchant') {
-        throw new UnauthorizedException('This email is not registered as a merchant. Please register as a merchant first.');
+      this.logger.warn(`Login failed - user not found: ${loginDto.email} for accountType: ${accountType}`);
+      
+      // Friendly error if registered as other type
+      const otherUser = await this.userModel.findOne({ email: loginDto.email }).exec();
+      if (otherUser) {
+        throw new UnauthorizedException(`This email is registered as a ${otherUser.accountType}. Please use the ${otherUser.accountType === 'user' ? 'User' : 'Merchant'} login, or register a new ${accountType} account.`);
       }
+      
       throw new UnauthorizedException('Invalid credentials');
     }
 
@@ -354,16 +363,6 @@ export class UsersService implements OnModuleInit {
     if (!isPasswordValid) {
       this.logger.warn(`Login failed - invalid password: ${loginDto.email}`);
       throw new UnauthorizedException('Invalid credentials');
-    }
-
-    if (loginDto.accountType === 'merchant' && user.accountType !== 'merchant') {
-      this.logger.warn(`Login failed - merchant login attempted with user account: ${loginDto.email}`);
-      throw new UnauthorizedException('This email is not registered as a merchant. Please use the User login or register as a merchant.');
-    }
-
-    if (loginDto.accountType === 'user' && user.accountType === 'merchant') {
-      this.logger.warn(`Login failed - user login attempted with merchant account: ${loginDto.email}`);
-      throw new UnauthorizedException('This email is registered as a merchant. Please use Merchant login to continue.');
     }
 
     if (user.isBanned) {
@@ -448,7 +447,8 @@ export class UsersService implements OnModuleInit {
   ): Promise<{ accessToken: string; refreshToken: string; user: UserResponseDto }> {
     this.logger.log(`Social auth: ${socialAuthDto.email} via ${socialAuthDto.provider}`);
 
-    let user = await this.userModel.findOne({ email: socialAuthDto.email }).exec();
+    const accountType = socialAuthDto.accountType === 'merchant' ? 'merchant' : 'user';
+    let user = await this.userModel.findOne({ email: socialAuthDto.email, accountType }).exec();
 
     if (!user) {
       const generatedPassword = await bcrypt.hash(
@@ -460,7 +460,8 @@ export class UsersService implements OnModuleInit {
         name: socialAuthDto.name,
         email: socialAuthDto.email,
         password: generatedPassword,
-        role: UserRole.USER,
+        role: accountType === 'merchant' ? UserRole.MERCHANT : UserRole.USER,
+        accountType: accountType,
         isEmailVerified: true,
         profile: {
           phone: socialAuthDto.phone,
@@ -823,32 +824,6 @@ export class UsersService implements OnModuleInit {
     });
 
     return this.toResponseDto(user);
-  }
-
-  async adminDeleteUser(userId: string, adminId: string, adminEmail: string): Promise<void> {
-    this.logger.log(`Admin deleting user: ${userId}`);
-    
-    const result = await this.userModel.deleteOne({ _id: userId }).exec();
-    if (result.deletedCount === 0) {
-      throw new NotFoundException('User not found');
-    }
-
-    await this.auditLogsService.log({
-      action: 'USER_DELETED',
-      adminId,
-      adminEmail,
-      targetId: userId,
-      targetType: 'User'
-    });
-
-    if (this.kafkaService) {
-      await this.kafkaService.emit(KAFKA_TOPICS.USER_DELETED, {
-        userId,
-        timestamp: new Date().toISOString(),
-      });
-    } else {
-      this.logger.warn('Kafka disabled - USER_DELETED event skipped');
-    }
   }
 
   /**
@@ -2136,4 +2111,35 @@ export class UsersService implements OnModuleInit {
       loyaltyTier,
     };
   }
+
+  async adminDeleteUser(id: string, adminId: string, adminEmail: string): Promise<void> {
+    const user = await this.userModel.findById(id).exec();
+    if (!user) throw new NotFoundException('User not found');
+    
+    // Outbox Pattern: Save event to database first to guarantee 100% data consistency
+    if (this.outboxService) {
+      await this.outboxService.saveEvent(KAFKA_TOPICS.USER_DELETED, {
+        userId: id,
+        adminId,
+        adminEmail,
+        timestamp: new Date().toISOString(),
+      });
+    } else if (this.kafkaService) {
+      // Fallback
+      await this.kafkaService.send(KAFKA_TOPICS.USER_DELETED, { userId: id, adminId });
+    }
+
+    await this.userModel.findByIdAndDelete(id).exec();
+    
+    if (this.auditLogsService) {
+      await this.auditLogsService.log({
+        action: 'USER_DELETED_BY_ADMIN',
+        adminId,
+        adminEmail,
+        targetId: id,
+        targetType: 'User',
+      });
+    }
+  }
 }
+

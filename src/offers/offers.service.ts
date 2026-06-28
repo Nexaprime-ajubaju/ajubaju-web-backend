@@ -416,7 +416,7 @@ export class OffersService implements OnModuleInit {
       throw new NotFoundException('Offer not found');
     }
 
-    const merchant = await this.merchantModel
+    const merchant: any = await this.merchantModel
       .findOne({ userId: String(row.merchantId) })
       .select('userId storeName storeLocation storeLocationLatitude storeLocationLongitude profilePhoto shopPhoto storeCategory storeSubCategory contactNumber phoneNumber mobile mobileNumber merchantPhone storePhone')
       .lean()

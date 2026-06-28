@@ -220,6 +220,34 @@ export class ReviewsService {
     };
   }
 
+  async getPublicMerchantReviewStats(merchantId: string) {
+    const mId = new Types.ObjectId(merchantId);
+
+    const [totalReviews, averageAgg] = await Promise.all([
+      this.reviewModel.countDocuments({
+        merchantId: mId,
+        status: ReviewStatus.APPROVED,
+      }),
+      this.reviewModel.aggregate([
+        {
+          $match: {
+            merchantId: mId,
+            status: ReviewStatus.APPROVED,
+          },
+        },
+        { $group: { _id: null, avgRating: { $avg: '$rating' } } },
+      ]),
+    ]);
+
+    return {
+      success: true,
+      data: {
+        totalReviews,
+        averageRating: Number((averageAgg?.[0]?.avgRating || 0).toFixed(1)),
+      },
+    };
+  }
+
   async updateReviewStatus(merchantId: string, reviewId: string, status: ReviewStatus) {
     if (!Object.values(ReviewStatus).includes(status)) {
       throw new BadRequestException('Invalid review status');
