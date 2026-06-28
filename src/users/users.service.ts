@@ -23,7 +23,7 @@ import { Payment, PaymentDocument, PaymentStatus } from '../payments/schemas/pay
 import { OfferLikeHistory, OfferLikeHistoryDocument } from '../offers/schemas/offer-like-history.schema';
 import { OfferPromotion, OfferPromotionDocument } from '../offers/schemas/offer-promotion.schema';
 import { RedisService } from '../common/services/redis.service';
-import { OutboxService } from '../outbox/outbox.service';
+// OutboxService import removed as the module is not present in the repository
 
 import { validatePreferredCategories, normalizeCategories } from '../common/constants/categories';
 
@@ -154,7 +154,7 @@ export class UsersService implements OnModuleInit {
     @Optional() @InjectModel('PendingMerchantLocation') private pendingLocationModel?: Model<any>,
     @Optional() @InjectModel(OfferLikeHistory.name) private offerLikeHistoryModel?: Model<OfferLikeHistoryDocument>,
     @Optional() @InjectModel(OfferPromotion.name) private offerPromotionModel?: Model<OfferPromotionDocument>,
-    @Optional() private outboxService?: OutboxService,
+    @Optional() private outboxService?: any,
   ) {
     // Support both SMTP_* and EMAIL_* env var conventions.
     // The repo's `.env` currently uses EMAIL_* while OTP flow historically used SMTP_*.
