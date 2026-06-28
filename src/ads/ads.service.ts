@@ -827,20 +827,52 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
 
     if (filters?.category) mongoQuery.category = filters.category;
     if (filters?.location && String(filters.location).trim()) {
-      const normalizedLocation = String(filters.location).trim();
-      const escapedLocation = normalizedLocation.replace(
-        /[.*+?^${}()|[\]\\]/g,
-        '\\$&',
-      );
-      const locationRegex = new RegExp(escapedLocation, 'i');
+      const LOCATION_ALIASES: Record<string, string[]> = {
+        kolhapur: ['kolhapur', 'karvir', 'karveer', 'karveer taluka', 'karvir taluka'],
+        sangli: ['sangli'],
+        mumbai: ['mumbai', 'bombay', 'navi mumbai'],
+        pune: ['pune', 'poona'],
+      };
 
-      mongoQuery.$or = [
-        { location: locationRegex },
-        { city: locationRegex },
-        { state: locationRegex },
-        { pincode: locationRegex },
-        { cities: { $elemMatch: { $regex: locationRegex } } },
-      ];
+      // Scan all comma-separated segments to find a known city (or alias).
+      // This makes "Tarabai Park, Kolhapur, Maharashtra" resolve to the
+      // "kolhapur" canonical city and all its aliases.
+      const rawLocation = String(filters.location);
+      const segments = rawLocation.split(',').map((s) => s.trim().toLowerCase());
+
+      let resolvedCity = '';
+      let resolvedAliases: string[] = [];
+      for (const segment of segments) {
+        for (const [city, aliases] of Object.entries(LOCATION_ALIASES)) {
+          if (aliases.some((alias) => segment.includes(alias) || alias.includes(segment))) {
+            resolvedCity = city;
+            resolvedAliases = aliases;
+            break;
+          }
+        }
+        if (resolvedCity) break;
+      }
+
+      // Build a list of terms to match: resolved aliases OR the first meaningful segment
+      const termsToMatch: string[] =
+        resolvedAliases.length > 0
+          ? resolvedAliases
+          : [segments.find((s) => s.length >= 2 && !/^\d+$/.test(s)) || segments[0]];
+
+      const escapeTerm = (term: string) =>
+        term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+      const locationOrConditions = termsToMatch.flatMap((term) => {
+        const regex = new RegExp(escapeTerm(term), 'i');
+        return [
+          { location: regex },
+          { city: regex },
+          { state: regex },
+          { cities: { $elemMatch: { $regex: escapeTerm(term), $options: 'i' } } },
+        ];
+      });
+
+      mongoQuery.$or = locationOrConditions;
     }
     if (typeof filters?.minPrice === 'number')
       mongoQuery.price = {
