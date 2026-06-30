@@ -256,3 +256,10 @@ AdSchema.index({ city: 1, category: 1 });
 AdSchema.index({ status: 1, expiryDate: 1 });
 AdSchema.index({ status: 1, expiredAt: 1 });
 AdSchema.index({ isPromoted: 1, promotedUntil: 1 });
+
+// Recommendation Engine Specific Indexes
+AdSchema.index({ status: 1, userId: 1 }); // merchantId map to userId
+AdSchema.index({ status: 1, createdAt: -1 });
+AdSchema.index({ status: 1, isPromoted: 1 });
+AdSchema.index({ status: 1, locationCoordinates: '2dsphere' });
+AdSchema.index({ tags: 1 });

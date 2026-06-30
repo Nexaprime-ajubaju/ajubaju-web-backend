@@ -253,6 +253,33 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
+   * Push value(s) to a list (Left push)
+   */
+  async lPush(key: string, values: string[]): Promise<number> {
+    if (!this.enabled || !this.redisClient || values.length === 0) return 0;
+    try {
+      return await this.redisClient.lPush(key, values);
+    } catch (error: any) {
+      this.logger.error(`Cache LPUSH failed for ${key}: ${error.message}`);
+      return 0;
+    }
+  }
+
+  /**
+   * Pop values from a list (Right pop)
+   */
+  async rPopCount(key: string, count: number): Promise<string[]> {
+    if (!this.enabled || !this.redisClient) return [];
+    try {
+      const results = await this.redisClient.rPopCount(key, count);
+      return results || [];
+    } catch (error: any) {
+      this.logger.error(`Cache RPOP failed for ${key}: ${error.message}`);
+      return [];
+    }
+  }
+
+  /**
    * Health check
    */
   async healthCheck(): Promise<{

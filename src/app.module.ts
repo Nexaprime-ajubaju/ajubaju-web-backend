@@ -1,4 +1,6 @@
 import { Logger, Module } from '@nestjs/common';
+import { ScheduleModule } from '@nestjs/schedule';
+import { EventEmitterModule } from '@nestjs/event-emitter';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
 import configuration from './config/configuration';
@@ -25,11 +27,15 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { SystemSettingsModule } from './system-settings/system-settings.module';
 import { MerchantPlanModule } from './merchant-plan/merchant-plan.module';
+import { HomepageConfigModule } from './homepage-config/homepage-config.module';
+import { RecommendationEngineModule } from './recommendation-engine/recommendation-engine.module';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
 import * as Joi from 'joi';
 import { LoggerModule } from 'nestjs-pino';
 import { v4 as uuidv4 } from 'uuid';
+
+import { FeatureStoreModule } from './feature-store/feature-store.module';
 
 const logger = new Logger('MongoDB');
 
@@ -63,6 +69,10 @@ const logger = new Logger('MongoDB');
             : undefined,
       },
     }),
+
+    // Async Events and Scheduling
+    ScheduleModule.forRoot(),
+    EventEmitterModule.forRoot(),
 
     // Rate Limiting Config
     ThrottlerModule.forRoot([
@@ -157,6 +167,9 @@ const logger = new Logger('MongoDB');
     ReviewsModule,
     SystemSettingsModule,
     MerchantPlanModule,
+    HomepageConfigModule,
+    FeatureStoreModule,
+    RecommendationEngineModule,
   ],
   controllers: [AppController],
   providers: [

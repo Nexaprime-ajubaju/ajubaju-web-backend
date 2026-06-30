@@ -9,7 +9,7 @@ import helmet from 'helmet';
 import * as compression from 'compression';
 import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
 import * as hpp from 'hpp';
-import mongoSanitize from 'express-mongo-sanitize';
+import * as mongoSanitize from 'express-mongo-sanitize';
 import * as cookieParser from 'cookie-parser';
 import { Logger } from 'nestjs-pino';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
