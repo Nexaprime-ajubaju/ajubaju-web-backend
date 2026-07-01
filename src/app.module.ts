@@ -63,10 +63,6 @@ const logger = new Logger('MongoDB');
       pinoHttp: {
         genReqId: (req) => req.headers['x-request-id'] || uuidv4(),
         level: process.env.NODE_ENV !== 'production' ? 'debug' : 'info',
-        transport:
-          process.env.NODE_ENV !== 'production'
-            ? { target: 'pino-pretty', options: { colorize: true } }
-            : undefined,
       },
     }),
 
@@ -79,27 +75,27 @@ const logger = new Logger('MongoDB');
       {
         name: 'default',
         ttl: 60000,
-        limit: 100,
+        limit: 1000,
       },
       {
         name: 'auth',
         ttl: 60000,
-        limit: 5,
+        limit: 50,
       },
       {
         name: 'public',
         ttl: 60000,
-        limit: 30,
+        limit: 1000,
       },
       {
         name: 'admin',
         ttl: 60000,
-        limit: 60,
+        limit: 1000,
       },
       {
         name: 'upload',
         ttl: 60000,
-        limit: 20,
+        limit: 100,
       },
     ]),
 
@@ -115,6 +111,8 @@ const logger = new Logger('MongoDB');
           logger.warn('MongoDB URI not found in config, checking environment variable...');
           uri = process.env.MONGODB_URI;
         }
+        
+        console.log("--> CONNECTING TO MONGO URI:", uri.substring(0, 50) + '...');
         
         // Final fallback to localhost
         if (!uri) {

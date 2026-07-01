@@ -33,8 +33,7 @@ export class PostProcessorService {
     // Map to final payload, attaching explainability metrics
     return currentCandidates.map(s => {
       const p = s.product;
-      p.id = p._id.toString();
-      p.imageUrl = p.images?.[0] || p.imageUrl;
+      p.id = p._id ? p._id.toString() : p.id;
       
       // Explainability Enrichment
       p.recommendationExplainability = {

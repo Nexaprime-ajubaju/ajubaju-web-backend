@@ -5,6 +5,7 @@ import { TrendingJob } from './trending.job';
 import { FbtJob } from './fbt.job';
 import { SimilarProductsJob } from './similar-products.job';
 import { SimilarCustomersJob } from './similar-customers.job';
+import { BestSellersJob } from './best-sellers.job';
 import { OfflineRecommendationJob } from './offline-job.interface';
 import { RedisService } from '../../common/services/redis.service';
 
@@ -19,6 +20,7 @@ export class OfflineJobSchedulerService implements OnApplicationBootstrap {
     private readonly fbtJob: FbtJob,
     private readonly similarProductsJob: SimilarProductsJob,
     private readonly similarCustomersJob: SimilarCustomersJob,
+    private readonly bestSellersJob: BestSellersJob,
     private readonly redisService: RedisService,
   ) {
     // Registry of offline intelligence jobs
@@ -26,7 +28,8 @@ export class OfflineJobSchedulerService implements OnApplicationBootstrap {
       this.trendingJob,
       this.fbtJob,
       this.similarProductsJob,
-      this.similarCustomersJob
+      this.similarCustomersJob,
+      this.bestSellersJob
     ];
   }
 
@@ -58,7 +61,7 @@ export class OfflineJobSchedulerService implements OnApplicationBootstrap {
     // Increment the cache version, instantly invalidating all old keys.
     try {
       const currentVersion = (await this.redisService.get('recommendation:cache:version')) || '1';
-      const nextVersion = parseInt(currentVersion, 10) + 1;
+      const nextVersion = parseInt(currentVersion as string, 10) + 1;
       await this.redisService.set('recommendation:cache:version', nextVersion.toString(), 0); // 0 = no TTL
       this.logger.log(`Incremented recommendation cache version to ${nextVersion} (Trigger: ${jobKey})`);
     } catch (error) {

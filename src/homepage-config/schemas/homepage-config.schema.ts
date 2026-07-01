@@ -23,6 +23,9 @@ export class HomepageSection {
   @Prop({ default: true })
   enabled: boolean;
 
+  @Prop({ default: 10 })
+  limit: number;
+
   @Prop({ required: true })
   displayOrder: number;
 

@@ -3,7 +3,15 @@ export class RecommendationSectionMetadataDto {
   cacheHit: boolean;
   strategyVersion: string;
   totalProducts: number;
+  experimentVariant?: string;
   requestId?: string;
+  confidence: number;
+  reason: string;
+  source: string;
+  fallbackUsed?: boolean;
+  retrievedCandidates?: number;
+  returnedProducts?: number;
+  executionTime?: number;
 }
 
 export class RecommendationSectionDto {

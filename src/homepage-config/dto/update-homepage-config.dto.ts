@@ -22,8 +22,17 @@ export class HomepageSectionDto {
   enabled: boolean;
 
   @IsInt()
+  @Min(1)
+  @IsOptional()
+  limit?: number;
+
+  @IsInt()
   @Min(1, { message: 'displayOrder must be greater than 0' })
   displayOrder: number;
+
+  @IsString()
+  @IsOptional()
+  strategy?: string;
 
   @IsOptional()
   metadata?: Record<string, any>;

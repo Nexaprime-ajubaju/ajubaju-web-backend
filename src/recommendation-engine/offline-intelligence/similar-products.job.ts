@@ -1,12 +1,12 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
-import { OfflineJob } from './offline-job.interface';
+import { OfflineRecommendationJob } from './offline-job.interface';
 import { Ad, AdDocument } from '../../ads/schemas/category-schemas/ad.schema';
 import { SimilarProduct, SimilarProductDocument } from './schemas/similar-product.schema';
 
 @Injectable()
-export class SimilarProductsJob implements OfflineJob {
+export class SimilarProductsJob implements OfflineRecommendationJob {
   private readonly logger = new Logger(SimilarProductsJob.name);
   readonly key = 'similar_products';
   readonly schedule = '0 3 * * *'; // 3 AM daily

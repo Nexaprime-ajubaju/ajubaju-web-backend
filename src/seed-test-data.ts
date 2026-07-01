@@ -2,7 +2,8 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { Model } from 'mongoose';
 import { getModelToken } from '@nestjs/mongoose';
-import { BannerPromotion, BannerPromotionType, BannerPromotionStatus, BannerPaymentStatus } from './banners/schemas/banner-promotion.schema';
+import { BannerPromotion, BannerPromotionType } from './banners/schemas/banner-promotion.schema';
+import { OfferPromotion, OfferPromotionStatus, OfferPaymentStatus } from './offers/schemas/offer-promotion.schema';
 import { Merchant } from './users/schemas/merchant.schema';
 import { User, UserRole } from './users/schemas/user.schema';
 import * as bcrypt from 'bcrypt';
@@ -12,6 +13,7 @@ async function seedTestData() {
   const app = await NestFactory.createApplicationContext(AppModule);
   
   const bannerModel = app.get(getModelToken(BannerPromotion.name)) as Model<BannerPromotion>;
+  const offerModel = app.get(getModelToken(OfferPromotion.name)) as Model<OfferPromotion>;
   const merchantModel = app.get(getModelToken(Merchant.name)) as Model<Merchant>;
   const userModel = app.get(getModelToken(User.name)) as Model<any>;
   
@@ -158,10 +160,10 @@ async function seedTestData() {
       merchantId: createdUsers[0]._id.toString(),
       merchantName: 'Pizza Palace',
       merchantEmail: 'pizza@example.com',
-      bannerTitle: '50% OFF on All Pizzas',
-      bannerCategory: 'Special',
+      title: '50% OFF on All Pizzas',
+      category: 'Special',
       description: 'Get 50% discount on all pizza orders this weekend!',
-      promotionType: BannerPromotionType.OFFER,
+      
       imageUrl: 'https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=800',
       selectedDates: [
         new Date('2026-04-22'),
@@ -201,8 +203,8 @@ async function seedTestData() {
           stockQuantity: 30,
         },
       ],
-      status: BannerPromotionStatus.ACTIVE,
-      paymentStatus: BannerPaymentStatus.PAID,
+      status: OfferPromotionStatus.ACTIVE,
+      paymentStatus: OfferPaymentStatus.PAID,
       isHomepageVisible: true,
       paidAt: new Date(),
     },
@@ -211,10 +213,10 @@ async function seedTestData() {
       merchantId: createdUsers[1]._id.toString(),
       merchantName: 'Fashion Hub',
       merchantEmail: 'fashion@example.com',
-      bannerTitle: 'Flat 30% OFF on Clothing',
-      bannerCategory: 'Festival',
+      title: 'Flat 30% OFF on Clothing',
+      category: 'Festival',
       description: 'Massive sale on all clothing items!',
-      promotionType: BannerPromotionType.OFFER,
+      
       imageUrl: 'https://images.unsplash.com/photo-1489987707025-afc232f7ea0f?w=800',
       selectedDates: [
         new Date('2026-04-22'),
@@ -252,8 +254,8 @@ async function seedTestData() {
           stockQuantity: 75,
         },
       ],
-      status: BannerPromotionStatus.ACTIVE,
-      paymentStatus: BannerPaymentStatus.PAID,
+      status: OfferPromotionStatus.ACTIVE,
+      paymentStatus: OfferPaymentStatus.PAID,
       isHomepageVisible: true,
       paidAt: new Date(),
     },
@@ -262,10 +264,10 @@ async function seedTestData() {
       merchantId: createdUsers[2]._id.toString(),
       merchantName: 'Tech World',
       merchantEmail: 'tech@example.com',
-      bannerTitle: 'Buy 1 Get 1 Free on Accessories',
-      bannerCategory: 'BOGO',
+      title: 'Buy 1 Get 1 Free on Accessories',
+      category: 'BOGO',
       description: 'Amazing BOGO deals on phone cases and accessories!',
-      promotionType: BannerPromotionType.OFFER,
+      
       imageUrl: 'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=800',
       selectedDates: [
         new Date('2026-04-22'),
@@ -294,8 +296,8 @@ async function seedTestData() {
           stockQuantity: 200,
         },
       ],
-      status: BannerPromotionStatus.ACTIVE,
-      paymentStatus: BannerPaymentStatus.PAID,
+      status: OfferPromotionStatus.ACTIVE,
+      paymentStatus: OfferPaymentStatus.PAID,
       isHomepageVisible: true,
       paidAt: new Date(),
     },
@@ -304,10 +306,10 @@ async function seedTestData() {
       merchantId: createdUsers[3]._id.toString(),
       merchantName: 'Cafe Delight',
       merchantEmail: 'cafe@example.com',
-      bannerTitle: '20% Cashback on All Orders',
-      bannerCategory: 'Cashback',
+      title: '20% Cashback on All Orders',
+      category: 'Cashback',
       description: 'Get 20% cashback on every order above Rs 200!',
-      promotionType: BannerPromotionType.OFFER,
+      
       imageUrl: 'https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=800',
       selectedDates: [
         new Date('2026-04-22'),
@@ -346,8 +348,8 @@ async function seedTestData() {
           stockQuantity: 300,
         },
       ],
-      status: BannerPromotionStatus.ACTIVE,
-      paymentStatus: BannerPaymentStatus.PAID,
+      status: OfferPromotionStatus.ACTIVE,
+      paymentStatus: OfferPaymentStatus.PAID,
       isHomepageVisible: true,
       paidAt: new Date(),
     },
@@ -356,10 +358,10 @@ async function seedTestData() {
       merchantId: createdUsers[4]._id.toString(),
       merchantName: 'Salon Elegance',
       merchantEmail: 'salon@example.com',
-      bannerTitle: 'Hair Spa Combo - Rs 499 only',
-      bannerCategory: 'Combo',
+      title: 'Hair Spa Combo - Rs 499 only',
+      category: 'Combo',
       description: 'Get hair wash, spa, and styling for just Rs 499!',
-      promotionType: BannerPromotionType.OFFER,
+      
       imageUrl: 'https://images.unsplash.com/photo-1560066984-138dadb4c035?w=800',
       selectedDates: [
         new Date('2026-04-22'),
@@ -393,14 +395,15 @@ async function seedTestData() {
           stockQuantity: 50,
         },
       ],
-      status: BannerPromotionStatus.ACTIVE,
-      paymentStatus: BannerPaymentStatus.PAID,
+      status: OfferPromotionStatus.ACTIVE,
+      paymentStatus: OfferPaymentStatus.PAID,
       isHomepageVisible: true,
       paidAt: new Date(),
     },
   ];
 
-  await bannerModel.insertMany(testOffers);
+  await offerModel.deleteMany({});
+  await offerModel.insertMany(testOffers);
   
   console.log('✅ Test data seeded successfully!');
   console.log(`   Created ${testMerchants.length} merchants with locations`);

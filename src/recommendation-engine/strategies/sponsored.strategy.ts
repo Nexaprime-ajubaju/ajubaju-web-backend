@@ -1,10 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { RecommendationStrategy } from '../interfaces/recommendation-strategy.interface';
+import { RecommendationStrategy, StrategyResult, RecommendationReason, RecommendationSource } from '../interfaces/recommendation-strategy.interface';
 import { RecommendationContext } from '../interfaces/recommendation.context';
 import { CandidateRetrieverService } from '../retrievers/candidate-retriever.service';
 import { RankingService } from '../ranking/ranking.service';
 import { PostProcessorService } from '../ranking/post-processor.service';
-import { FeatureStoreService } from '../../feature-store/product/product-feature.service';
+import { ProductFeatureService } from '../../feature-store/product/product-feature.service';
 
 @Injectable()
 export class SponsoredStrategy implements RecommendationStrategy {
@@ -16,10 +16,10 @@ export class SponsoredStrategy implements RecommendationStrategy {
     private readonly candidateRetriever: CandidateRetrieverService,
     private readonly rankingService: RankingService,
     private readonly postProcessor: PostProcessorService,
-    private readonly featureStore: FeatureStoreService,
+    private readonly featureStore: ProductFeatureService,
   ) {}
 
-  async getRecommendations(context: RecommendationContext): Promise<any[]> {
+  async getRecommendations(context: RecommendationContext): Promise<StrategyResult> {
     try {
       const limit = context.limit || 10;
       const MAX_SPONSORED = 2;
@@ -85,10 +85,10 @@ export class SponsoredStrategy implements RecommendationStrategy {
         }
       }
 
-      return finalResults;
+      return { products: finalResults, metadata: { confidence: 0.5, reason: RecommendationReason.MIXED_SIGNALS, source: RecommendationSource.ONLINE, retrievedCandidates: finalResults.length, returnedProducts: finalResults.length } };
     } catch (error) {
       this.logger.error(`Error in SponsoredStrategy: ${error.message}`, error.stack);
-      return [];
+      return { products: [], metadata: { confidence: 0, reason: RecommendationReason.MIXED_SIGNALS, source: RecommendationSource.ONLINE, retrievedCandidates: 0, returnedProducts: 0 } };
     }
   }
 }

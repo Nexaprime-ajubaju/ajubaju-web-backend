@@ -66,12 +66,14 @@ export class VouchersService implements OnModuleInit {
   }
 
   async onModuleInit() {
+    console.log("--> VOUCHERS SERVICE onModuleInit START");
     try {
       // Clean legacy documents created while verificationCode defaulted to null.
       await this.voucherModel.updateMany(
         { verificationCode: null },
         { $unset: { verificationCode: 1 } },
       );
+      console.log("--> VOUCHERS SERVICE updateMany DONE");
       const existingIndexes = await this.voucherModel.collection
         .listIndexes()
         .toArray();

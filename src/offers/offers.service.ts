@@ -155,8 +155,10 @@ export class OffersService implements OnModuleInit {
   }
 
   async onModuleInit() {
+    console.log("--> OFFERS SERVICE onModuleInit START");
     try {
       const indexes = await this.offerModel.collection.indexes();
+      console.log("--> OFFERS SERVICE indexes DONE");
       const staleIdempotencyIndexes = indexes.filter((idx: any) => {
         const keys = Object.keys(idx?.key || {});
         return keys.includes('idempotencyKey');

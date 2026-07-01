@@ -11,6 +11,7 @@ import { SimilarProduct, SimilarProductSchema } from './schemas/similar-product.
 import { SimilarCustomersJob } from './similar-customers.job';
 import { SimilarCustomer, SimilarCustomerSchema } from './schemas/similar-customer.schema';
 import { OfflineJobSchedulerService } from './offline-job-scheduler.service';
+import { BestSellersJob } from './best-sellers.job';
 
 @Module({
   imports: [
@@ -23,8 +24,7 @@ import { OfflineJobSchedulerService } from './offline-job-scheduler.service';
       { name: Ad.name, schema: AdSchema },
     ]),
   ],
-  providers: [TrendingJob, FbtJob, SimilarProductsJob, SimilarCustomersJob, OfflineJobSchedulerService],
+  providers: [TrendingJob, FbtJob, SimilarProductsJob, SimilarCustomersJob, BestSellersJob, OfflineJobSchedulerService],
   exports: [MongooseModule],
 })
 export class OfflineIntelligenceModule {}
-

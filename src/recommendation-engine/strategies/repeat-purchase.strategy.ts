@@ -1,12 +1,12 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-import { RecommendationStrategy } from '../interfaces/recommendation-strategy.interface';
+import { RecommendationStrategy, StrategyResult, RecommendationReason, RecommendationSource } from '../interfaces/recommendation-strategy.interface';
 import { RecommendationContext } from '../interfaces/recommendation.context';
 import { CandidateRetrieverService } from '../retrievers/candidate-retriever.service';
 import { RankingService } from '../ranking/ranking.service';
 import { PostProcessorService } from '../ranking/post-processor.service';
-import { FeatureStoreService } from '../../feature-store/product/product-feature.service';
+import { ProductFeatureService } from '../../feature-store/product/product-feature.service';
 import { RecommendationEvent, RecommendationEventDocument } from '../../analytics/schemas/recommendation-event.schema';
 import { Ad, AdDocument } from '../../ads/schemas/category-schemas/ad.schema';
 
@@ -17,9 +17,9 @@ export class RepeatPurchaseStrategy implements RecommendationStrategy {
   readonly cacheTTL = 300;
 
   // Categories well-suited for repeat purchases
-  private readonly HIGH_REPEAT_CATEGORIES = ['grocery', 'medicines', 'pet food', 'cosmetics', 'household supplies'];
+  private readonly HIGH_REPEAT_CATEGORIES = ['groceries', 'medicine', 'milk', 'gas', 'water', 'pet food', 'cosmetics', 'baby care', 'household', 'subscriptions'];
   // Categories NOT suited for repeat purchases
-  private readonly LOW_REPEAT_CATEGORIES = ['phones', 'tvs', 'cars', 'furniture', 'electronics'];
+  private readonly LOW_REPEAT_CATEGORIES = ['phones', 'cars', 'furniture', 'television', 'laptop', 'camera', 'property'];
 
   constructor(
     @InjectModel(RecommendationEvent.name) private readonly eventModel: Model<RecommendationEventDocument>,
@@ -27,12 +27,17 @@ export class RepeatPurchaseStrategy implements RecommendationStrategy {
     private readonly candidateRetriever: CandidateRetrieverService,
     private readonly rankingService: RankingService,
     private readonly postProcessor: PostProcessorService,
-    private readonly featureStore: FeatureStoreService,
+    private readonly featureStore: ProductFeatureService,
   ) {}
 
-  async getRecommendations(context: RecommendationContext): Promise<any[]> {
+  async getRecommendations(context: RecommendationContext): Promise<StrategyResult> {
+    const emptyResult: StrategyResult = {
+      products: [],
+      metadata: { confidence: 0, reason: RecommendationReason.PREVIOUS_ORDERS, source: RecommendationSource.ONLINE, retrievedCandidates: 0, returnedProducts: 0 }
+    };
+
     if (!context.userId) {
-      return [];
+      return emptyResult;
     }
 
     try {
@@ -45,7 +50,7 @@ export class RepeatPurchaseStrategy implements RecommendationStrategy {
         productId: { $exists: true, $ne: null }
       }).select('productId eventType timestamp').lean();
 
-      if (events.length === 0) return [];
+      if (events.length === 0) return emptyResult;
 
       const productStats: Record<string, { count: number, lastEvent: Date, score: number }> = {};
 
@@ -63,20 +68,20 @@ export class RepeatPurchaseStrategy implements RecommendationStrategy {
         }
 
         if (!productStats[pId]) {
-          productStats[pId] = { count: 0, lastEvent: event.timestamp, score: 0 };
+          productStats[pId] = { count: 0, lastEvent: event.createdAt, score: 0 };
         }
         
         productStats[pId].count += 1;
         productStats[pId].score += weight;
         
-        if (new Date(event.timestamp) > new Date(productStats[pId].lastEvent)) {
-          productStats[pId].lastEvent = event.timestamp;
+        if (new Date(event.createdAt) > new Date(productStats[pId].lastEvent)) {
+          productStats[pId].lastEvent = event.createdAt;
         }
       }
 
       // Filter products based on category and compute final repeat score
       const productIds = Object.keys(productStats);
-      if (productIds.length === 0) return [];
+      if (productIds.length === 0) return emptyResult;
 
       // We need category info to adjust the score
       const productsMeta = await this.adModel.find({ _id: { $in: productIds } }).select('category').lean();
@@ -120,12 +125,18 @@ export class RepeatPurchaseStrategy implements RecommendationStrategy {
         .slice(0, 15)
         .map(entry => entry[0]);
 
-      if (sortedProductIds.length === 0) return [];
+      if (sortedProductIds.length === 0) return emptyResult;
+
+      let confidence = 0.0;
+      if (sortedProductIds.length >= 10) confidence = 0.95;
+      else if (sortedProductIds.length >= 5) confidence = 0.8;
+      else if (sortedProductIds.length >= 2) confidence = 0.6;
+      else if (sortedProductIds.length >= 1) confidence = 0.4;
 
       // Retrieve Candidates
       const candidates = await this.candidateRetriever.findByProductIds(sortedProductIds, limit * 2);
 
-      if (candidates.length === 0) return [];
+      if (candidates.length === 0) return emptyResult;
 
       const candidateIds = candidates.map(c => c._id.toString());
       const features = await this.featureStore.getFeatures(candidateIds);
@@ -157,10 +168,22 @@ export class RepeatPurchaseStrategy implements RecommendationStrategy {
       // Re-sort after override
       ranked.sort((a, b) => b.finalScore - a.finalScore);
 
-      return this.postProcessor.process(ranked, limit);
+      const finalResults = this.postProcessor.process(ranked, limit);
+
+      return {
+        products: finalResults,
+        metadata: {
+          confidence,
+          reason: RecommendationReason.PREVIOUS_ORDERS,
+          source: RecommendationSource.ONLINE,
+          fallbackUsed: false,
+          retrievedCandidates: candidates.length,
+          returnedProducts: finalResults.length
+        }
+      };
     } catch (error) {
       this.logger.error(`Error in RepeatPurchaseStrategy: ${error.message}`, error.stack);
-      return [];
+      return emptyResult;
     }
   }
 }

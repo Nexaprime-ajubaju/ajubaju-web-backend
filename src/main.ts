@@ -41,9 +41,10 @@ const validationPipe = new ValidationPipe({
 });
 
 async function bootstrap() {
+  console.log("--> BOOTSTRAP STARTING");
   const kafkaEnabled = parseBoolean(process.env.ENABLE_KAFKA);
 
-  const app = await NestFactory.create(AppModule, { rawBody: true, bufferLogs: true });
+  const app = await NestFactory.create(AppModule, { rawBody: true });
   const logger = app.get(Logger);
   app.useLogger(logger);
   
@@ -144,6 +145,8 @@ async function bootstrap() {
     SwaggerModule.setup('api-docs', app, document);
   }
 
+  console.log("--> ABOUT TO LISTEN ON PORT", port);
   await app.listen(port, '0.0.0.0');
+  console.log("--> LISTENING ON PORT", port);
 }
-bootstrap();
+bootstrap().catch(err => console.error("--> BOOTSTRAP FAILED", err));

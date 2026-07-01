@@ -56,6 +56,12 @@ export class Ad {
   @Prop({ required: true })
   price: number;
 
+  @Prop()
+  originalPrice: number;
+
+  @Prop()
+  discountPercent: number;
+
   @Prop({ default: false })
   negotiable: boolean;
 

@@ -272,7 +272,7 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     if (!this.enabled || !this.redisClient) return [];
     try {
       const results = await this.redisClient.rPopCount(key, count);
-      return results || [];
+      return (results as unknown as string[]) || [];
     } catch (error: any) {
       this.logger.error(`Cache RPOP failed for ${key}: ${error.message}`);
       return [];

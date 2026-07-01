@@ -1,10 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { RecommendationStrategy } from '../interfaces/recommendation-strategy.interface';
+import { RecommendationStrategy, StrategyResult, RecommendationReason, RecommendationSource } from '../interfaces/recommendation-strategy.interface';
 import { RecommendationContext } from '../interfaces/recommendation.context';
 import { CandidateRetrieverService } from '../retrievers/candidate-retriever.service';
 import { RankingService } from '../ranking/ranking.service';
 import { PostProcessorService } from '../ranking/post-processor.service';
-import { FeatureStoreService } from '../../feature-store/product/product-feature.service';
+import { ProductFeatureService } from '../../feature-store/product/product-feature.service';
 
 @Injectable()
 export class FlashDealsStrategy implements RecommendationStrategy {
@@ -16,17 +16,35 @@ export class FlashDealsStrategy implements RecommendationStrategy {
     private readonly candidateRetriever: CandidateRetrieverService,
     private readonly rankingService: RankingService,
     private readonly postProcessor: PostProcessorService,
-    private readonly featureStore: FeatureStoreService,
+    private readonly featureStore: ProductFeatureService,
   ) {}
 
-  async getRecommendations(context: RecommendationContext): Promise<any[]> {
+  async getRecommendations(context: RecommendationContext): Promise<StrategyResult> {
+    const emptyResult: StrategyResult = {
+      products: [],
+      metadata: { confidence: 0, reason: RecommendationReason.ACTIVE_DISCOUNTS, source: RecommendationSource.OFFLINE, retrievedCandidates: 0, returnedProducts: 0 }
+    };
+
     try {
       const limit = context.limit || 10;
       
-      const candidates = await this.candidateRetriever.findDiscounted(limit * 2);
+      let confidence = 0.95;
+      let reason = RecommendationReason.ACTIVE_DISCOUNTS;
+      let isFallback = false;
+      let source = RecommendationSource.ONLINE;
+
+      let candidates = await this.candidateRetriever.findDiscounted(limit * 2);
 
       if (candidates.length === 0) {
-        return [];
+        this.logger.debug(`No active discounts, falling back to promoted/sponsored items.`);
+        candidates = await this.candidateRetriever.findSponsored(limit * 2);
+        confidence = 0.65;
+        reason = RecommendationReason.PROMOTED_BANNERS;
+        isFallback = true;
+      }
+
+      if (candidates.length === 0) {
+        return emptyResult;
       }
 
       const candidateIds = candidates.map(c => c._id.toString());
@@ -40,10 +58,22 @@ export class FlashDealsStrategy implements RecommendationStrategy {
         distance: 0
       });
 
-      return this.postProcessor.process(ranked, limit);
+      const processedProducts = this.postProcessor.process(ranked, limit);
+
+      return {
+        products: processedProducts,
+        metadata: {
+          confidence,
+          reason,
+          source,
+          fallbackUsed: isFallback,
+          retrievedCandidates: candidates.length,
+          returnedProducts: processedProducts.length
+        }
+      };
     } catch (error) {
       this.logger.error(`Error in FlashDealsStrategy: ${error.message}`, error.stack);
-      return [];
+      return emptyResult;
     }
   }
 }

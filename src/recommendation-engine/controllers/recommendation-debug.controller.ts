@@ -4,10 +4,11 @@ import { RecommendationContext } from '../interfaces/recommendation.context';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
+import { UserRole } from '../../users/schemas/user.schema';
 
 @Controller('admin/recommendations/debug')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('admin')
+@Roles(UserRole.ADMIN)
 export class RecommendationDebugController {
   private readonly logger = new Logger(RecommendationDebugController.name);
 
@@ -49,13 +50,12 @@ export class RecommendationDebugController {
         strategy: strategyKey,
         variant: variant || 'default',
         location: context.coordinates,
-        returnedCount: results.length
+        returnedCount: results.products.length
       },
-      results: results.map(r => ({
-        id: r.id,
-        title: r.title,
-        merchantId: r.userId,
-        category: r.category,
+      results: results.products.map(r => ({
+        productId: r._id || r.product?._id,
+        title: r.title || r.product?.title,
+        finalScore: r.finalScore,
         explainability: r.recommendationExplainability
       }))
     };

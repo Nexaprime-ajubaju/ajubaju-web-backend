@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
+import * as mongoose from 'mongoose';
 import { Model, Connection } from 'mongoose';
 import { InjectConnection } from '@nestjs/mongoose';
 import { Ad, AdDocument } from '../../ads/schemas/category-schemas/ad.schema';
@@ -27,7 +28,11 @@ export class CandidateRetrieverService {
   }
 
   async findByProductIds(ids: string[], limit: number = 20): Promise<any[]> {
-    return this.adModel.find({ _id: { $in: ids }, status: 'active' })
+    const objectIds = ids.map(id => {
+      try { return new mongoose.Types.ObjectId(id); } catch (e) { return null; }
+    }).filter(Boolean);
+
+    return this.adModel.find({ _id: { $in: objectIds }, status: 'active' })
       .limit(limit)
       .select(this.baseSelect)
       .lean();
@@ -75,24 +80,35 @@ export class CandidateRetrieverService {
   }
 
   async findRecentProducts(days: number = 14, limit: number = 20): Promise<any[]> {
-    const date = new Date();
-    date.setDate(date.getDate() - days);
+    const dateLimit = new Date();
+    dateLimit.setDate(dateLimit.getDate() - days);
     
     return this.adModel.find({
       status: 'active',
-      createdAt: { $gte: date }
+      createdAt: { $gte: dateLimit }
     })
-      .limit(limit)
-      .select(this.baseSelect)
-      .lean();
+    .sort({ createdAt: -1 })
+    .limit(limit)
+    .select(this.baseSelect)
+    .lean();
+  }
+
+  async findPopularProducts(limit: number = 20): Promise<any[]> {
+    return this.adModel.find({ status: 'active' })
+    .sort({ views: -1, contactClicks: -1 })
+    .limit(limit)
+    .select(this.baseSelect)
+    .lean();
   }
 
   async findDiscounted(limit: number = 20): Promise<any[]> {
-    // Assuming discount is derived or there's a field for flash deals.
-    // For now we'll query items that have an active discount/offer flag.
     return this.adModel.find({
       status: 'active',
-      'discount.isActive': true // Placeholder: adjust based on schema
+      $or: [
+        { isPromoted: true },
+        { discountPercent: { $gt: 0 } },
+        { $expr: { $lt: ["$price", "$originalPrice"] } }
+      ]
     })
       .limit(limit)
       .select(this.baseSelect)
@@ -100,10 +116,9 @@ export class CandidateRetrieverService {
   }
 
   async findSponsored(limit: number = 20): Promise<any[]> {
-    // Fallback logic for sponsored items
     return this.adModel.find({
       status: 'active',
-      isSponsored: true
+      isPromoted: true
     })
       .limit(limit)
       .select(this.baseSelect)

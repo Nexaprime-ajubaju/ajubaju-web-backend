@@ -33,8 +33,8 @@ export class RecommendationController {
   private buildContext(query: any, req: any): RecommendationContext {
     return {
       userId: req.user?.id || query.userId,
-      latitude: query.latitude ? parseFloat(query.latitude) : undefined,
-      longitude: query.longitude ? parseFloat(query.longitude) : undefined,
+      latitude: query.latitude ? parseFloat(query.latitude) : (query.lat ? parseFloat(query.lat) : undefined),
+      longitude: query.longitude ? parseFloat(query.longitude) : (query.lng ? parseFloat(query.lng) : undefined),
       city: query.city,
       area: query.area,
       pincode: query.pincode,

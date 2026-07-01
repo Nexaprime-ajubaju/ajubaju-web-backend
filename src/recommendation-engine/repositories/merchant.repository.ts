@@ -42,4 +42,12 @@ export class MerchantRepository {
 
     return this.merchantModel.aggregate(pipeline).exec();
   }
+
+  async findBestSellers(limit: number = 20): Promise<any[]> {
+    return this.merchantModel.find({ isActive: true })
+      .sort({ rating: -1, totalReviews: -1 }) // simple proxy for "best sellers"
+      .limit(limit)
+      .lean()
+      .exec();
+  }
 }

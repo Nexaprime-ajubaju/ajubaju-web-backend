@@ -1,10 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { RecommendationStrategy } from '../interfaces/recommendation-strategy.interface';
+import { RecommendationStrategy, StrategyResult, RecommendationReason, RecommendationSource } from '../interfaces/recommendation-strategy.interface';
 import { RecommendationContext } from '../interfaces/recommendation.context';
 import { CandidateRetrieverService } from '../retrievers/candidate-retriever.service';
 import { RankingService } from '../ranking/ranking.service';
 import { PostProcessorService } from '../ranking/post-processor.service';
-import { FeatureStoreService } from '../../feature-store/product/product-feature.service';
+import { ProductFeatureService } from '../../feature-store/product/product-feature.service';
+import { ModuleRef } from '@nestjs/core';
 
 @Injectable()
 export class CollaborativeStrategy implements RecommendationStrategy {
@@ -16,25 +17,35 @@ export class CollaborativeStrategy implements RecommendationStrategy {
     private readonly candidateRetriever: CandidateRetrieverService,
     private readonly rankingService: RankingService,
     private readonly postProcessor: PostProcessorService,
-    private readonly featureStore: FeatureStoreService,
+    private readonly featureStore: ProductFeatureService,
   ) {}
 
-  async getRecommendations(context: RecommendationContext): Promise<any[]> {
-    if (!context.userId) return [];
+  async getRecommendations(context: RecommendationContext): Promise<StrategyResult> {
+    const emptyResult: StrategyResult = {
+      products: [],
+      metadata: { confidence: 0, reason: RecommendationReason.COLLABORATIVE_FILTERING, source: RecommendationSource.OFFLINE, retrievedCandidates: 0, returnedProducts: 0 }
+    };
+
+    if (!context.userId) return emptyResult;
     
     try {
       const limit = context.limit || 10;
       
       // Fetch offline recommendations generated for this specific user
-      const candidates = await this.candidateRetriever.findOfflineCollection(
+      let candidates = await this.candidateRetriever.findOfflineCollection(
         'similar_customers', 
         { userId: context.userId }, 
         limit * 2
       );
 
       if (candidates.length === 0) {
-        return [];
+        this.logger.debug(`Similar customers offline collection empty for ${context.userId}`);
+        return emptyResult;
       }
+
+      // Base confidence on the similarity score if present, else default high confidence
+      const highestSimilarity = candidates[0].similarity || candidates[0].score || 0.85;
+      const confidence = Math.min(1.0, Math.max(0.1, highestSimilarity));
 
       const candidateIds = candidates.map(c => c._id.toString());
       const features = await this.featureStore.getFeatures(candidateIds);
@@ -47,10 +58,22 @@ export class CollaborativeStrategy implements RecommendationStrategy {
         freshness: 0
       });
 
-      return this.postProcessor.process(ranked, limit);
+      const processedProducts = this.postProcessor.process(ranked, limit);
+
+      return {
+        products: processedProducts,
+        metadata: {
+          confidence,
+          reason: RecommendationReason.COLLABORATIVE_FILTERING,
+          source: RecommendationSource.OFFLINE,
+          fallbackUsed: false,
+          retrievedCandidates: candidates.length,
+          returnedProducts: processedProducts.length
+        }
+      };
     } catch (error) {
       this.logger.error(`Error in CollaborativeStrategy: ${error.message}`, error.stack);
-      return [];
+      return emptyResult;
     }
   }
 }

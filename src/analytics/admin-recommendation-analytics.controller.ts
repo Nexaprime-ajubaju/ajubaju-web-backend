@@ -6,10 +6,11 @@ import { RecommendationHealthService } from './recommendation-health.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
+import { UserRole } from '../users/schemas/user.schema';
 
 @Controller('admin/recommendations/metrics')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('admin')
+@Roles(UserRole.ADMIN)
 export class AdminRecommendationAnalyticsController {
   constructor(
     @InjectModel(RecommendationMetric.name) private readonly metricModel: Model<RecommendationMetricDocument>,

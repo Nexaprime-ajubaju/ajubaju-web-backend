@@ -19,12 +19,12 @@ import { BestSellingStrategy } from './strategies/best-selling.strategy';
 import { SeasonalStrategy } from './strategies/seasonal.strategy';
 import { SponsoredStrategy } from './strategies/sponsored.strategy';
 import { SeasonResolverService } from './strategies/season-resolver.service';
-import { MerchantLoyaltyStrategy } from './strategies/merchant-loyalty.strategy';
 import { RepeatPurchaseStrategy } from './strategies/repeat-purchase.strategy';
 import { CollaborativeStrategy } from './strategies/collaborative.strategy';
 import { TrendingStrategy } from './strategies/trending.strategy';
 import { FrequentlyBoughtTogetherStrategy } from './strategies/frequently-bought-together.strategy';
 import { SimilarProductsStrategy } from './strategies/similar-products.strategy';
+import { RecentlyViewedStrategy } from './strategies/recently-viewed.strategy';
 import { RankingService } from './ranking/ranking.service';
 import { PostProcessorService } from './ranking/post-processor.service';
 import { FeatureStoreModule } from '../feature-store/feature-store.module';
@@ -88,12 +88,12 @@ import { ExperimentationModule } from './experimentation/experimentation.module'
     BestSellingStrategy,
     SeasonalStrategy,
     SponsoredStrategy,
-    MerchantLoyaltyStrategy,
     RepeatPurchaseStrategy,
     CollaborativeStrategy,
     TrendingStrategy,
     FrequentlyBoughtTogetherStrategy,
     SimilarProductsStrategy,
+    RecentlyViewedStrategy,
     SeasonResolverService,
     {
       provide: RECOMMENDATION_STRATEGIES,
@@ -106,12 +106,12 @@ import { ExperimentationModule } from './experimentation/experimentation.module'
         bestSellingStrategy: BestSellingStrategy,
         seasonalStrategy: SeasonalStrategy,
         sponsoredStrategy: SponsoredStrategy,
-        merchantLoyaltyStrategy: MerchantLoyaltyStrategy,
         repeatPurchaseStrategy: RepeatPurchaseStrategy,
         collaborativeStrategy: CollaborativeStrategy,
         trendingStrategy: TrendingStrategy,
         frequentlyBoughtTogetherStrategy: FrequentlyBoughtTogetherStrategy,
-        similarProductsStrategy: SimilarProductsStrategy
+        similarProductsStrategy: SimilarProductsStrategy,
+        recentlyViewedStrategy: RecentlyViewedStrategy
       ) => {
         return [
           nearbyStrategy, 
@@ -122,12 +122,12 @@ import { ExperimentationModule } from './experimentation/experimentation.module'
           bestSellingStrategy,
           seasonalStrategy,
           sponsoredStrategy,
-          merchantLoyaltyStrategy,
           repeatPurchaseStrategy,
           collaborativeStrategy,
           trendingStrategy,
           frequentlyBoughtTogetherStrategy,
-          similarProductsStrategy
+          similarProductsStrategy,
+          recentlyViewedStrategy
         ];
       },
       inject: [
@@ -139,12 +139,12 @@ import { ExperimentationModule } from './experimentation/experimentation.module'
         BestSellingStrategy,
         SeasonalStrategy,
         SponsoredStrategy,
-        MerchantLoyaltyStrategy,
         RepeatPurchaseStrategy,
         CollaborativeStrategy,
         TrendingStrategy,
         FrequentlyBoughtTogetherStrategy,
-        SimilarProductsStrategy
+        SimilarProductsStrategy,
+        RecentlyViewedStrategy
       ]
     },
     {

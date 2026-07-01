@@ -1,12 +1,12 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-import { RecommendationStrategy } from '../interfaces/recommendation-strategy.interface';
+import { RecommendationStrategy, StrategyResult, RecommendationReason, RecommendationSource } from '../interfaces/recommendation-strategy.interface';
 import { RecommendationContext } from '../interfaces/recommendation.context';
 import { CandidateRetrieverService } from '../retrievers/candidate-retriever.service';
 import { RankingService } from '../ranking/ranking.service';
 import { PostProcessorService } from '../ranking/post-processor.service';
-import { FeatureStoreService } from '../../feature-store/product/product-feature.service';
+import { ProductFeatureService } from '../../feature-store/product/product-feature.service';
 import { RecommendationEvent, RecommendationEventDocument } from '../../analytics/schemas/recommendation-event.schema';
 
 @Injectable()
@@ -20,13 +20,18 @@ export class ContinueShoppingStrategy implements RecommendationStrategy {
     private readonly candidateRetriever: CandidateRetrieverService,
     private readonly rankingService: RankingService,
     private readonly postProcessor: PostProcessorService,
-    private readonly featureStore: FeatureStoreService,
+    private readonly featureStore: ProductFeatureService,
   ) {}
 
-  async getRecommendations(context: RecommendationContext): Promise<any[]> {
+  async getRecommendations(context: RecommendationContext): Promise<StrategyResult> {
+    const emptyResult: StrategyResult = {
+      products: [],
+      metadata: { confidence: 0, reason: RecommendationReason.ACTIVE_CART, source: RecommendationSource.ONLINE, retrievedCandidates: 0, returnedProducts: 0 }
+    };
+
     if (!context.userId) {
       this.logger.debug('No userId provided, returning empty list for continue_shopping');
-      return [];
+      return emptyResult;
     }
 
     try {
@@ -52,7 +57,7 @@ export class ContinueShoppingStrategy implements RecommendationStrategy {
       .lean();
 
       if (recentEvents.length === 0) {
-        return [];
+        return emptyResult;
       }
 
       // 3. Score based on Most Recent > Most Clicked > Highest Affinity
@@ -65,7 +70,7 @@ export class ContinueShoppingStrategy implements RecommendationStrategy {
         if (purchasedProductIds.has(pId)) continue;
 
         if (!productStats[pId]) {
-          productStats[pId] = { recentMs: new Date(event.timestamp).getTime(), clicks: 0 };
+          productStats[pId] = { recentMs: new Date(event.createdAt).getTime(), clicks: 0 };
         }
         
         if (event.eventType === 'click' || event.eventType === 'add_to_cart') {
@@ -73,19 +78,25 @@ export class ContinueShoppingStrategy implements RecommendationStrategy {
         }
         
         // Update to most recent timestamp
-        const ts = new Date(event.timestamp).getTime();
+        const ts = new Date(event.createdAt).getTime();
         if (ts > productStats[pId].recentMs) {
           productStats[pId].recentMs = ts;
         }
       }
 
       const productIds = Object.keys(productStats);
-      if (productIds.length === 0) return [];
+      if (productIds.length === 0) return emptyResult;
+
+      let confidence = 0.0;
+      if (productIds.length >= 20) confidence = 0.95;
+      else if (productIds.length >= 10) confidence = 0.8;
+      else if (productIds.length >= 3) confidence = 0.6;
+      else if (productIds.length >= 1) confidence = 0.4;
 
       // Fetch candidates using generic retriever
       const candidates = await this.candidateRetriever.findByProductIds(productIds, limit * 2);
 
-      if (candidates.length === 0) return [];
+      if (candidates.length === 0) return emptyResult;
 
       // Fetch Features
       const candidateIds = candidates.map(c => c._id.toString());
@@ -123,10 +134,20 @@ export class ContinueShoppingStrategy implements RecommendationStrategy {
       // Post-Process (Diversity & Rules like active/in-stock/non-expired)
       const finalResults = this.postProcessor.process(ranked, limit);
 
-      return finalResults;
+      return {
+        products: finalResults,
+        metadata: {
+          confidence,
+          reason: RecommendationReason.ACTIVE_CART,
+          source: RecommendationSource.ONLINE,
+          fallbackUsed: false,
+          retrievedCandidates: candidates.length,
+          returnedProducts: finalResults.length
+        }
+      };
     } catch (error) {
       this.logger.error(`Error in ContinueShoppingStrategy: ${error.message}`, error.stack);
-      return [];
+      return emptyResult;
     }
   }
 }
