@@ -33,7 +33,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       }
       
       // Handle admin tokens - they come from GOLO_Admin_Backend and have role: 'admin'
-      if (payload.role === 'admin') {
+      if (payload.role === 'admin' || payload.adminType) {
         return {
           id: payload.sub,
           email: payload.email,
