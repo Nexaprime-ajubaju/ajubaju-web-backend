@@ -218,7 +218,7 @@ export class OffersService implements OnModuleInit {
       const features = planDetails.planFeatures;
 
       // 1. Product Eligibility Validation
-      if (Array.isArray(payload.selectedProducts) && payload.selectedProducts.length > 0) {
+      if (features.maxProducts !== -1 && Array.isArray(payload.selectedProducts) && payload.selectedProducts.length > 0) {
         const top10Products = await this.merchantProductModel
           .find({ merchantId })
           .sort({ createdAt: -1 })
