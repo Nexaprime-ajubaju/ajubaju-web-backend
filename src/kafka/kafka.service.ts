@@ -21,7 +21,7 @@ export class KafkaService implements OnModuleInit, OnModuleDestroy {
   // ==================== INITIALIZATION WITH RAILWAY SUPPORT ====================
   private initializeKafkaClient() {
     const kafkaConfig = this.configService.get('config.kafka');
-    
+
     // Check if Kafka is enabled
     if (!kafkaConfig?.enabled) {
       this.logger.log('Kafka is disabled via ENABLE_KAFKA=false');
@@ -70,15 +70,19 @@ export class KafkaService implements OnModuleInit, OnModuleDestroy {
       };
       options.client.ssl = false; // Railway uses plaintext internally
     } else {
-      this.logger.warn('No SASL credentials provided for Kafka - connection may fail');
+      this.logger.warn(
+        'No SASL credentials provided for Kafka - connection may fail',
+      );
     }
 
-    this.logger.log(`Kafka client initialized with brokers: ${kafkaConfig.brokers.join(', ')}`);
+    this.logger.log(
+      `Kafka client initialized with brokers: ${kafkaConfig.brokers.join(', ')}`,
+    );
     this.kafkaClient = new ClientKafka(options);
   }
 
   // ==================== LIFECYCLE HOOKS ====================
-  
+
   async onModuleInit() {
     // Skip if Kafka is disabled or client not initialized
     if (!this.kafkaClient) {
@@ -118,7 +122,7 @@ export class KafkaService implements OnModuleInit, OnModuleDestroy {
         KAFKA_TOPICS.REPORTS_STATUS,
       ];
 
-      topics.forEach(topic => {
+      topics.forEach((topic) => {
         this.kafkaClient.subscribeToResponseOf(topic);
       });
 
@@ -128,7 +132,9 @@ export class KafkaService implements OnModuleInit, OnModuleDestroy {
     } catch (error) {
       this.logger.error(`❌ Failed to connect to Kafka: ${error.message}`);
       // Don't throw - allow app to continue without Kafka
-      this.logger.warn('Continuing without Kafka connection - some features may be limited');
+      this.logger.warn(
+        'Continuing without Kafka connection - some features may be limited',
+      );
     }
   }
 
@@ -144,7 +150,7 @@ export class KafkaService implements OnModuleInit, OnModuleDestroy {
   }
 
   // ==================== MESSAGE EMITTING ====================
-  
+
   async emit(topic: string, data: any, correlationId?: string): Promise<void> {
     // Skip if Kafka is disabled
     if (!this.kafkaClient) {
@@ -162,18 +168,20 @@ export class KafkaService implements OnModuleInit, OnModuleDestroy {
       const headers = {
         correlationId: correlationId || this.generateCorrelationId(),
         source: this.configService.get('config.service.name'),
-        timestamp: Date.now().toString()
+        timestamp: Date.now().toString(),
       };
 
       this.logger.debug(`Emitting to topic ${topic}`);
-      
-      await lastValueFrom(this.kafkaClient.emit(topic, { value: message, headers }));
+
+      await lastValueFrom(
+        this.kafkaClient.emit(topic, { value: message, headers }),
+      );
     } catch (error) {
       this.logger.error(`Failed to emit to topic ${topic}: ${error.message}`);
-      
+
       // Try to send to DLQ if available
-      await this.sendToDLQ(topic, data, error, correlationId).catch(e => 
-        this.logger.error(`Failed to send to DLQ: ${e.message}`)
+      await this.sendToDLQ(topic, data, error, correlationId).catch((e) =>
+        this.logger.error(`Failed to send to DLQ: ${e.message}`),
       );
     }
   }
@@ -195,23 +203,30 @@ export class KafkaService implements OnModuleInit, OnModuleDestroy {
       const headers = {
         correlationId: correlationId || this.generateCorrelationId(),
         source: this.configService.get('config.service.name'),
-        timestamp: Date.now().toString()
+        timestamp: Date.now().toString(),
       };
 
       this.logger.debug(`Sending to topic ${topic}`);
-      
-      return await lastValueFrom(this.kafkaClient.send(topic, { value: message, headers }));
+
+      return await lastValueFrom(
+        this.kafkaClient.send(topic, { value: message, headers }),
+      );
     } catch (error) {
       this.logger.error(`Failed to send to topic ${topic}: ${error.message}`);
-      
+
       await this.sendToDLQ(topic, data, error, correlationId);
       throw error;
     }
   }
 
   // ==================== DEAD LETTER QUEUE ====================
-  
-  private async sendToDLQ(originalTopic: string, data: any, error: Error, correlationId?: string) {
+
+  private async sendToDLQ(
+    originalTopic: string,
+    data: any,
+    error: Error,
+    correlationId?: string,
+  ) {
     if (!this.kafkaClient) return;
 
     try {
@@ -221,11 +236,11 @@ export class KafkaService implements OnModuleInit, OnModuleDestroy {
           originalMessage: data,
           error: {
             message: error.message,
-            stack: error.stack
+            stack: error.stack,
           },
           timestamp: new Date().toISOString(),
-          correlationId: correlationId || this.generateCorrelationId()
-        }
+          correlationId: correlationId || this.generateCorrelationId(),
+        },
       });
     } catch (dlqError) {
       this.logger.error(`Failed to send to DLQ: ${dlqError.message}`);
@@ -233,7 +248,7 @@ export class KafkaService implements OnModuleInit, OnModuleDestroy {
   }
 
   // ==================== UTILITIES ====================
-  
+
   private generateCorrelationId(): string {
     return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
   }
@@ -243,7 +258,7 @@ export class KafkaService implements OnModuleInit, OnModuleDestroy {
   }
 
   // ==================== HEALTH CHECK ====================
-  
+
   async isConnected(): Promise<boolean> {
     if (!this.kafkaClient) return false;
     try {

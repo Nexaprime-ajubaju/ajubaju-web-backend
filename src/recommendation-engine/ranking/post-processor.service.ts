@@ -14,10 +14,7 @@ export class PostProcessorService {
     private readonly diversityPolicy: ProgressiveDiversityPolicy,
   ) {
     // Execution order matters. Filter dead items before attempting diversity.
-    this.policies = [
-      this.activeStatusPolicy,
-      this.diversityPolicy
-    ];
+    this.policies = [this.activeStatusPolicy, this.diversityPolicy];
   }
 
   /**
@@ -31,22 +28,57 @@ export class PostProcessorService {
     }
 
     // Map to final payload, attaching explainability metrics
-    return currentCandidates.map(s => {
-      const p = s.product;
-      p.id = p._id ? p._id.toString() : p.id;
+    const finalProducts = [];
+
+    for (const s of currentCandidates) {
+      if (finalProducts.length >= limit) break;
       
-      // Explainability Enrichment
-      p.recommendationExplainability = {
+      const offer = s.product;
+      const explainability = {
         finalScore: s.finalScore,
         components: s.components,
         matchedTags: s.matchedTags,
         matchedCategories: s.matchedCategories,
         policyAdjustments: s.policyAdjustments,
-        reasons: s.reasons
+        reasons: s.reasons,
       };
       
-      return p;
-    });
+      if (offer.selectedProducts && offer.selectedProducts.length > 0) {
+        for (const sp of offer.selectedProducts) {
+          if (finalProducts.length >= limit) break;
+          
+          let discountPercent = 0;
+          if (sp.originalPrice && sp.offerPrice && sp.originalPrice > sp.offerPrice) {
+            discountPercent = Math.round(((sp.originalPrice - sp.offerPrice) / sp.originalPrice) * 100);
+          }
+
+          finalProducts.push({
+            id: `${offer._id?.toString()}_${sp.productId || sp._id?.toString() || Math.random().toString(36).substring(7)}`,
+            type: 'offer',
+            title: sp.productName,
+            category: offer.category,
+            imageUrl: sp.imageUrl || offer.imageUrl || '/images/placeholder.webp',
+            price: sp.offerPrice,
+            originalPrice: sp.originalPrice,
+            discountPercent,
+            merchantId: offer.merchantId,
+            merchantName: offer.merchantName,
+            offerId: offer._id?.toString() || offer.id,
+            recommendationExplainability: explainability
+          });
+        }
+      } else {
+        // Fallback to presenting the offer itself if no specific products are selected
+        const p = { ...offer };
+        p.id = p._id ? p._id.toString() : p.id;
+        p.type = 'offer'; 
+        p.imageUrl = p.imageUrl || (p.images && p.images[0]) || '/images/placeholder.webp';
+        p.badge = p.promoTag || null;
+        p.recommendationExplainability = explainability;
+        finalProducts.push(p);
+      }
+    }
+
+    return finalProducts;
   }
 }
-

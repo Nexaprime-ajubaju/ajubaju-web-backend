@@ -1,5 +1,10 @@
 import { Controller, Logger, Optional } from '@nestjs/common';
-import { Ctx, KafkaContext, MessagePattern, Payload } from '@nestjs/microservices';
+import {
+  Ctx,
+  KafkaContext,
+  MessagePattern,
+  Payload,
+} from '@nestjs/microservices';
 import { ChatsService } from './chats.service';
 import { KAFKA_TOPICS } from '../common/constants/kafka-topics';
 import { KafkaService } from '../kafka/kafka.service';
@@ -43,7 +48,10 @@ export class ChatsKafkaController {
   }
 
   @MessagePattern(KAFKA_TOPICS.CHAT_START_CONVERSATION)
-  async handleStartConversation(@Payload() message: any, @Ctx() context: KafkaContext) {
+  async handleStartConversation(
+    @Payload() message: any,
+    @Ctx() context: KafkaContext,
+  ) {
     const value = this.getValue(message);
     const correlationId = this.getCorrelationId(message);
 
@@ -53,12 +61,16 @@ export class ChatsKafkaController {
       const result = await this.chatsService.startConversation(userId, dto);
 
       if (this.kafkaService) {
-        await this.kafkaService.emit(KAFKA_TOPICS.CHAT_CONVERSATION_STARTED, {
-          conversationId: result?.id,
-          adId: result?.adId,
-          userId,
-          participants: result?.participants || [],
-        }, correlationId);
+        await this.kafkaService.emit(
+          KAFKA_TOPICS.CHAT_CONVERSATION_STARTED,
+          {
+            conversationId: result?.id,
+            adId: result?.adId,
+            userId,
+            participants: result?.participants || [],
+          },
+          correlationId,
+        );
       }
 
       return this.success(result, correlationId);
@@ -69,7 +81,10 @@ export class ChatsKafkaController {
   }
 
   @MessagePattern(KAFKA_TOPICS.CHAT_LIST_CONVERSATIONS)
-  async handleListConversations(@Payload() message: any, @Ctx() context: KafkaContext) {
+  async handleListConversations(
+    @Payload() message: any,
+    @Ctx() context: KafkaContext,
+  ) {
     const value = this.getValue(message);
     const correlationId = this.getCorrelationId(message);
 
@@ -84,7 +99,10 @@ export class ChatsKafkaController {
   }
 
   @MessagePattern(KAFKA_TOPICS.CHAT_LIST_MESSAGES)
-  async handleListMessages(@Payload() message: any, @Ctx() context: KafkaContext) {
+  async handleListMessages(
+    @Payload() message: any,
+    @Ctx() context: KafkaContext,
+  ) {
     const value = this.getValue(message);
     const correlationId = this.getCorrelationId(message);
 
@@ -92,7 +110,11 @@ export class ChatsKafkaController {
       const userId = value.userId;
       const conversationId = value.conversationId;
       const query = value.query || {};
-      const result = await this.chatsService.listMessages(userId, conversationId, query);
+      const result = await this.chatsService.listMessages(
+        userId,
+        conversationId,
+        query,
+      );
       return this.success(result, correlationId);
     } catch (error) {
       this.logger.error(`Failed CHAT_LIST_MESSAGES: ${error.message}`);
@@ -101,7 +123,10 @@ export class ChatsKafkaController {
   }
 
   @MessagePattern(KAFKA_TOPICS.CHAT_SEND_MESSAGE)
-  async handleSendMessage(@Payload() message: any, @Ctx() context: KafkaContext) {
+  async handleSendMessage(
+    @Payload() message: any,
+    @Ctx() context: KafkaContext,
+  ) {
     const value = this.getValue(message);
     const correlationId = this.getCorrelationId(message);
 
@@ -109,7 +134,11 @@ export class ChatsKafkaController {
       const userId = value.userId;
       const conversationId = value.conversationId;
       const dto = value.dto || value;
-      const result = await this.chatsService.sendMessage(userId, conversationId, dto);
+      const result = await this.chatsService.sendMessage(
+        userId,
+        conversationId,
+        dto,
+      );
 
       if (this.kafkaService) {
         await this.kafkaService.emit(
@@ -132,7 +161,10 @@ export class ChatsKafkaController {
   }
 
   @MessagePattern(KAFKA_TOPICS.CHAT_DELETE_CONVERSATION)
-  async handleDeleteConversation(@Payload() message: any, @Ctx() context: KafkaContext) {
+  async handleDeleteConversation(
+    @Payload() message: any,
+    @Ctx() context: KafkaContext,
+  ) {
     const value = this.getValue(message);
     const correlationId = this.getCorrelationId(message);
 
@@ -149,11 +181,13 @@ export class ChatsKafkaController {
         );
       }
 
-      return this.success({ message: 'Conversation deleted successfully' }, correlationId);
+      return this.success(
+        { message: 'Conversation deleted successfully' },
+        correlationId,
+      );
     } catch (error) {
       this.logger.error(`Failed CHAT_DELETE_CONVERSATION: ${error.message}`);
       return this.failure(error, correlationId);
     }
   }
 }
-

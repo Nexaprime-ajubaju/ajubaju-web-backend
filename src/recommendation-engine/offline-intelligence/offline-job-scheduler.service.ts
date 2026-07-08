@@ -29,7 +29,7 @@ export class OfflineJobSchedulerService implements OnApplicationBootstrap {
       this.fbtJob,
       this.similarProductsJob,
       this.similarCustomersJob,
-      this.bestSellersJob
+      this.bestSellersJob,
     ];
   }
 
@@ -52,7 +52,9 @@ export class OfflineJobSchedulerService implements OnApplicationBootstrap {
 
       this.schedulerRegistry.addCronJob(job.key, cronJob);
       cronJob.start();
-      this.logger.log(`Registered offline job '${job.key}' with schedule: ${job.schedule}`);
+      this.logger.log(
+        `Registered offline job '${job.key}' with schedule: ${job.schedule}`,
+      );
     }
   }
 
@@ -60,12 +62,21 @@ export class OfflineJobSchedulerService implements OnApplicationBootstrap {
     // Instead of wildcard DEL, we use versioned cache invalidation.
     // Increment the cache version, instantly invalidating all old keys.
     try {
-      const currentVersion = (await this.redisService.get('recommendation:cache:version')) || '1';
+      const currentVersion =
+        (await this.redisService.get('recommendation:cache:version')) || '1';
       const nextVersion = parseInt(currentVersion as string, 10) + 1;
-      await this.redisService.set('recommendation:cache:version', nextVersion.toString(), 0); // 0 = no TTL
-      this.logger.log(`Incremented recommendation cache version to ${nextVersion} (Trigger: ${jobKey})`);
+      await this.redisService.set(
+        'recommendation:cache:version',
+        nextVersion.toString(),
+        0,
+      ); // 0 = no TTL
+      this.logger.log(
+        `Incremented recommendation cache version to ${nextVersion} (Trigger: ${jobKey})`,
+      );
     } catch (error) {
-      this.logger.error(`Failed to increment cache version for ${jobKey}: ${error.message}`);
+      this.logger.error(
+        `Failed to increment cache version for ${jobKey}: ${error.message}`,
+      );
     }
   }
 }

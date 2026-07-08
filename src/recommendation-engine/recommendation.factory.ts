@@ -8,9 +8,10 @@ export class RecommendationFactory {
   private strategyMap = new Map<string, RecommendationStrategy>();
 
   constructor(
-    @Inject(RECOMMENDATION_STRATEGIES) private strategies: RecommendationStrategy[]
+    @Inject(RECOMMENDATION_STRATEGIES)
+    private strategies: RecommendationStrategy[],
   ) {
-    this.strategies.forEach(s => {
+    this.strategies.forEach((s) => {
       this.strategyMap.set(s.key, s);
     });
   }

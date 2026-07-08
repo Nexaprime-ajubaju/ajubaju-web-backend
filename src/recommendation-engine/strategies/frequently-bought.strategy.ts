@@ -1,12 +1,19 @@
 import { Injectable } from '@nestjs/common';
-import { RecommendationStrategy, StrategyResult, RecommendationReason, RecommendationSource } from '../interfaces/recommendation-strategy.interface';
+import {
+  RecommendationStrategy,
+  StrategyResult,
+  RecommendationReason,
+  RecommendationSource,
+} from '../interfaces/recommendation-strategy.interface';
 import { RecommendationContext } from '../interfaces/recommendation.context';
 
 @Injectable()
 export class FrequentlyBoughtStrategy implements RecommendationStrategy {
   readonly key = 'frequently_bought_together';
 
-  async getRecommendations(context: RecommendationContext): Promise<StrategyResult> {
+  async getRecommendations(
+    context: RecommendationContext,
+  ): Promise<StrategyResult> {
     const limit = context.limit || 10;
     // Placeholder implementation for FrequentlyBoughtStrategy
     // In a real implementation, this would inject required services (Users, Orders, Products)
@@ -21,7 +28,7 @@ export class FrequentlyBoughtStrategy implements RecommendationStrategy {
         id: 'frequently_bought_together-mock-2',
         title: 'Mock Item 2 for FrequentlyBoughtStrategy',
         type: 'product',
-      }
+      },
     ].slice(0, limit);
 
     return {
@@ -32,8 +39,8 @@ export class FrequentlyBoughtStrategy implements RecommendationStrategy {
         source: RecommendationSource.ONLINE,
         fallbackUsed: false,
         retrievedCandidates: mockProducts.length,
-        returnedProducts: mockProducts.length
-      }
+        returnedProducts: mockProducts.length,
+      },
     };
   }
 }

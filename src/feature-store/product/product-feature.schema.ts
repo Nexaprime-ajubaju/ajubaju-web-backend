@@ -51,7 +51,8 @@ export class ProductFeature {
   updatedAt?: Date;
 }
 
-export const ProductFeatureSchema = SchemaFactory.createForClass(ProductFeature);
+export const ProductFeatureSchema =
+  SchemaFactory.createForClass(ProductFeature);
 
 ProductFeatureSchema.index({ productId: 1 });
 ProductFeatureSchema.index({ updatedAt: -1 });

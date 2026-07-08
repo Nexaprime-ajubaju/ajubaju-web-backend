@@ -55,7 +55,11 @@ export class Payment {
   @Prop({ required: true, default: 'razorpay' })
   provider: string;
 
-  @Prop({ required: true, enum: Object.values(PaymentStatus), default: PaymentStatus.CREATED })
+  @Prop({
+    required: true,
+    enum: Object.values(PaymentStatus),
+    default: PaymentStatus.CREATED,
+  })
   status: PaymentStatus;
 
   @Prop({ required: true })
@@ -111,4 +115,7 @@ export const PaymentSchema = SchemaFactory.createForClass(Payment);
 
 PaymentSchema.index({ userId: 1, createdAt: -1 });
 PaymentSchema.index({ userId: 1, status: 1, createdAt: -1 });
-PaymentSchema.index({ userId: 1, idempotencyKey: 1 }, { unique: true, sparse: true });
+PaymentSchema.index(
+  { userId: 1, idempotencyKey: 1 },
+  { unique: true, sparse: true },
+);

@@ -8,7 +8,10 @@ import { Product, ProductSchema } from '../products/schemas/product.schema';
 import { Review, ReviewSchema } from '../reviews/schemas/review.schema';
 import { User, UserSchema } from '../users/schemas/user.schema';
 import { Voucher, VoucherSchema } from '../vouchers/schemas/voucher.schema';
-import { OfferLikeHistory, OfferLikeHistorySchema } from '../offers/schemas/offer-like-history.schema';
+import {
+  OfferLikeHistory,
+  OfferLikeHistorySchema,
+} from '../offers/schemas/offer-like-history.schema';
 import { MerchantDashboardController } from './merchant-dashboard.controller';
 import { MerchantDashboardKafkaController } from './merchant-dashboard.kafka.controller';
 import { MerchantDashboardService } from './merchant-dashboard.service';

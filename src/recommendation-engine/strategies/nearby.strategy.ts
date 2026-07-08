@@ -1,5 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { RecommendationStrategy, StrategyResult, RecommendationReason, RecommendationSource } from '../interfaces/recommendation-strategy.interface';
+import {
+  RecommendationStrategy,
+  StrategyResult,
+  RecommendationReason,
+  RecommendationSource,
+} from '../interfaces/recommendation-strategy.interface';
 import { RecommendationContext } from '../interfaces/recommendation.context';
 import { CandidateRetrieverService } from '../retrievers/candidate-retriever.service';
 import { RankingService } from '../ranking/ranking.service';
@@ -21,10 +26,18 @@ export class NearbyStrategy implements RecommendationStrategy {
     private readonly featureStore: ProductFeatureService,
   ) {}
 
-  async getRecommendations(context: RecommendationContext): Promise<StrategyResult> {
+  async getRecommendations(
+    context: RecommendationContext,
+  ): Promise<StrategyResult> {
     const emptyResult: StrategyResult = {
       products: [],
-      metadata: { confidence: 0, reason: RecommendationReason.EXACT_COORDINATES, source: RecommendationSource.OFFLINE, retrievedCandidates: 0, returnedProducts: 0 }
+      metadata: {
+        confidence: 0,
+        reason: RecommendationReason.EXACT_COORDINATES,
+        source: RecommendationSource.OFFLINE,
+        retrievedCandidates: 0,
+        returnedProducts: 0,
+      },
     };
 
     try {
@@ -32,11 +45,23 @@ export class NearbyStrategy implements RecommendationStrategy {
         return emptyResult;
       }
       const limit = context.limit || 10;
-      
+
       const fallbacks = [
-        { distance: 5, confidence: 0.98, reason: RecommendationReason.EXACT_COORDINATES },
-        { distance: 20, confidence: 0.82, reason: RecommendationReason.EXPANDED_RADIUS },
-        { distance: 100, confidence: 0.68, reason: RecommendationReason.ENTIRE_CITY },
+        {
+          distance: 5,
+          confidence: 0.98,
+          reason: RecommendationReason.EXACT_COORDINATES,
+        },
+        {
+          distance: 20,
+          confidence: 0.82,
+          reason: RecommendationReason.EXPANDED_RADIUS,
+        },
+        {
+          distance: 100,
+          confidence: 0.68,
+          reason: RecommendationReason.ENTIRE_CITY,
+        },
       ];
 
       let candidates = [];
@@ -46,9 +71,9 @@ export class NearbyStrategy implements RecommendationStrategy {
       for (let i = 0; i < fallbacks.length; i++) {
         const fallback = fallbacks[i];
         candidates = await this.candidateRetriever.findNearby(
-          { latitude: context.latitude, longitude: context.longitude }, 
-          fallback.distance, 
-          limit * 2
+          { latitude: context.latitude, longitude: context.longitude },
+          fallback.distance,
+          limit * 2,
         );
 
         if (candidates.length > 0) {
@@ -62,15 +87,21 @@ export class NearbyStrategy implements RecommendationStrategy {
         return emptyResult;
       }
 
-      const candidateIds = candidates.map(c => c._id.toString());
+      const candidateIds = candidates.map((c) => c._id.toString());
       const features = await this.featureStore.getFeatures(candidateIds);
 
-      const ranked = this.rankingService.rankCandidates(candidates, features, context, null, {
-        popularity: 0.3,
-        distance: 0.5,
-        affinity: 0,
-        freshness: 0.2
-      });
+      const ranked = this.rankingService.rankCandidates(
+        candidates,
+        features,
+        context,
+        null,
+        {
+          popularity: 0.3,
+          distance: 0.5,
+          affinity: 0,
+          freshness: 0.2,
+        },
+      );
 
       const processedProducts = this.postProcessor.process(ranked, limit);
 
@@ -82,11 +113,14 @@ export class NearbyStrategy implements RecommendationStrategy {
           source: RecommendationSource.ONLINE,
           fallbackUsed: isFallback,
           retrievedCandidates: candidates.length,
-          returnedProducts: processedProducts.length
-        }
+          returnedProducts: processedProducts.length,
+        },
       };
     } catch (error) {
-      this.logger.error(`Error in NearbyStrategy: ${error.message}`, error.stack);
+      this.logger.error(
+        `Error in NearbyStrategy: ${error.message}`,
+        error.stack,
+      );
       return emptyResult;
     }
   }

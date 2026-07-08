@@ -1,6 +1,7 @@
 import {
   ForbiddenException,
   Injectable,
+  InternalServerErrorException,
   Logger,
   Optional,
   NotFoundException,
@@ -20,6 +21,7 @@ import {
 } from './schemas/merchant-product.schema';
 import { MerchantPlanService } from '../merchant-plan/merchant-plan.service';
 import { Merchant, MerchantDocument } from '../users/schemas/merchant.schema';
+import { TransactionService } from '../common/services/transaction.service';
 
 @Injectable()
 export class MerchantProductsService implements OnModuleInit {
@@ -28,13 +30,18 @@ export class MerchantProductsService implements OnModuleInit {
   constructor(
     @InjectModel(MerchantProduct.name)
     private readonly merchantProductModel: Model<MerchantProductDocument>,
-    @InjectModel(Merchant.name) private readonly merchantModel: Model<MerchantDocument>,
+    @InjectModel(Merchant.name)
+    private readonly merchantModel: Model<MerchantDocument>,
     private readonly merchantPlanService: MerchantPlanService,
     private readonly redisService: RedisService,
+    private readonly transactionService: TransactionService,
     @Optional() private readonly kafkaService?: KafkaService,
   ) {}
 
-  private cacheListKey(merchantId: string, query: ListMerchantProductsDto): string {
+  private cacheListKey(
+    merchantId: string,
+    query: ListMerchantProductsDto,
+  ): string {
     return `golo:merchant:products:list:${merchantId}:${query.page || 1}:${query.limit || 10}:${(query.search || '').trim().toLowerCase()}`;
   }
 
@@ -42,9 +49,15 @@ export class MerchantProductsService implements OnModuleInit {
     return `golo:merchant:products:item:${merchantId}:${productId}`;
   }
 
-  private async invalidateMerchantProductCache(merchantId: string): Promise<void> {
-    await this.redisService.deleteByPattern(`golo:merchant:products:list:${merchantId}:*`);
-    await this.redisService.deleteByPattern(`golo:merchant:products:item:${merchantId}:*`);
+  private async invalidateMerchantProductCache(
+    merchantId: string,
+  ): Promise<void> {
+    await this.redisService.deleteByPattern(
+      `golo:merchant:products:list:${merchantId}:*`,
+    );
+    await this.redisService.deleteByPattern(
+      `golo:merchant:products:item:${merchantId}:*`,
+    );
   }
 
   async onModuleInit() {
@@ -53,62 +66,93 @@ export class MerchantProductsService implements OnModuleInit {
     }
   }
 
-  private deriveStatus(stockQuantity: number):
-    | 'In Stock'
-    | 'Low Stock'
-    | 'Out of Stock' {
+  private deriveStatus(
+    stockQuantity: number,
+  ): 'In Stock' | 'Low Stock' | 'Out of Stock' {
     if (stockQuantity <= 0) return 'Out of Stock';
     if (stockQuantity <= 10) return 'Low Stock';
     return 'In Stock';
   }
 
   async create(merchantId: string, dto: CreateMerchantProductDto) {
-    const merchant = await this.merchantModel.findOne({ userId: merchantId }).exec();
-    if (merchant) {
-      const planDetails = await this.merchantPlanService.getPlanDetails(merchant);
-      if (planDetails.planFeatures.maxProducts !== -1) {
-        const totalProducts = await this.merchantProductModel.countDocuments({ merchantId }).exec();
-        if (totalProducts >= planDetails.planFeatures.maxProducts) {
-          throw new ForbiddenException({
-            success: false,
-            statusCode: 403,
-            errorCode: 'PRODUCT_LIMIT_REACHED',
-            message: `Free Tier merchants can only add up to ${planDetails.planFeatures.maxProducts} products. Please upgrade to Premium.`
-          });
-        }
+    const lockKey = `lock:merchant:product:create:${merchantId}`;
+    let lockToken: string | null = null;
+
+    if (this.redisService.isEnabled()) {
+      lockToken = await this.redisService.acquireLock(lockKey, 5000);
+      if (!lockToken) {
+        throw new InternalServerErrorException(
+          'Could not acquire merchant product creation lock. Please retry.',
+        );
       }
     }
 
-    const payload = {
-      merchantId,
-      name: dto.name.trim(),
-      category: dto.category.trim(),
-      stockQuantity: dto.stockQuantity,
-      price: dto.price,
-      description: dto.description?.trim() || '',
-      images: dto.images || [],
-      status: this.deriveStatus(dto.stockQuantity),
-    };
-
-    const product = await this.merchantProductModel.create(payload);
-    await this.invalidateMerchantProductCache(merchantId);
-
-    if (this.kafkaService) {
-      await this.kafkaService.emit(KAFKA_TOPICS.MERCHANT_PRODUCT_CREATED, {
+    try {
+      const payload = {
         merchantId,
-        productId: String(product._id),
-        name: product.name,
-        category: product.category,
-        price: product.price,
-        stockQuantity: product.stockQuantity,
-      });
-    }
+        name: dto.name.trim(),
+        category: dto.category.trim(),
+        stockQuantity: dto.stockQuantity,
+        price: dto.price,
+        description: dto.description?.trim() || '',
+        images: dto.images || [],
+        status: this.deriveStatus(dto.stockQuantity),
+      };
 
-    return {
-      success: true,
-      message: 'Product created successfully',
-      data: this.mapProduct(product),
-    };
+      const product = await this.transactionService.execute(async (session) => {
+        const merchant = await this.merchantModel
+          .findOne({ userId: merchantId })
+          .session(session)
+          .exec();
+        if (merchant) {
+          const planDetails = await this.merchantPlanService.getPlanDetails(
+            merchant,
+            session,
+          );
+          if (planDetails.planFeatures.maxProducts !== -1) {
+            const totalProducts = await this.merchantProductModel
+              .countDocuments({ merchantId })
+              .session(session)
+              .exec();
+            if (totalProducts >= planDetails.planFeatures.maxProducts) {
+              throw new ForbiddenException({
+                success: false,
+                statusCode: 403,
+                errorCode: 'PRODUCT_LIMIT_REACHED',
+                message: `Free Tier merchants can only add up to ${planDetails.planFeatures.maxProducts} products. Please upgrade to Premium.`,
+              });
+            }
+          }
+        }
+
+        const created = await this.merchantProductModel.create([payload], {
+          session,
+        });
+        return created[0];
+      });
+      await this.invalidateMerchantProductCache(merchantId);
+
+      if (this.kafkaService) {
+        await this.kafkaService.emit(KAFKA_TOPICS.MERCHANT_PRODUCT_CREATED, {
+          merchantId,
+          productId: String(product._id),
+          name: product.name,
+          category: product.category,
+          price: product.price,
+          stockQuantity: product.stockQuantity,
+        });
+      }
+
+      return {
+        success: true,
+        message: 'Product created successfully',
+        data: this.mapProduct(product),
+      };
+    } finally {
+      if (lockToken) {
+        await this.redisService.releaseLock(lockKey, lockToken);
+      }
+    }
   }
 
   async listMyProducts(merchantId: string, query: ListMerchantProductsDto) {
@@ -129,43 +173,53 @@ export class MerchantProductsService implements OnModuleInit {
       filter.$or = [{ name: searchRegex }, { category: searchRegex }];
     }
 
-    const [products, total, totalProducts, lowStockProducts, outOfStockProducts, inventoryAgg, top10Products] =
-      await Promise.all([
-        this.merchantProductModel
-          .find(filter)
-          .sort({ createdAt: -1 })
-          .skip(skip)
-          .limit(limit)
-          .exec(),
-        this.merchantProductModel.countDocuments(filter),
-        this.merchantProductModel.countDocuments({ merchantId }),
-        this.merchantProductModel.countDocuments({
-          merchantId,
-          stockQuantity: { $gt: 0, $lte: 10 },
-        }),
-        this.merchantProductModel.countDocuments({ merchantId, stockQuantity: 0 }),
-        this.merchantProductModel.aggregate([
-          { $match: { merchantId } },
-          {
-            $group: {
-              _id: null,
-              total: {
-                $sum: { $multiply: ['$price', '$stockQuantity'] },
-              },
+    const [
+      products,
+      total,
+      totalProducts,
+      lowStockProducts,
+      outOfStockProducts,
+      inventoryAgg,
+      top10Products,
+    ] = await Promise.all([
+      this.merchantProductModel
+        .find(filter)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .exec(),
+      this.merchantProductModel.countDocuments(filter),
+      this.merchantProductModel.countDocuments({ merchantId }),
+      this.merchantProductModel.countDocuments({
+        merchantId,
+        stockQuantity: { $gt: 0, $lte: 10 },
+      }),
+      this.merchantProductModel.countDocuments({
+        merchantId,
+        stockQuantity: 0,
+      }),
+      this.merchantProductModel.aggregate([
+        { $match: { merchantId } },
+        {
+          $group: {
+            _id: null,
+            total: {
+              $sum: { $multiply: ['$price', '$stockQuantity'] },
             },
           },
-        ]),
-        this.merchantProductModel
-          .find({ merchantId })
-          .sort({ createdAt: -1 })
-          .limit(10)
-          .select('_id')
-          .lean()
-          .exec(),
-      ]);
+        },
+      ]),
+      this.merchantProductModel
+        .find({ merchantId })
+        .sort({ createdAt: -1 })
+        .limit(10)
+        .select('_id')
+        .lean()
+        .exec(),
+    ]);
 
     const inventoryValue = inventoryAgg[0]?.total || 0;
-    const eligibleIds = new Set(top10Products.map(p => String(p._id)));
+    const eligibleIds = new Set(top10Products.map((p) => String(p._id)));
 
     const response = {
       success: true,
@@ -175,7 +229,12 @@ export class MerchantProductsService implements OnModuleInit {
           return {
             ...this.mapProduct(product),
             offerEligible: isEligible,
-            ...(isEligible ? {} : { offerEligibilityReason: "Only your 10 most recently created products can receive offers on the Free Tier." }),
+            ...(isEligible
+              ? {}
+              : {
+                  offerEligibilityReason:
+                    'Only your 10 most recently created products can receive offers on the Free Tier.',
+                }),
           };
         }),
         stats: {
@@ -197,7 +256,10 @@ export class MerchantProductsService implements OnModuleInit {
     return response;
   }
 
-  async listProductsByMerchantId(merchantId: string, query: ListMerchantProductsDto) {
+  async listProductsByMerchantId(
+    merchantId: string,
+    query: ListMerchantProductsDto,
+  ) {
     const page = Number(query.page) || 1;
     const limit = Number(query.limit) || 10;
     const skip = (page - 1) * limit;
@@ -226,7 +288,7 @@ export class MerchantProductsService implements OnModuleInit {
         .exec(),
     ]);
 
-    const eligibleIds = new Set(top10Products.map(p => String(p._id)));
+    const eligibleIds = new Set(top10Products.map((p) => String(p._id)));
 
     return {
       success: true,
@@ -236,7 +298,12 @@ export class MerchantProductsService implements OnModuleInit {
           return {
             ...this.mapProduct(product),
             offerEligible: isEligible,
-            ...(isEligible ? {} : { offerEligibilityReason: "Only your 10 most recently created products can receive offers on the Free Tier." }),
+            ...(isEligible
+              ? {}
+              : {
+                  offerEligibilityReason:
+                    'Only your 10 most recently created products can receive offers on the Free Tier.',
+                }),
           };
         }),
       },
@@ -251,7 +318,9 @@ export class MerchantProductsService implements OnModuleInit {
 
   private async findProductOrThrow(productId: string) {
     try {
-      const product = await this.merchantProductModel.findById(productId).exec();
+      const product = await this.merchantProductModel
+        .findById(productId)
+        .exec();
       if (!product) {
         throw new NotFoundException('Product not found');
       }
@@ -310,7 +379,11 @@ export class MerchantProductsService implements OnModuleInit {
     };
   }
 
-  async updateProduct(merchantId: string, productId: string, dto: UpdateMerchantProductDto) {
+  async updateProduct(
+    merchantId: string,
+    productId: string,
+    dto: UpdateMerchantProductDto,
+  ) {
     const product = await this.findProductOrThrow(productId);
 
     if (String(product.merchantId) !== String(merchantId)) {
@@ -339,7 +412,9 @@ export class MerchantProductsService implements OnModuleInit {
         .filter(Boolean);
     }
 
-    await product.save();
+    await this.transactionService.execute(async (session) => {
+      await product.save({ session });
+    });
     await this.invalidateMerchantProductCache(merchantId);
 
     return {
@@ -350,15 +425,19 @@ export class MerchantProductsService implements OnModuleInit {
   }
 
   async deleteProduct(merchantId: string, productId: string) {
-    const merchant = await this.merchantModel.findOne({ userId: merchantId }).exec();
+    const merchant = await this.merchantModel
+      .findOne({ userId: merchantId })
+      .exec();
     if (merchant) {
-      const planDetails = await this.merchantPlanService.getPlanDetails(merchant);
+      const planDetails =
+        await this.merchantPlanService.getPlanDetails(merchant);
       if (!planDetails.planFeatures.canDeleteProduct) {
         throw new ForbiddenException({
           success: false,
           statusCode: 403,
           errorCode: 'PRODUCT_DELETE_NOT_ALLOWED',
-          message: 'Free Tier merchants cannot delete products. Please upgrade to Premium.'
+          message:
+            'Free Tier merchants cannot delete products. Please upgrade to Premium.',
         });
       }
     }
@@ -380,7 +459,11 @@ export class MerchantProductsService implements OnModuleInit {
       });
     }
 
-    await this.merchantProductModel.findByIdAndDelete(productId).exec();
+    await this.transactionService.execute(async (session) => {
+      await this.merchantProductModel
+        .findByIdAndDelete(productId, { session })
+        .exec();
+    });
     await this.invalidateMerchantProductCache(merchantId);
 
     return {

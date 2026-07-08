@@ -7,7 +7,9 @@ export class RankingComponentRegistry {
 
   register(component: RankingComponent): void {
     if (this.components.has(component.key)) {
-      throw new Error(`RankingComponent with key '${component.key}' is already registered.`);
+      throw new Error(
+        `RankingComponent with key '${component.key}' is already registered.`,
+      );
     }
     this.components.set(component.key, component);
   }

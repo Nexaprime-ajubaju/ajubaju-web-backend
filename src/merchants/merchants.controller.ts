@@ -33,7 +33,10 @@ export class MerchantsController {
 
     const userId = user.id || user._id;
 
-    return await this.merchantsService.updateStoreLocation(userId, locationData);
+    return await this.merchantsService.updateStoreLocation(
+      userId,
+      locationData,
+    );
   }
 
   /**
@@ -87,7 +90,10 @@ export class MerchantsController {
     }
 
     const userId = user.id || user._id;
-    return await this.merchantsService.updateMerchantProfile(userId, updateData);
+    return await this.merchantsService.updateMerchantProfile(
+      userId,
+      updateData,
+    );
   }
 
   /**
@@ -98,7 +104,8 @@ export class MerchantsController {
   @UseGuards(JwtAuthGuard)
   async updateNotificationSettings(
     @CurrentUser() user: any,
-    @Body() settings: {
+    @Body()
+    settings: {
       emailNotifications?: boolean;
       orderNotifications?: boolean;
       promotionNotifications?: boolean;
@@ -110,6 +117,9 @@ export class MerchantsController {
     }
 
     const userId = user.id || user._id;
-    return await this.merchantsService.updateNotificationSettings(userId, settings);
+    return await this.merchantsService.updateNotificationSettings(
+      userId,
+      settings,
+    );
   }
 }

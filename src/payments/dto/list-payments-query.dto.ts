@@ -15,6 +15,13 @@ export class ListPaymentsQueryDto {
 
   @IsOptional()
   @IsString()
-  @IsIn(['created', 'authorized', 'captured', 'failed', 'partially_refunded', 'refunded'])
+  @IsIn([
+    'created',
+    'authorized',
+    'captured',
+    'failed',
+    'partially_refunded',
+    'refunded',
+  ])
   status?: string;
 }

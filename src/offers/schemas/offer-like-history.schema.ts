@@ -33,6 +33,7 @@ export class OfferLikeHistory {
   firstLikedAt: Date;
 }
 
-export const OfferLikeHistorySchema = SchemaFactory.createForClass(OfferLikeHistory);
+export const OfferLikeHistorySchema =
+  SchemaFactory.createForClass(OfferLikeHistory);
 OfferLikeHistorySchema.index({ userId: 1, offerPublicId: 1 }, { unique: true });
 OfferLikeHistorySchema.index({ merchantId: 1, firstLikedAt: -1 });

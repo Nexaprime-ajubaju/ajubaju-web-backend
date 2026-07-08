@@ -20,10 +20,16 @@ export class UserInterestProfile {
   @Prop({ required: true, unique: true, index: true })
   userId: string;
 
-  @Prop({ type: InterestVector, default: () => ({ tags: {}, categories: {}, merchants: {} }) })
+  @Prop({
+    type: InterestVector,
+    default: () => ({ tags: {}, categories: {}, merchants: {} }),
+  })
   shortTerm: InterestVector;
 
-  @Prop({ type: InterestVector, default: () => ({ tags: {}, categories: {}, merchants: {} }) })
+  @Prop({
+    type: InterestVector,
+    default: () => ({ tags: {}, categories: {}, merchants: {} }),
+  })
   longTerm: InterestVector;
 
   @Prop({ default: 0 })
@@ -39,4 +45,5 @@ export class UserInterestProfile {
   updatedAt?: Date;
 }
 
-export const UserInterestProfileSchema = SchemaFactory.createForClass(UserInterestProfile);
+export const UserInterestProfileSchema =
+  SchemaFactory.createForClass(UserInterestProfile);

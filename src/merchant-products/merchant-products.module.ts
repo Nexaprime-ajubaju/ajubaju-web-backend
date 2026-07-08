@@ -11,6 +11,7 @@ import { MerchantProductsService } from './merchant-products.service';
 
 import { MerchantPlanModule } from '../merchant-plan/merchant-plan.module';
 import { Merchant, MerchantSchema } from '../users/schemas/merchant.schema';
+import { TransactionModule } from '../common/services/transaction.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { Merchant, MerchantSchema } from '../users/schemas/merchant.schema';
       { name: MerchantProduct.name, schema: MerchantProductSchema },
       { name: Merchant.name, schema: MerchantSchema },
     ]),
+    TransactionModule,
     KafkaModule,
     RedisModule, // Cache merchant product listings, inventory
     MerchantPlanModule,

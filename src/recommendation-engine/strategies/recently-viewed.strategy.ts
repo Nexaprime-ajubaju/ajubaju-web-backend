@@ -1,5 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { RecommendationStrategy, StrategyResult, RecommendationReason, RecommendationSource } from '../interfaces/recommendation-strategy.interface';
+import {
+  RecommendationStrategy,
+  StrategyResult,
+  RecommendationReason,
+  RecommendationSource,
+} from '../interfaces/recommendation-strategy.interface';
 import { RecommendationContext } from '../interfaces/recommendation.context';
 import { CandidateRetrieverService } from '../retrievers/candidate-retriever.service';
 import { PostProcessorService } from '../ranking/post-processor.service';
@@ -16,10 +21,18 @@ export class RecentlyViewedStrategy implements RecommendationStrategy {
     private readonly postProcessor: PostProcessorService,
   ) {}
 
-  async getRecommendations(context: RecommendationContext): Promise<StrategyResult> {
+  async getRecommendations(
+    context: RecommendationContext,
+  ): Promise<StrategyResult> {
     const emptyResult: StrategyResult = {
       products: [],
-      metadata: { confidence: 0, reason: RecommendationReason.USER_HISTORY, source: RecommendationSource.ONLINE, retrievedCandidates: 0, returnedProducts: 0 }
+      metadata: {
+        confidence: 0,
+        reason: RecommendationReason.USER_HISTORY,
+        source: RecommendationSource.ONLINE,
+        retrievedCandidates: 0,
+        returnedProducts: 0,
+      },
     };
 
     try {
@@ -28,26 +41,24 @@ export class RecentlyViewedStrategy implements RecommendationStrategy {
       }
 
       const limit = context.limit || 10;
-      
+
       const query = {
-        status: 'active',
-        viewHistory: context.userId
+        status: { $in: ['approved', 'active'] },
+        viewHistory: context.userId,
       };
 
-      const totalViews = await this.candidateRetriever['adModel'].countDocuments(query);
+      const totalViews =
+        await this.candidateRetriever['offerModel'].countDocuments(query);
       if (totalViews === 0) return emptyResult;
 
-      let confidence = 0.0;
-      if (totalViews >= 50) confidence = 1.0;
-      else if (totalViews >= 20) confidence = 0.9;
-      else if (totalViews >= 5) confidence = 0.6;
-      else if (totalViews >= 1) confidence = 0.3;
+      const confidence = 1.0;
 
-      const candidates = await this.candidateRetriever['adModel'].find(query)
-      .sort({ updatedAt: -1 })
-      .limit(limit)
-      .select('title description price category tags locationCoordinates views contactClicks userId imageUrl images status autoDisabled')
-      .lean();
+      const candidates = await this.candidateRetriever['offerModel']
+        .find(query)
+        .sort({ updatedAt: -1 })
+        .limit(limit)
+        .select(this.candidateRetriever['baseSelect'])
+        .lean();
 
       if (candidates.length === 0) return emptyResult;
 
@@ -55,10 +66,13 @@ export class RecentlyViewedStrategy implements RecommendationStrategy {
         product,
         finalScore: limit - index, // Simple score based on order (most recent first)
         components: { recency: limit - index },
-        reasons: ['Recently viewed']
+        reasons: ['Recently viewed'],
       }));
 
-      const processedProducts = this.postProcessor.process(candidatesWithScore, limit);
+      const processedProducts = this.postProcessor.process(
+        candidatesWithScore,
+        limit,
+      );
 
       return {
         products: processedProducts,
@@ -68,11 +82,14 @@ export class RecentlyViewedStrategy implements RecommendationStrategy {
           source: RecommendationSource.ONLINE,
           fallbackUsed: false,
           retrievedCandidates: candidates.length,
-          returnedProducts: processedProducts.length
-        }
+          returnedProducts: processedProducts.length,
+        },
       };
     } catch (error) {
-      this.logger.error(`Error in RecentlyViewedStrategy: ${error.message}`, error.stack);
+      this.logger.error(
+        `Error in RecentlyViewedStrategy: ${error.message}`,
+        error.stack,
+      );
       return emptyResult;
     }
   }

@@ -3,13 +3,16 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { RecommendationController } from './recommendation.controller';
 import { RecommendationService } from './recommendation.service';
 import { HomepageRecommendationService } from './homepage-recommendation.service';
-import { RecommendationFactory, RECOMMENDATION_STRATEGIES } from './recommendation.factory';
+import {
+  RecommendationFactory,
+  RECOMMENDATION_STRATEGIES,
+} from './recommendation.factory';
 import { MerchantRepository } from './repositories/merchant.repository';
 import { NearbyScorer } from './scorers/nearby.scorer';
 import { NearbyStrategy } from './strategies/nearby.strategy';
 import { HomepageConfigModule } from '../homepage-config/homepage-config.module';
 import { Merchant, MerchantSchema } from '../users/schemas/merchant.schema';
-import { Ad, AdSchema } from '../ads/schemas/category-schemas/ad.schema';
+import { OfferPromotion, OfferPromotionSchema } from '../offers/schemas/offer-promotion.schema';
 import { AnalyticsModule } from '../analytics/analytics.module';
 import { InterestStrategy } from './strategies/interest.strategy';
 import { ContinueShoppingStrategy } from './strategies/continue-shopping.strategy';
@@ -55,7 +58,7 @@ import { ExperimentationModule } from './experimentation/experimentation.module'
     ExperimentationModule,
     MongooseModule.forFeature([
       { name: Merchant.name, schema: MerchantSchema },
-      { name: Ad.name, schema: AdSchema },
+      { name: OfferPromotion.name, schema: OfferPromotionSchema },
     ]),
   ],
   controllers: [RecommendationController, RecommendationDebugController],
@@ -98,7 +101,7 @@ import { ExperimentationModule } from './experimentation/experimentation.module'
     {
       provide: RECOMMENDATION_STRATEGIES,
       useFactory: (
-        nearbyStrategy: NearbyStrategy, 
+        nearbyStrategy: NearbyStrategy,
         interestStrategy: InterestStrategy,
         continueShoppingStrategy: ContinueShoppingStrategy,
         newArrivalsStrategy: NewArrivalsStrategy,
@@ -111,10 +114,10 @@ import { ExperimentationModule } from './experimentation/experimentation.module'
         trendingStrategy: TrendingStrategy,
         frequentlyBoughtTogetherStrategy: FrequentlyBoughtTogetherStrategy,
         similarProductsStrategy: SimilarProductsStrategy,
-        recentlyViewedStrategy: RecentlyViewedStrategy
+        recentlyViewedStrategy: RecentlyViewedStrategy,
       ) => {
         return [
-          nearbyStrategy, 
+          nearbyStrategy,
           interestStrategy,
           continueShoppingStrategy,
           newArrivalsStrategy,
@@ -127,11 +130,11 @@ import { ExperimentationModule } from './experimentation/experimentation.module'
           trendingStrategy,
           frequentlyBoughtTogetherStrategy,
           similarProductsStrategy,
-          recentlyViewedStrategy
+          recentlyViewedStrategy,
         ];
       },
       inject: [
-        NearbyStrategy, 
+        NearbyStrategy,
         InterestStrategy,
         ContinueShoppingStrategy,
         NewArrivalsStrategy,
@@ -144,15 +147,22 @@ import { ExperimentationModule } from './experimentation/experimentation.module'
         TrendingStrategy,
         FrequentlyBoughtTogetherStrategy,
         SimilarProductsStrategy,
-        RecentlyViewedStrategy
-      ]
+        RecentlyViewedStrategy,
+      ],
     },
     {
       provide: RecommendationFactory,
       useFactory: (strategies: any[]) => new RecommendationFactory(strategies),
-      inject: [RECOMMENDATION_STRATEGIES]
-    }
+      inject: [RECOMMENDATION_STRATEGIES],
+    },
   ],
-  exports: [RecommendationService, HomepageRecommendationService, RankingService, PostProcessorService, CandidateRetrieverService, RankingConfigService]
+  exports: [
+    RecommendationService,
+    HomepageRecommendationService,
+    RankingService,
+    PostProcessorService,
+    CandidateRetrieverService,
+    RankingConfigService,
+  ],
 })
 export class RecommendationEngineModule {}

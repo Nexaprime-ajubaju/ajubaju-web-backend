@@ -18,9 +18,14 @@ import { VerifyPaymentDto } from './dto/verify-payment.dto';
 import { RefundPaymentDto } from './dto/refund-payment.dto';
 import { MarkPaymentFailedDto } from './dto/mark-payment-failed.dto';
 import { ListPaymentsQueryDto } from './dto/list-payments-query.dto';
-import { Payment, PaymentDocument, PaymentStatus } from './schemas/payment.schema';
+import {
+  Payment,
+  PaymentDocument,
+  PaymentStatus,
+} from './schemas/payment.schema';
 import { KafkaService } from '../kafka/kafka.service';
 import { KAFKA_TOPICS } from '../common/constants/kafka-topics';
+import { TransactionService } from '../common/services/transaction.service';
 
 @Injectable()
 export class PaymentsService implements OnModuleInit {
@@ -33,11 +38,15 @@ export class PaymentsService implements OnModuleInit {
   constructor(
     @InjectModel(Payment.name) private paymentModel: Model<PaymentDocument>,
     private configService: ConfigService,
+    private readonly transactionService: TransactionService,
     @Optional() private kafkaService?: KafkaService,
   ) {
-    this.razorpayKeyId = this.configService.get<string>('RAZORPAY_KEY_ID') || null;
-    this.razorpayKeySecret = this.configService.get<string>('RAZORPAY_KEY_SECRET') || null;
-    this.webhookSecret = this.configService.get<string>('RAZORPAY_WEBHOOK_SECRET') || null;
+    this.razorpayKeyId =
+      this.configService.get<string>('RAZORPAY_KEY_ID') || null;
+    this.razorpayKeySecret =
+      this.configService.get<string>('RAZORPAY_KEY_SECRET') || null;
+    this.webhookSecret =
+      this.configService.get<string>('RAZORPAY_WEBHOOK_SECRET') || null;
 
     if (this.razorpayKeyId && this.razorpayKeySecret) {
       this.razorpay = new Razorpay({
@@ -46,7 +55,9 @@ export class PaymentsService implements OnModuleInit {
       });
     } else {
       this.razorpay = null;
-      this.logger.warn('Razorpay keys missing. Payment endpoints will not be functional.');
+      this.logger.warn(
+        'Razorpay keys missing. Payment endpoints will not be functional.',
+      );
     }
   }
 
@@ -58,7 +69,9 @@ export class PaymentsService implements OnModuleInit {
 
   private ensureGateway(): Razorpay {
     if (!this.razorpay || !this.razorpayKeyId || !this.razorpayKeySecret) {
-      throw new InternalServerErrorException('Payment gateway is not configured.');
+      throw new InternalServerErrorException(
+        'Payment gateway is not configured.',
+      );
     }
     return this.razorpay;
   }
@@ -113,7 +126,8 @@ export class PaymentsService implements OnModuleInit {
     }
 
     const currency = (dto.currency || 'INR').toUpperCase();
-    const receipt = dto.receipt || `golo_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+    const receipt =
+      dto.receipt || `golo_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
 
     const order = await gateway.orders.create({
       amount: amountInPaise,
@@ -122,23 +136,31 @@ export class PaymentsService implements OnModuleInit {
       notes: dto.notes || {},
     });
 
-    const payment = await this.paymentModel.create({
-      paymentId: randomUUID(),
-      userId,
-      adId: dto.adId,
-      amount: dto.amount,
-      amountInPaise,
-      currency,
-      provider: 'razorpay',
-      status: PaymentStatus.CREATED,
-      receipt,
-      description: dto.description,
-      notes: dto.notes || {},
-      idempotencyKey: dto.idempotencyKey,
-      razorpayOrderId: order.id,
-      metadata: {
-        orderResponse: order,
-      },
+    const payment = await this.transactionService.execute(async (session) => {
+      const createdPayment = await this.paymentModel.create(
+        [
+          {
+            paymentId: randomUUID(),
+            userId,
+            adId: dto.adId,
+            amount: dto.amount,
+            amountInPaise,
+            currency,
+            provider: 'razorpay',
+            status: PaymentStatus.CREATED,
+            receipt,
+            description: dto.description,
+            notes: dto.notes || {},
+            idempotencyKey: dto.idempotencyKey,
+            razorpayOrderId: order.id,
+            metadata: {
+              orderResponse: order,
+            },
+          },
+        ],
+        { session },
+      );
+      return createdPayment[0];
     });
 
     if (this.kafkaService) {
@@ -169,16 +191,20 @@ export class PaymentsService implements OnModuleInit {
       throw new NotFoundException('Payment order not found for this user.');
     }
 
-    const expectedSignature = createHmac('sha256', this.razorpayKeySecret as string)
+    const expectedSignature = createHmac('sha256', this.razorpayKeySecret)
       .update(`${dto.razorpayOrderId}|${dto.razorpayPaymentId}`)
       .digest('hex');
 
     const provided = Buffer.from(dto.razorpaySignature, 'utf8');
     const expected = Buffer.from(expectedSignature, 'utf8');
 
-    if (provided.length !== expected.length || !timingSafeEqual(provided, expected)) {
+    if (
+      provided.length !== expected.length ||
+      !timingSafeEqual(provided, expected)
+    ) {
       payment.status = PaymentStatus.FAILED;
-      payment.failureDescription = 'Signature mismatch during payment verification';
+      payment.failureDescription =
+        'Signature mismatch during payment verification';
       payment.razorpayPaymentId = dto.razorpayPaymentId;
       payment.razorpaySignature = dto.razorpaySignature;
       await payment.save();
@@ -189,18 +215,23 @@ export class PaymentsService implements OnModuleInit {
     payment.razorpaySignature = dto.razorpaySignature;
 
     try {
-      const gatewayPayment = await (this.razorpay as Razorpay).payments.fetch(dto.razorpayPaymentId);
+      const gatewayPayment = await this.razorpay.payments.fetch(
+        dto.razorpayPaymentId,
+      );
       payment.method = gatewayPayment.method;
       payment.metadata = {
         ...(payment.metadata || {}),
         verificationResponse: gatewayPayment,
       };
 
-      payment.status = gatewayPayment.status === 'captured'
-        ? PaymentStatus.CAPTURED
-        : PaymentStatus.AUTHORIZED;
+      payment.status =
+        gatewayPayment.status === 'captured'
+          ? PaymentStatus.CAPTURED
+          : PaymentStatus.AUTHORIZED;
     } catch (error) {
-      this.logger.warn(`Failed to fetch payment from Razorpay after signature verification: ${error.message}`);
+      this.logger.warn(
+        `Failed to fetch payment from Razorpay after signature verification: ${error.message}`,
+      );
       payment.status = PaymentStatus.AUTHORIZED;
     }
 
@@ -224,7 +255,9 @@ export class PaymentsService implements OnModuleInit {
 
   async markPaymentFailed(userId: string, dto: MarkPaymentFailedDto) {
     if (!dto.razorpayOrderId && !dto.razorpayPaymentId) {
-      throw new BadRequestException('Provide razorpayOrderId or razorpayPaymentId');
+      throw new BadRequestException(
+        'Provide razorpayOrderId or razorpayPaymentId',
+      );
     }
 
     const query: any = { userId };
@@ -238,7 +271,8 @@ export class PaymentsService implements OnModuleInit {
 
     payment.status = PaymentStatus.FAILED;
     payment.failureCode = dto.failureCode;
-    payment.failureDescription = dto.failureDescription || 'Payment failed at gateway';
+    payment.failureDescription =
+      dto.failureDescription || 'Payment failed at gateway';
     await payment.save();
 
     if (this.kafkaService) {
@@ -260,16 +294,21 @@ export class PaymentsService implements OnModuleInit {
   async refundPayment(userId: string, dto: RefundPaymentDto) {
     const gateway = this.ensureGateway();
 
-    const payment = await this.paymentModel.findOne({ paymentId: dto.paymentId, userId }).exec();
+    const payment = await this.paymentModel
+      .findOne({ paymentId: dto.paymentId, userId })
+      .exec();
     if (!payment) {
       throw new NotFoundException('Payment not found for this user.');
     }
 
     if (!payment.razorpayPaymentId) {
-      throw new BadRequestException('Cannot refund because captured payment reference is missing.');
+      throw new BadRequestException(
+        'Cannot refund because captured payment reference is missing.',
+      );
     }
 
-    const refundableBalance = payment.amountInPaise - (payment.refundedAmountInPaise || 0);
+    const refundableBalance =
+      payment.amountInPaise - (payment.refundedAmountInPaise || 0);
     if (refundableBalance <= 0) {
       throw new BadRequestException('Payment is already fully refunded.');
     }
@@ -296,12 +335,14 @@ export class PaymentsService implements OnModuleInit {
       status: refund.status,
       reason: dto.reason,
       createdAt: new Date(),
-    } as any);
+    });
 
-    payment.refundedAmountInPaise = (payment.refundedAmountInPaise || 0) + refundAmountInPaise;
-    payment.status = payment.refundedAmountInPaise >= payment.amountInPaise
-      ? PaymentStatus.REFUNDED
-      : PaymentStatus.PARTIALLY_REFUNDED;
+    payment.refundedAmountInPaise =
+      (payment.refundedAmountInPaise || 0) + refundAmountInPaise;
+    payment.status =
+      payment.refundedAmountInPaise >= payment.amountInPaise
+        ? PaymentStatus.REFUNDED
+        : PaymentStatus.PARTIALLY_REFUNDED;
 
     payment.metadata = {
       ...(payment.metadata || {}),
@@ -328,7 +369,9 @@ export class PaymentsService implements OnModuleInit {
   }
 
   async getPaymentById(userId: string, paymentId: string) {
-    const payment = await this.paymentModel.findOne({ userId, paymentId }).exec();
+    const payment = await this.paymentModel
+      .findOne({ userId, paymentId })
+      .exec();
     if (!payment) {
       throw new NotFoundException('Payment not found');
     }
@@ -369,19 +412,26 @@ export class PaymentsService implements OnModuleInit {
 
   async handleWebhook(rawBody: string, signature: string) {
     if (!this.webhookSecret) {
-      throw new InternalServerErrorException('Razorpay webhook secret is not configured.');
+      throw new InternalServerErrorException(
+        'Razorpay webhook secret is not configured.',
+      );
     }
 
     if (!signature) {
       throw new BadRequestException('Missing Razorpay webhook signature.');
     }
 
-    const expectedSignature = createHmac('sha256', this.webhookSecret).update(rawBody).digest('hex');
+    const expectedSignature = createHmac('sha256', this.webhookSecret)
+      .update(rawBody)
+      .digest('hex');
 
     const provided = Buffer.from(signature, 'utf8');
     const expected = Buffer.from(expectedSignature, 'utf8');
 
-    if (provided.length !== expected.length || !timingSafeEqual(provided, expected)) {
+    if (
+      provided.length !== expected.length ||
+      !timingSafeEqual(provided, expected)
+    ) {
       throw new BadRequestException('Invalid webhook signature');
     }
 
@@ -410,26 +460,43 @@ export class PaymentsService implements OnModuleInit {
       return { acknowledged: true, duplicate: true };
     }
 
-    payment.processedWebhookEventIds = payment.processedWebhookEventIds || [];
-    payment.processedWebhookEventIds.push(eventId);
+    await this.transactionService.execute(async (session) => {
+      const freshPayment = await this.paymentModel
+        .findOne({ _id: payment._id })
+        .session(session)
+        .exec();
+      if (!freshPayment) {
+        throw new NotFoundException('Payment not found');
+      }
 
-    payment.razorpayPaymentId = paymentEntity.id || payment.razorpayPaymentId;
-    payment.method = paymentEntity.method || payment.method;
+      if (freshPayment.processedWebhookEventIds?.includes(eventId)) {
+        return { acknowledged: true, duplicate: true };
+      }
 
-    if (event.event === 'payment.captured') {
-      payment.status = PaymentStatus.CAPTURED;
-    } else if (event.event === 'payment.failed') {
-      payment.status = PaymentStatus.FAILED;
-      payment.failureCode = paymentEntity.error_code;
-      payment.failureDescription = paymentEntity.error_description;
-    }
+      freshPayment.processedWebhookEventIds =
+        freshPayment.processedWebhookEventIds || [];
+      freshPayment.processedWebhookEventIds.push(eventId);
 
-    payment.metadata = {
-      ...(payment.metadata || {}),
-      lastWebhookEvent: event,
-    };
+      freshPayment.razorpayPaymentId =
+        paymentEntity.id || freshPayment.razorpayPaymentId;
+      freshPayment.method = paymentEntity.method || freshPayment.method;
 
-    await payment.save();
+      if (event.event === 'payment.captured') {
+        freshPayment.status = PaymentStatus.CAPTURED;
+      } else if (event.event === 'payment.failed') {
+        freshPayment.status = PaymentStatus.FAILED;
+        freshPayment.failureCode = paymentEntity.error_code;
+        freshPayment.failureDescription = paymentEntity.error_description;
+      }
+
+      freshPayment.metadata = {
+        ...(freshPayment.metadata || {}),
+        lastWebhookEvent: event,
+      };
+
+      await freshPayment.save({ session });
+      return freshPayment;
+    });
 
     if (this.kafkaService) {
       await this.kafkaService.emit(KAFKA_TOPICS.PAYMENT_WEBHOOK_PROCESSED, {

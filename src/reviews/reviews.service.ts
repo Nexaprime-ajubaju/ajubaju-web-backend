@@ -1,16 +1,26 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { UserDocument } from '../users/schemas/user.schema';
 import { Review, ReviewDocument, ReviewStatus } from './schemas/review.schema';
-import { Voucher, VoucherDocument, VoucherStatus } from '../vouchers/schemas/voucher.schema';
+import {
+  Voucher,
+  VoucherDocument,
+  VoucherStatus,
+} from '../vouchers/schemas/voucher.schema';
 
 @Injectable()
 export class ReviewsService {
   constructor(
-    @InjectModel(Review.name) private readonly reviewModel: Model<ReviewDocument>,
+    @InjectModel(Review.name)
+    private readonly reviewModel: Model<ReviewDocument>,
     @InjectModel('User') private readonly userModel: Model<UserDocument>,
-    @InjectModel(Voucher.name) private readonly voucherModel: Model<VoucherDocument>,
+    @InjectModel(Voucher.name)
+    private readonly voucherModel: Model<VoucherDocument>,
   ) {}
 
   private async findVoucherByIdentifier(voucherId: string) {
@@ -44,7 +54,9 @@ export class ReviewsService {
     }
 
     if (String(voucher.userId) !== String(userId)) {
-      throw new BadRequestException('You can only review your own redeemed voucher');
+      throw new BadRequestException(
+        'You can only review your own redeemed voucher',
+      );
     }
 
     if (voucher.status !== VoucherStatus.REDEEMED) {
@@ -99,7 +111,12 @@ export class ReviewsService {
     };
 
     const [reviews, total, averageAgg, breakdownAgg] = await Promise.all([
-      this.reviewModel.find(query).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
+      this.reviewModel
+        .find(query)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
       this.reviewModel.countDocuments(query),
       this.reviewModel.aggregate([
         { $match: query },
@@ -112,7 +129,10 @@ export class ReviewsService {
     ]);
 
     const userIds = reviews.map((r) => r.userId).filter(Boolean);
-    const users = await this.userModel.find({ _id: { $in: userIds } }).select('name email').lean();
+    const users = await this.userModel
+      .find({ _id: { $in: userIds } })
+      .select('name email')
+      .lean();
     const userMap = new Map(users.map((u: any) => [String(u._id), u]));
 
     const breakdown: Record<number, number> = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
@@ -139,7 +159,9 @@ export class ReviewsService {
         }),
         stats: {
           totalReviews: total,
-          averageRating: Number((averageAgg?.[0]?.averageRating || 0).toFixed(1)),
+          averageRating: Number(
+            (averageAgg?.[0]?.averageRating || 0).toFixed(1),
+          ),
           breakdown,
         },
       },
@@ -152,7 +174,13 @@ export class ReviewsService {
     };
   }
 
-  async getMerchantReviews(merchantId: string, page = 1, limit = 20, status?: string, search?: string) {
+  async getMerchantReviews(
+    merchantId: string,
+    page = 1,
+    limit = 20,
+    status?: string,
+    search?: string,
+  ) {
     const query: any = { merchantId: new Types.ObjectId(merchantId) };
     if (status && status !== 'all') {
       query.status = status;
@@ -164,12 +192,20 @@ export class ReviewsService {
 
     const skip = (page - 1) * limit;
     const [reviews, total] = await Promise.all([
-      this.reviewModel.find(query).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
+      this.reviewModel
+        .find(query)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
       this.reviewModel.countDocuments(query),
     ]);
 
     const userIds = reviews.map((r) => r.userId).filter(Boolean);
-    const users = await this.userModel.find({ _id: { $in: userIds } }).select('name email').lean();
+    const users = await this.userModel
+      .find({ _id: { $in: userIds } })
+      .select('name email')
+      .lean();
     const userMap = new Map(users.map((u: any) => [String(u._id), u]));
 
     return {
@@ -199,15 +235,22 @@ export class ReviewsService {
   async getMerchantReviewStats(merchantId: string) {
     const mId = new Types.ObjectId(merchantId);
 
-    const [totalReviews, pendingModeration, flaggedReviews, averageAgg] = await Promise.all([
-      this.reviewModel.countDocuments({ merchantId: mId }),
-      this.reviewModel.countDocuments({ merchantId: mId, status: ReviewStatus.PENDING }),
-      this.reviewModel.countDocuments({ merchantId: mId, status: ReviewStatus.FLAGGED }),
-      this.reviewModel.aggregate([
-        { $match: { merchantId: mId } },
-        { $group: { _id: null, avgRating: { $avg: '$rating' } } },
-      ]),
-    ]);
+    const [totalReviews, pendingModeration, flaggedReviews, averageAgg] =
+      await Promise.all([
+        this.reviewModel.countDocuments({ merchantId: mId }),
+        this.reviewModel.countDocuments({
+          merchantId: mId,
+          status: ReviewStatus.PENDING,
+        }),
+        this.reviewModel.countDocuments({
+          merchantId: mId,
+          status: ReviewStatus.FLAGGED,
+        }),
+        this.reviewModel.aggregate([
+          { $match: { merchantId: mId } },
+          { $group: { _id: null, avgRating: { $avg: '$rating' } } },
+        ]),
+      ]);
 
     return {
       success: true,
@@ -248,7 +291,11 @@ export class ReviewsService {
     };
   }
 
-  async updateReviewStatus(merchantId: string, reviewId: string, status: ReviewStatus) {
+  async updateReviewStatus(
+    merchantId: string,
+    reviewId: string,
+    status: ReviewStatus,
+  ) {
     if (!Object.values(ReviewStatus).includes(status)) {
       throw new BadRequestException('Invalid review status');
     }

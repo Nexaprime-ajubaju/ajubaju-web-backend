@@ -9,7 +9,11 @@ export class AnalyticsController {
     private readonly redisService: RedisService,
   ) {}
 
-  private async getOrCache<T>(key: string, ttl: number, loader: () => Promise<T>): Promise<T> {
+  private async getOrCache<T>(
+    key: string,
+    ttl: number,
+    loader: () => Promise<T>,
+  ): Promise<T> {
     const cached = await this.redisService.get<T>(key);
     if (cached !== null) {
       return cached;
@@ -32,30 +36,24 @@ export class AnalyticsController {
 
   @Get('top-regions')
   async getTopRegions() {
-    const data = await this.getOrCache(
-      'golo:analytics:top-regions',
-      180,
-      () => this.analyticsService.getTopRegions(),
+    const data = await this.getOrCache('golo:analytics:top-regions', 180, () =>
+      this.analyticsService.getTopRegions(),
     );
     return { success: true, data };
   }
 
   @Get('top-pages')
   async getTopPages() {
-    const data = await this.getOrCache(
-      'golo:analytics:top-pages',
-      180,
-      () => this.analyticsService.getTopPages(),
+    const data = await this.getOrCache('golo:analytics:top-pages', 180, () =>
+      this.analyticsService.getTopPages(),
     );
     return { success: true, data };
   }
 
   @Get('events')
   async getEvents() {
-    const data = await this.getOrCache(
-      'golo:analytics:events',
-      120,
-      () => this.analyticsService.getEvents(),
+    const data = await this.getOrCache('golo:analytics:events', 120, () =>
+      this.analyticsService.getEvents(),
     );
     return { success: true, data };
   }

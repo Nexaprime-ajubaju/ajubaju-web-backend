@@ -9,6 +9,7 @@ import {
 } from './schemas/banner-promotion.schema';
 import { BannersController } from './banners.controller';
 import { BannersService } from './banners.service';
+import { TransactionModule } from '../common/services/transaction.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { BannersService } from './banners.service';
       { name: Merchant.name, schema: MerchantSchema },
     ]),
     forwardRef(() => KafkaModule),
+    TransactionModule,
   ],
   controllers: [BannersController],
   providers: [BannersService],

@@ -1,13 +1,37 @@
-import { IsEnum, IsString, IsNumber, IsOptional, IsArray, IsBoolean, Min } from 'class-validator';
+import {
+  IsEnum,
+  IsString,
+  IsNumber,
+  IsOptional,
+  IsArray,
+  IsBoolean,
+  Min,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class ServiceDto {
   @IsEnum([
-    'Plumber', 'Electrician', 'Carpenter', 'Painter', 'Cleaner',
-    'AC Repair', 'Appliance Repair', 'Pest Control', 'Packers Movers',
-    'Beauty Parlor', 'Salon at Home', 'Spa', 'Photographer',
-    'Event Planner', 'Tutor', 'Driver', 'Security Guard',
-    'Web Developer', 'Designer', 'Catering', 'Other'
+    'Plumber',
+    'Electrician',
+    'Carpenter',
+    'Painter',
+    'Cleaner',
+    'AC Repair',
+    'Appliance Repair',
+    'Pest Control',
+    'Packers Movers',
+    'Beauty Parlor',
+    'Salon at Home',
+    'Spa',
+    'Photographer',
+    'Event Planner',
+    'Tutor',
+    'Driver',
+    'Security Guard',
+    'Web Developer',
+    'Designer',
+    'Catering',
+    'Other',
   ])
   serviceType: string;
 

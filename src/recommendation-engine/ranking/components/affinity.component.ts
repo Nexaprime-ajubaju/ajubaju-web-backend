@@ -1,5 +1,9 @@
 import { Injectable, OnModuleInit } from '@nestjs/common';
-import { RankingComponent, RankingComponentContext, RankingComponentResult } from './ranking-component.interface';
+import {
+  RankingComponent,
+  RankingComponentContext,
+  RankingComponentResult,
+} from './ranking-component.interface';
 import { RankingComponentRegistry } from '../ranking-component.registry';
 
 @Injectable()
@@ -14,7 +18,7 @@ export class AffinityComponent implements RankingComponent, OnModuleInit {
 
   calculate(params: RankingComponentContext): RankingComponentResult {
     const { candidate, profile } = params;
-    
+
     if (!profile) {
       return { score: 0 };
     }
@@ -22,7 +26,7 @@ export class AffinityComponent implements RankingComponent, OnModuleInit {
     let score = 0;
     const matchedCategories: string[] = [];
     const matchedTags: string[] = [];
-    
+
     if (candidate.category && profile.categories[candidate.category]) {
       const catScore = profile.categories[candidate.category];
       if (catScore > score) {
@@ -30,7 +34,7 @@ export class AffinityComponent implements RankingComponent, OnModuleInit {
       }
       matchedCategories.push(candidate.category);
     }
-    
+
     if (candidate.tags) {
       candidate.tags.forEach((tag: string) => {
         if (profile.tags[tag]) {
@@ -43,11 +47,12 @@ export class AffinityComponent implements RankingComponent, OnModuleInit {
       });
     }
 
-    return { 
-      score, 
+    return {
+      score,
       reason: score > 0.5 ? 'Matches your interests' : undefined,
-      matchedCategories: matchedCategories.length > 0 ? matchedCategories : undefined,
-      matchedTags: matchedTags.length > 0 ? matchedTags : undefined
+      matchedCategories:
+        matchedCategories.length > 0 ? matchedCategories : undefined,
+      matchedTags: matchedTags.length > 0 ? matchedTags : undefined,
     };
   }
 }

@@ -1,12 +1,19 @@
 import { Injectable } from '@nestjs/common';
-import { RecommendationStrategy, StrategyResult, RecommendationReason, RecommendationSource } from '../interfaces/recommendation-strategy.interface';
+import {
+  RecommendationStrategy,
+  StrategyResult,
+  RecommendationReason,
+  RecommendationSource,
+} from '../interfaces/recommendation-strategy.interface';
 import { RecommendationContext } from '../interfaces/recommendation.context';
 
 @Injectable()
 export class PromotionStrategy implements RecommendationStrategy {
   readonly key = 'merchant_promotions';
 
-  async getRecommendations(context: RecommendationContext): Promise<StrategyResult> {
+  async getRecommendations(
+    context: RecommendationContext,
+  ): Promise<StrategyResult> {
     const limit = context.limit || 10;
     // Placeholder implementation for PromotionStrategy
     // In a real implementation, this would inject required services (Users, Orders, Products)
@@ -21,7 +28,7 @@ export class PromotionStrategy implements RecommendationStrategy {
         id: 'merchant_promotions-mock-2',
         title: 'Mock Item 2 for PromotionStrategy',
         type: 'product',
-      }
+      },
     ].slice(0, limit);
 
     return {
@@ -32,8 +39,8 @@ export class PromotionStrategy implements RecommendationStrategy {
         source: RecommendationSource.ONLINE,
         fallbackUsed: false,
         retrievedCandidates: mockProducts.length,
-        returnedProducts: mockProducts.length
-      }
+        returnedProducts: mockProducts.length,
+      },
     };
   }
 }

@@ -1,5 +1,10 @@
 import { Controller, Logger, Optional } from '@nestjs/common';
-import { Ctx, KafkaContext, MessagePattern, Payload } from '@nestjs/microservices';
+import {
+  Ctx,
+  KafkaContext,
+  MessagePattern,
+  Payload,
+} from '@nestjs/microservices';
 import { KAFKA_TOPICS } from '../common/constants/kafka-topics';
 import { KafkaService } from '../kafka/kafka.service';
 import { MerchantDashboardService } from './merchant-dashboard.service';
@@ -48,7 +53,9 @@ export class MerchantDashboardKafkaController {
     const correlationId = this.getCorrelationId(message);
 
     try {
-      const result = await this.merchantDashboardService.getSummary(value.merchantId);
+      const result = await this.merchantDashboardService.getSummary(
+        value.merchantId,
+      );
 
       if (this.kafkaService && result?.success) {
         await this.kafkaService.emit(

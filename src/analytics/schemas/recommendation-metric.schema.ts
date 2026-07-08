@@ -49,5 +49,9 @@ export class RecommendationMetric {
   cvr: number;
 }
 
-export const RecommendationMetricSchema = SchemaFactory.createForClass(RecommendationMetric);
-RecommendationMetricSchema.index({ strategy: 1, variant: 1, timeWindow: 1 }, { unique: true });
+export const RecommendationMetricSchema =
+  SchemaFactory.createForClass(RecommendationMetric);
+RecommendationMetricSchema.index(
+  { strategy: 1, variant: 1, timeWindow: 1 },
+  { unique: true },
+);

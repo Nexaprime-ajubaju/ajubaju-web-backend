@@ -1,11 +1,21 @@
-import { BadRequestException, Injectable, Logger, NotFoundException, ForbiddenException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  Logger,
+  NotFoundException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
+import { Model, Types, ClientSession } from 'mongoose';
 import { UserDocument } from '../users/schemas/user.schema';
 import { Merchant, MerchantDocument } from '../users/schemas/merchant.schema';
 import { Order, OrderDocument, OrderStatus } from './schemas/order.schema';
-import { Notification, NotificationDocument } from '../users/schemas/notification.schema';
+import {
+  Notification,
+  NotificationDocument,
+} from '../users/schemas/notification.schema';
 import { MerchantPlanService } from '../merchant-plan/merchant-plan.service';
+import { TransactionService } from '../common/services/transaction.service';
 
 @Injectable()
 export class OrdersService {
@@ -14,49 +24,80 @@ export class OrdersService {
   constructor(
     @InjectModel(Order.name) private readonly orderModel: Model<OrderDocument>,
     @InjectModel('User') private readonly userModel: Model<UserDocument>,
-    @InjectModel('Notification') private readonly notificationModel: Model<NotificationDocument>,
-    @InjectModel(Merchant.name) private readonly merchantModel: Model<MerchantDocument>,
+    @InjectModel('Notification')
+    private readonly notificationModel: Model<NotificationDocument>,
+    @InjectModel(Merchant.name)
+    private readonly merchantModel: Model<MerchantDocument>,
     private readonly merchantPlanService: MerchantPlanService,
+    private readonly transactionService: TransactionService,
   ) {}
 
-  async createOrder(userId: string, merchantId: string, amount: number, itemsCount = 1, voucherId?: string) {
+  async createOrder(
+    userId: string,
+    merchantId: string,
+    amount: number,
+    itemsCount = 1,
+    voucherId?: string,
+    session?: ClientSession,
+  ) {
     const orderNumber = `ORD-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
 
-    const order = new this.orderModel({
-      userId: new Types.ObjectId(userId),
-      merchantId: new Types.ObjectId(merchantId),
-      orderNumber,
-      amount,
-      itemsCount,
-      status: OrderStatus.PENDING,
-      placedAt: new Date(),
-      voucherId,
-    });
+    const order = await this.transactionService.execute(async (txSession) => {
+      const createdOrder = new this.orderModel({
+        userId: new Types.ObjectId(userId),
+        merchantId: new Types.ObjectId(merchantId),
+        orderNumber,
+        amount,
+        itemsCount,
+        status: OrderStatus.PENDING,
+        placedAt: new Date(),
+        voucherId,
+      });
 
-    await order.save();
+      await createdOrder.save({ session: txSession });
 
-    // Create notification for the merchant
-    try {
-      const merchant = await this.userModel.findById(merchantId).select('name email').lean().exec();
-      const customer = await this.userModel.findById(userId).select('name').lean().exec();
-      
-      if (merchant && customer) {
-        await this.notificationModel.create({
-          recipientId: String(merchantId),
-          senderId: String(userId),
-          senderName: customer.name || 'Customer',
-          adId: order.voucherId || 'order',
-          adTitle: `New order from ${customer.name || 'Customer'}`,
-          type: 'order_placed',
-          message: `${customer.name || 'Customer'} claimed your offer`,
-          read: false,
-        });
-        this.logger.log(`Notification created for merchant ${merchantId} for order ${order.orderNumber}`);
+      try {
+        const merchant = await this.userModel
+          .findById(merchantId)
+          .select('name email')
+          .session(txSession)
+          .lean()
+          .exec();
+        const customer = await this.userModel
+          .findById(userId)
+          .select('name')
+          .session(txSession)
+          .lean()
+          .exec();
+
+        if (merchant && customer) {
+          await this.notificationModel.create(
+            [
+              {
+                recipientId: String(merchantId),
+                senderId: String(userId),
+                senderName: customer.name || 'Customer',
+                adId: createdOrder.voucherId || 'order',
+                adTitle: `New order from ${customer.name || 'Customer'}`,
+                type: 'order_placed',
+                message: `${customer.name || 'Customer'} claimed your offer`,
+                read: false,
+              },
+            ],
+            { session: txSession },
+          );
+          this.logger.log(
+            `Notification created for merchant ${merchantId} for order ${createdOrder.orderNumber}`,
+          );
+        }
+      } catch (notifError) {
+        this.logger.error(
+          `Failed to create notification: ${notifError.message}`,
+        );
       }
-    } catch (notifError) {
-      // Log error but don't fail the order creation
-      this.logger.error(`Failed to create notification: ${notifError.message}`);
-    }
+
+      return createdOrder;
+    }, session);
 
     return {
       success: true,
@@ -73,7 +114,12 @@ export class OrdersService {
     };
   }
 
-  async getMerchantOrders(merchantId: string, page = 1, limit = 20, status?: string) {
+  async getMerchantOrders(
+    merchantId: string,
+    page = 1,
+    limit = 20,
+    status?: string,
+  ) {
     const query: any = { merchantId: new Types.ObjectId(merchantId) };
     if (status && status !== 'all') {
       query.status = status;
@@ -81,15 +127,33 @@ export class OrdersService {
 
     const skip = (page - 1) * limit;
     const [orders, total] = await Promise.all([
-      this.orderModel.find(query).sort({ placedAt: -1 }).skip(skip).limit(limit).lean(),
+      this.orderModel
+        .find(query)
+        .sort({ placedAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
       this.orderModel.countDocuments(query),
     ]);
 
     const userIds = orders.map((o) => o.userId).filter(Boolean);
-    const users = await this.userModel.find({ _id: { $in: userIds } }).select('name profile.phone profile.avatar profilePhoto').lean();
+    const users = await this.userModel
+      .find({ _id: { $in: userIds } })
+      .select('name profile.phone profile.avatar profilePhoto')
+      .lean();
     const userMapName = new Map(users.map((u: any) => [String(u._id), u.name]));
-    const userMapPhone = new Map(users.map((u: any) => [String(u._id), (u.profile && u.profile.phone) || null]));
-    const userMapAvatar = new Map(users.map((u: any) => [String(u._id), (u.profile && u.profile.avatar) || u.profilePhoto || null]));
+    const userMapPhone = new Map(
+      users.map((u: any) => [
+        String(u._id),
+        (u.profile && u.profile.phone) || null,
+      ]),
+    );
+    const userMapAvatar = new Map(
+      users.map((u: any) => [
+        String(u._id),
+        (u.profile && u.profile.avatar) || u.profilePhoto || null,
+      ]),
+    );
 
     return {
       success: true,
@@ -118,15 +182,30 @@ export class OrdersService {
     const startOfDay = new Date();
     startOfDay.setHours(0, 0, 0, 0);
 
-    const [todayOrders, pendingOrders, completedOrders, revenueAgg] = await Promise.all([
-      this.orderModel.countDocuments({ merchantId: mId, placedAt: { $gte: startOfDay } }),
-      this.orderModel.countDocuments({ merchantId: mId, status: OrderStatus.PENDING }),
-      this.orderModel.countDocuments({ merchantId: mId, status: OrderStatus.COMPLETED }),
-      this.orderModel.aggregate([
-        { $match: { merchantId: mId, status: { $in: [OrderStatus.ACCEPTED, OrderStatus.COMPLETED] } } },
-        { $group: { _id: null, totalRevenue: { $sum: '$amount' } } },
-      ]),
-    ]);
+    const [todayOrders, pendingOrders, completedOrders, revenueAgg] =
+      await Promise.all([
+        this.orderModel.countDocuments({
+          merchantId: mId,
+          placedAt: { $gte: startOfDay },
+        }),
+        this.orderModel.countDocuments({
+          merchantId: mId,
+          status: OrderStatus.PENDING,
+        }),
+        this.orderModel.countDocuments({
+          merchantId: mId,
+          status: OrderStatus.COMPLETED,
+        }),
+        this.orderModel.aggregate([
+          {
+            $match: {
+              merchantId: mId,
+              status: { $in: [OrderStatus.ACCEPTED, OrderStatus.COMPLETED] },
+            },
+          },
+          { $group: { _id: null, totalRevenue: { $sum: '$amount' } } },
+        ]),
+      ]);
 
     const totalRevenue = revenueAgg?.[0]?.totalRevenue || 0;
 
@@ -141,21 +220,28 @@ export class OrdersService {
     };
   }
 
-  async updateOrderStatus(merchantId: string, orderId: string, status: OrderStatus) {
+  async updateOrderStatus(
+    merchantId: string,
+    orderId: string,
+    status: OrderStatus,
+  ) {
     if (!Object.values(OrderStatus).includes(status)) {
       throw new BadRequestException('Invalid order status');
     }
 
-    const merchant = await this.merchantModel.findOne({ userId: merchantId }).exec();
+    const merchant = await this.merchantModel
+      .findOne({ userId: merchantId })
+      .exec();
     if (merchant) {
-      const planDetails = await this.merchantPlanService.getPlanDetails(merchant);
+      const planDetails =
+        await this.merchantPlanService.getPlanDetails(merchant);
       const allowedStatuses = planDetails.planFeatures.ordersStatusAllowed;
       if (!allowedStatuses.includes(status)) {
         throw new ForbiddenException({
           success: false,
           statusCode: 403,
           errorCode: 'PLAN_RESTRICTION',
-          message: `Free Tier merchants can only change order status to: ${allowedStatuses.join(', ')}. Please upgrade to Premium.`
+          message: `Free Tier merchants can only change order status to: ${allowedStatuses.join(', ')}. Please upgrade to Premium.`,
         });
       }
     }
@@ -181,7 +267,11 @@ export class OrdersService {
 
     // Create notification for the customer
     try {
-      const merchant = await this.userModel.findById(merchantId).select('name').lean().exec();
+      const merchant = await this.userModel
+        .findById(merchantId)
+        .select('name')
+        .lean()
+        .exec();
       const customerId = String(order.userId);
       const merchantName = merchant?.name || 'Merchant';
 
@@ -209,7 +299,9 @@ export class OrdersService {
         });
       }
     } catch (notifError) {
-      this.logger.error(`Failed to create status update notification: ${notifError.message}`);
+      this.logger.error(
+        `Failed to create status update notification: ${notifError.message}`,
+      );
     }
 
     return {

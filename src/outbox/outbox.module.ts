@@ -7,7 +7,9 @@ import { KafkaModule } from '../kafka/kafka.module';
 
 @Module({
   imports: [
-    MongooseModule.forFeature([{ name: OutboxEvent.name, schema: OutboxEventSchema }]),
+    MongooseModule.forFeature([
+      { name: OutboxEvent.name, schema: OutboxEventSchema },
+    ]),
     ScheduleModule.forRoot(),
     KafkaModule,
   ],

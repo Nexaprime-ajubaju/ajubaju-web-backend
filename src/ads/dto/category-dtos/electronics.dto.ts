@@ -1,11 +1,33 @@
-import { IsEnum, IsString, IsNumber, IsOptional, IsArray, IsBoolean, Min, IsObject } from 'class-validator';
+import {
+  IsEnum,
+  IsString,
+  IsNumber,
+  IsOptional,
+  IsArray,
+  IsBoolean,
+  Min,
+  IsObject,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class ElectronicsDto {
   @IsEnum([
-    'TV', 'Refrigerator', 'Washing Machine', 'Microwave', 'Air Conditioner',
-    'Laptop', 'Desktop', 'Tablet', 'Camera', 'Speaker', 'Headphones',
-    'Gaming Console', 'Printer', 'Router', 'Smart Watch', 'Other'
+    'TV',
+    'Refrigerator',
+    'Washing Machine',
+    'Microwave',
+    'Air Conditioner',
+    'Laptop',
+    'Desktop',
+    'Tablet',
+    'Camera',
+    'Speaker',
+    'Headphones',
+    'Gaming Console',
+    'Printer',
+    'Router',
+    'Smart Watch',
+    'Other',
   ])
   productType: string;
 

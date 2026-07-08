@@ -27,7 +27,7 @@ export class AppController {
   @Get('health/ready')
   async checkReadiness(): Promise<any> {
     const redisHealth = await this.redisService.healthCheck();
-    
+
     // Mongoose readyState: 0 = disconnected, 1 = connected, 2 = connecting, 3 = disconnecting
     const dbConnected = this.connection.readyState === 1;
 

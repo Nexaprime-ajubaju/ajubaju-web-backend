@@ -63,7 +63,8 @@ export class RecommendationEvent {
   createdAt: Date;
 }
 
-export const RecommendationEventSchema = SchemaFactory.createForClass(RecommendationEvent);
+export const RecommendationEventSchema =
+  SchemaFactory.createForClass(RecommendationEvent);
 
 RecommendationEventSchema.index({ userId: 1, createdAt: -1 });
 RecommendationEventSchema.index({ userId: 1, eventType: 1, createdAt: -1 });

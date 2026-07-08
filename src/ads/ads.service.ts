@@ -828,7 +828,13 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
     if (filters?.category) mongoQuery.category = filters.category;
     if (filters?.location && String(filters.location).trim()) {
       const LOCATION_ALIASES: Record<string, string[]> = {
-        kolhapur: ['kolhapur', 'karvir', 'karveer', 'karveer taluka', 'karvir taluka'],
+        kolhapur: [
+          'kolhapur',
+          'karvir',
+          'karveer',
+          'karveer taluka',
+          'karvir taluka',
+        ],
         sangli: ['sangli'],
         mumbai: ['mumbai', 'bombay', 'navi mumbai'],
         pune: ['pune', 'poona'],
@@ -838,13 +844,19 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
       // This makes "Tarabai Park, Kolhapur, Maharashtra" resolve to the
       // "kolhapur" canonical city and all its aliases.
       const rawLocation = String(filters.location);
-      const segments = rawLocation.split(',').map((s) => s.trim().toLowerCase());
+      const segments = rawLocation
+        .split(',')
+        .map((s) => s.trim().toLowerCase());
 
       let resolvedCity = '';
       let resolvedAliases: string[] = [];
       for (const segment of segments) {
         for (const [city, aliases] of Object.entries(LOCATION_ALIASES)) {
-          if (aliases.some((alias) => segment.includes(alias) || alias.includes(segment))) {
+          if (
+            aliases.some(
+              (alias) => segment.includes(alias) || alias.includes(segment),
+            )
+          ) {
             resolvedCity = city;
             resolvedAliases = aliases;
             break;
@@ -857,7 +869,10 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
       const termsToMatch: string[] =
         resolvedAliases.length > 0
           ? resolvedAliases
-          : [segments.find((s) => s.length >= 2 && !/^\d+$/.test(s)) || segments[0]];
+          : [
+              segments.find((s) => s.length >= 2 && !/^\d+$/.test(s)) ||
+                segments[0],
+            ];
 
       const escapeTerm = (term: string) =>
         term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -868,7 +883,9 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
           { location: regex },
           { city: regex },
           { state: regex },
-          { cities: { $elemMatch: { $regex: escapeTerm(term), $options: 'i' } } },
+          {
+            cities: { $elemMatch: { $regex: escapeTerm(term), $options: 'i' } },
+          },
         ];
       });
 

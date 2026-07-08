@@ -1,4 +1,14 @@
-import { IsEnum, IsString, IsNumber, IsOptional, IsArray, IsEmail, IsUrl, Min, IsDate } from 'class-validator';
+import {
+  IsEnum,
+  IsString,
+  IsNumber,
+  IsOptional,
+  IsArray,
+  IsEmail,
+  IsUrl,
+  Min,
+  IsDate,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class EmploymentDto {

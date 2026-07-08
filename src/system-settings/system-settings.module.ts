@@ -2,7 +2,11 @@ import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { SystemSettingsController } from './system-settings.controller';
 import { SystemSettingsService } from './system-settings.service';
-import { SystemSettings, SystemSettingsSchema } from './schemas/system-settings.schema';
+import { TransactionModule } from '../common/services/transaction.module';
+import {
+  SystemSettings,
+  SystemSettingsSchema,
+} from './schemas/system-settings.schema';
 
 @Module({
   imports: [

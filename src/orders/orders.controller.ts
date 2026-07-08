@@ -1,4 +1,13 @@
-import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { OrdersService } from './orders.service';
@@ -17,7 +26,12 @@ export class OrdersController {
     @Query('status') status?: string,
   ) {
     const merchantId = user?.id || user?._id;
-    return this.ordersService.getMerchantOrders(merchantId, Number(page), Number(limit), status);
+    return this.ordersService.getMerchantOrders(
+      merchantId,
+      Number(page),
+      Number(limit),
+      status,
+    );
   }
 
   @Get('merchant/stats')

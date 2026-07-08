@@ -2,8 +2,14 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { OfflineRecommendationJob } from './offline-job.interface';
-import { RecommendationEvent, RecommendationEventDocument } from '../../analytics/schemas/recommendation-event.schema';
-import { SimilarCustomer, SimilarCustomerDocument } from './schemas/similar-customer.schema';
+import {
+  RecommendationEvent,
+  RecommendationEventDocument,
+} from '../../analytics/schemas/recommendation-event.schema';
+import {
+  SimilarCustomer,
+  SimilarCustomerDocument,
+} from './schemas/similar-customer.schema';
 
 @Injectable()
 export class SimilarCustomersJob implements OfflineRecommendationJob {
@@ -12,8 +18,10 @@ export class SimilarCustomersJob implements OfflineRecommendationJob {
   readonly schedule = '0 4 * * *'; // 4 AM daily
 
   constructor(
-    @InjectModel(RecommendationEvent.name) private readonly eventModel: Model<RecommendationEventDocument>,
-    @InjectModel(SimilarCustomer.name) private readonly similarCustomerModel: Model<SimilarCustomerDocument>
+    @InjectModel(RecommendationEvent.name)
+    private readonly eventModel: Model<RecommendationEventDocument>,
+    @InjectModel(SimilarCustomer.name)
+    private readonly similarCustomerModel: Model<SimilarCustomerDocument>,
   ) {}
 
   async execute(): Promise<void> {
@@ -24,16 +32,19 @@ export class SimilarCustomersJob implements OfflineRecommendationJob {
     try {
       // 1. Fetch recent events (last 30 days) to build interaction matrix
       const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-      
-      const events = await this.eventModel.find({
-        timestamp: { $gte: thirtyDaysAgo },
-        productId: { $exists: true, $ne: null },
-        userId: { $exists: true, $ne: null }
-      })
-      .select('userId productId eventType')
-      .lean();
 
-      this.logger.log(`Fetched ${events.length} events for collaborative filtering`);
+      const events = await this.eventModel
+        .find({
+          timestamp: { $gte: thirtyDaysAgo },
+          productId: { $exists: true, $ne: null },
+          userId: { $exists: true, $ne: null },
+        })
+        .select('userId productId eventType')
+        .lean();
+
+      this.logger.log(
+        `Fetched ${events.length} events for collaborative filtering`,
+      );
 
       // 2. Build Weighted Interaction Vectors
       // User -> Product -> Score
@@ -45,7 +56,7 @@ export class SimilarCustomersJob implements OfflineRecommendationJob {
         add_to_cart: 6,
         wishlist: 5,
         click: 3,
-        view: 1
+        view: 1,
       };
 
       for (const event of events) {
@@ -97,7 +108,7 @@ export class SimilarCustomersJob implements OfflineRecommendationJob {
           if (overlapScore > 0) {
             similarities.push({
               targetUser,
-              score: overlapScore
+              score: overlapScore,
             });
           }
         }
@@ -114,8 +125,9 @@ export class SimilarCustomersJob implements OfflineRecommendationJob {
             // Only recommend products the source user hasn't interacted with
             if (!userProducts[sourceUser].has(pId)) {
               recommendedProducts.set(
-                pId, 
-                (recommendedProducts.get(pId) || 0) + (simUserProducts[pId] * sim.score)
+                pId,
+                (recommendedProducts.get(pId) || 0) +
+                  simUserProducts[pId] * sim.score,
               );
             }
           }
@@ -125,7 +137,7 @@ export class SimilarCustomersJob implements OfflineRecommendationJob {
         const finalProducts = Array.from(recommendedProducts.entries())
           .sort((a, b) => b[1] - a[1])
           .slice(0, 20)
-          .map(entry => entry[0]);
+          .map((entry) => entry[0]);
 
         if (finalProducts.length > 0) {
           // In this simplified architecture, we just store one record per source user with the array of recommended products
@@ -133,7 +145,7 @@ export class SimilarCustomersJob implements OfflineRecommendationJob {
             userId: sourceUser,
             similarUserId: topUsers[0] ? topUsers[0].targetUser : 'none', // Reference point
             similarityScore: topUsers[0] ? topUsers[0].score : 0,
-            recommendedProductIds: finalProducts
+            recommendedProductIds: finalProducts,
           });
         }
 
@@ -150,9 +162,14 @@ export class SimilarCustomersJob implements OfflineRecommendationJob {
       }
 
       const duration = (Date.now() - startTime) / 1000;
-      this.logger.log(`Completed SimilarCustomersJob. Generated recommendations for ${computedCount} users in ${duration}s.`);
+      this.logger.log(
+        `Completed SimilarCustomersJob. Generated recommendations for ${computedCount} users in ${duration}s.`,
+      );
     } catch (error) {
-      this.logger.error(`SimilarCustomersJob failed: ${error.message}`, error.stack);
+      this.logger.error(
+        `SimilarCustomersJob failed: ${error.message}`,
+        error.stack,
+      );
     }
   }
 }

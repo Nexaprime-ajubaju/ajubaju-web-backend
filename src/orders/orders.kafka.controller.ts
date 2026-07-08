@@ -1,5 +1,10 @@
 import { Controller, Logger, Optional } from '@nestjs/common';
-import { Ctx, KafkaContext, MessagePattern, Payload } from '@nestjs/microservices';
+import {
+  Ctx,
+  KafkaContext,
+  MessagePattern,
+  Payload,
+} from '@nestjs/microservices';
 import { KAFKA_TOPICS } from '../common/constants/kafka-topics';
 import { KafkaService } from '../kafka/kafka.service';
 import { OrderStatus } from './schemas/order.schema';
@@ -44,7 +49,10 @@ export class OrdersKafkaController {
   }
 
   @MessagePattern(KAFKA_TOPICS.ORDER_GET_MERCHANT)
-  async handleGetMerchantOrders(@Payload() message: any, @Ctx() context: KafkaContext) {
+  async handleGetMerchantOrders(
+    @Payload() message: any,
+    @Ctx() context: KafkaContext,
+  ) {
     const value = this.getValue(message);
     const correlationId = this.getCorrelationId(message);
 
@@ -63,12 +71,17 @@ export class OrdersKafkaController {
   }
 
   @MessagePattern(KAFKA_TOPICS.ORDER_GET_STATS)
-  async handleGetMerchantStats(@Payload() message: any, @Ctx() context: KafkaContext) {
+  async handleGetMerchantStats(
+    @Payload() message: any,
+    @Ctx() context: KafkaContext,
+  ) {
     const value = this.getValue(message);
     const correlationId = this.getCorrelationId(message);
 
     try {
-      const result = await this.ordersService.getMerchantOrderStats(value.merchantId);
+      const result = await this.ordersService.getMerchantOrderStats(
+        value.merchantId,
+      );
       return this.success(result, correlationId);
     } catch (error) {
       this.logger.error(`Failed ORDER_GET_STATS: ${error.message}`);
@@ -77,7 +90,10 @@ export class OrdersKafkaController {
   }
 
   @MessagePattern(KAFKA_TOPICS.ORDER_UPDATE_STATUS)
-  async handleUpdateOrderStatus(@Payload() message: any, @Ctx() context: KafkaContext) {
+  async handleUpdateOrderStatus(
+    @Payload() message: any,
+    @Ctx() context: KafkaContext,
+  ) {
     const value = this.getValue(message);
     const correlationId = this.getCorrelationId(message);
 

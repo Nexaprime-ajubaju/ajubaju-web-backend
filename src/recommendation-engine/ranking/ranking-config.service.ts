@@ -7,7 +7,7 @@ export class RankingConfigService {
 
   // In a real system, these might be fetched from a DB, Redis, or LaunchDarkly.
   private readonly configs: Record<string, RankingWeights> = {
-    'default': {
+    default: {
       affinity: 0.4,
       distance: 0.3,
       popularity: 0.2,
@@ -30,7 +30,7 @@ export class RankingConfigService {
       distance: 1.0,
       popularity: 0.0,
       freshness: 0.0,
-    }
+    },
   };
 
   /**
@@ -41,8 +41,10 @@ export class RankingConfigService {
     if (this.configs[variant]) {
       return this.configs[variant];
     }
-    
-    this.logger.warn(`Config variant '${variant}' not found. Falling back to 'default'.`);
+
+    this.logger.warn(
+      `Config variant '${variant}' not found. Falling back to 'default'.`,
+    );
     return this.configs['default'];
   }
 }

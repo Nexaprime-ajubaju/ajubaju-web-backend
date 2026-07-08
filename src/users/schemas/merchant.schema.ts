@@ -3,7 +3,7 @@ import { Document } from 'mongoose';
 
 export type MerchantDocument = Merchant & Document;
 
-@Schema({ timestamps: true })
+@Schema({ timestamps: true, optimisticConcurrency: true })
 export class Merchant {
   @Prop({ required: true, unique: true })
   userId: string;

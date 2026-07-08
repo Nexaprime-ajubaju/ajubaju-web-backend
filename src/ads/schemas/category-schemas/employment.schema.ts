@@ -5,7 +5,9 @@ export type EmploymentDocument = Employment & Document;
 
 @Schema({ _id: false, timestamps: false })
 export class Employment {
-  @Prop({ enum: ['Full Time', 'Part Time', 'Contract', 'Internship', 'Freelance'] })
+  @Prop({
+    enum: ['Full Time', 'Part Time', 'Contract', 'Internship', 'Freelance'],
+  })
   jobType?: string;
 
   @Prop()

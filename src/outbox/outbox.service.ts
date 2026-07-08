@@ -2,7 +2,10 @@ import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Cron, CronExpression } from '@nestjs/schedule';
-import { OutboxEvent, OutboxEventDocument } from './schemas/outbox-event.schema';
+import {
+  OutboxEvent,
+  OutboxEventDocument,
+} from './schemas/outbox-event.schema';
 import { KafkaService } from '../kafka/kafka.service';
 
 @Injectable()
@@ -11,7 +14,8 @@ export class OutboxService implements OnModuleInit {
   private isProcessing = false;
 
   constructor(
-    @InjectModel(OutboxEvent.name) private outboxModel: Model<OutboxEventDocument>,
+    @InjectModel(OutboxEvent.name)
+    private outboxModel: Model<OutboxEventDocument>,
     private kafkaService: KafkaService,
   ) {}
 
@@ -22,7 +26,10 @@ export class OutboxService implements OnModuleInit {
   /**
    * Save an event to the outbox to guarantee delivery even if Kafka crashes.
    */
-  async saveEvent(topic: string, payload: Record<string, any>): Promise<OutboxEventDocument> {
+  async saveEvent(
+    topic: string,
+    payload: Record<string, any>,
+  ): Promise<OutboxEventDocument> {
     const event = new this.outboxModel({
       topic,
       payload,
@@ -48,7 +55,7 @@ export class OutboxService implements OnModuleInit {
       for (const event of pendingEvents) {
         try {
           await this.kafkaService.send(event.topic, event.payload);
-          
+
           event.status = 'processed';
           await event.save();
           this.logger.log(`Outbox event ${event._id} sent to ${event.topic}`);
@@ -59,7 +66,9 @@ export class OutboxService implements OnModuleInit {
             event.status = 'failed';
           }
           await event.save();
-          this.logger.error(`Failed to process outbox event ${event._id}: ${error.message}`);
+          this.logger.error(
+            `Failed to process outbox event ${event._id}: ${error.message}`,
+          );
         }
       }
     } catch (err) {

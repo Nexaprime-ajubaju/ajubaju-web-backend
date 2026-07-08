@@ -30,13 +30,14 @@ export class RecommendationLog {
   variant: string;
 
   @Prop({ type: [{ productId: String, rank: Number }], default: [] })
-  results: { productId: string, rank: number }[];
+  results: { productId: string; rank: number }[];
 
   @Prop({ type: Date, expires: '30d', default: Date.now }) // TTL index for 30 days
   createdAt: Date;
 }
 
-export const RecommendationLogSchema = SchemaFactory.createForClass(RecommendationLog);
+export const RecommendationLogSchema =
+  SchemaFactory.createForClass(RecommendationLog);
 
 RecommendationLogSchema.index({ requestId: 1 });
 RecommendationLogSchema.index({ userId: 1 });

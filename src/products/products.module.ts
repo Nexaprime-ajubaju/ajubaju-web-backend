@@ -13,7 +13,7 @@ import { Merchant, MerchantSchema } from '../users/schemas/merchant.schema';
   imports: [
     MongooseModule.forFeature([
       { name: Product.name, schema: ProductSchema },
-      { name: Merchant.name, schema: MerchantSchema }
+      { name: Merchant.name, schema: MerchantSchema },
     ]),
     KafkaModule, // Inventory updates, product events
     RedisModule, // Cache product listings, inventory, search results

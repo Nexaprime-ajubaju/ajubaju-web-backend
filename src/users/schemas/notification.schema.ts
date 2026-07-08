@@ -20,7 +20,18 @@ export class Notification {
   @Prop({ required: true })
   adTitle: string;
 
-  @Prop({ required: true, enum: ['wishlist_add', 'wishlist_remove', 'order_placed', 'order_accepted', 'order_rejected', 'admin_warning'], default: 'wishlist_add' })
+  @Prop({
+    required: true,
+    enum: [
+      'wishlist_add',
+      'wishlist_remove',
+      'order_placed',
+      'order_accepted',
+      'order_rejected',
+      'admin_warning',
+    ],
+    default: 'wishlist_add',
+  })
   type: string;
 
   @Prop({ required: true })

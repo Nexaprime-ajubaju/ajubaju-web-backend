@@ -1,6 +1,12 @@
-import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  OnModuleDestroy,
+  OnModuleInit,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createClient, RedisClientType } from 'redis';
+import { randomUUID } from 'crypto';
 
 @Injectable()
 export class RedisService implements OnModuleInit, OnModuleDestroy {
@@ -29,7 +35,9 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     try {
       const host = redisConfig.host || '127.0.0.1';
       const port = redisConfig.port || 6379;
-      const password = redisConfig.password ? `:${encodeURIComponent(redisConfig.password)}@` : '';
+      const password = redisConfig.password
+        ? `:${encodeURIComponent(redisConfig.password)}@`
+        : '';
       const db = Number.isInteger(redisConfig.db) ? redisConfig.db : 0;
       const url = `redis://${password}${host}:${port}/${db}`;
 
@@ -89,7 +97,10 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     }
 
     try {
-      const ttl = ttlSeconds || Number(this.configService.get('REDIS_CACHE_TTL_DEFAULT')) || 300;
+      const ttl =
+        ttlSeconds ||
+        Number(this.configService.get('REDIS_CACHE_TTL_DEFAULT')) ||
+        300;
       await this.redisClient.setEx(key, ttl, JSON.stringify(value));
       this.logger.debug(`Cache SET: ${key} (TTL: ${ttl}s)`);
       return true;
@@ -174,10 +185,14 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
         }
       } while (cursor !== '0');
 
-      this.logger.debug(`Cache SCAN-DEL pattern "${pattern}": deleted ${deletedCount} keys`);
+      this.logger.debug(
+        `Cache SCAN-DEL pattern "${pattern}": deleted ${deletedCount} keys`,
+      );
       return deletedCount;
     } catch (error: any) {
-      this.logger.error(`Cache SCAN-DEL failed for pattern "${pattern}": ${error.message}`);
+      this.logger.error(
+        `Cache SCAN-DEL failed for pattern "${pattern}": ${error.message}`,
+      );
       return 0;
     }
   }
@@ -248,6 +263,53 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
       return true;
     } catch (error: any) {
       this.logger.error(`Cache EXPIRE failed for ${key}: ${error.message}`);
+      return false;
+    }
+  }
+
+  async acquireLock(key: string, ttlMs: number): Promise<string | null> {
+    if (!this.enabled || !this.redisClient) {
+      return null;
+    }
+
+    const token = randomUUID();
+    try {
+      const result = await this.redisClient.set(key, token, {
+        NX: true,
+        PX: ttlMs,
+      });
+      return result === 'OK' ? token : null;
+    } catch (error: any) {
+      this.logger.error(
+        `Redis lock acquire failed for ${key}: ${error.message}`,
+      );
+      return null;
+    }
+  }
+
+  async releaseLock(key: string, token: string): Promise<boolean> {
+    if (!this.enabled || !this.redisClient) {
+      return false;
+    }
+
+    const releaseScript = `
+      if redis.call('get', KEYS[1]) == ARGV[1] then
+        return redis.call('del', KEYS[1])
+      else
+        return 0
+      end
+    `;
+
+    try {
+      const result = await this.redisClient.eval(releaseScript, {
+        keys: [key],
+        arguments: [token],
+      });
+      return result === 1;
+    } catch (error: any) {
+      this.logger.error(
+        `Redis lock release failed for ${key}: ${error.message}`,
+      );
       return false;
     }
   }

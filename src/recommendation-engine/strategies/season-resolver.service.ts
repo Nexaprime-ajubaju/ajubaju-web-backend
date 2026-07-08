@@ -16,7 +16,20 @@ export class SeasonResolverService {
     else tags.push('winter');
 
     // Add current month name
-    const monthNames = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december'];
+    const monthNames = [
+      'january',
+      'february',
+      'march',
+      'april',
+      'may',
+      'june',
+      'july',
+      'august',
+      'september',
+      'october',
+      'november',
+      'december',
+    ];
     tags.push(monthNames[month]);
 
     // Simple festival logic (mocked logic for static dates)

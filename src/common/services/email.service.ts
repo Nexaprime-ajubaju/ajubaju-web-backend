@@ -10,7 +10,7 @@ export class EmailService {
 
   constructor(private configService: ConfigService) {
     this.enabled = !!this.configService.get('EMAIL_USER');
-    
+
     if (this.enabled) {
       this.transporter = nodemailer.createTransport({
         host: this.configService.get('EMAIL_HOST'),
@@ -25,14 +25,18 @@ export class EmailService {
       // Verify connection
       this.transporter.verify((error: any, success: any) => {
         if (error) {
-          this.logger.error(`Email service verification failed: ${error.message}`);
+          this.logger.error(
+            `Email service verification failed: ${error.message}`,
+          );
           this.enabled = false;
         } else {
           this.logger.log('Email service ready and connected');
         }
       });
     } else {
-      this.logger.warn('Email service not configured - emails will be logged only');
+      this.logger.warn(
+        'Email service not configured - emails will be logged only',
+      );
     }
   }
 
@@ -63,7 +67,9 @@ export class EmailService {
 
     try {
       if (!this.enabled || !this.transporter) {
-        this.logger.warn(`[EMAIL MOCK] Would send to ${adminEmail}: Report for ad ${data.adId}`);
+        this.logger.warn(
+          `[EMAIL MOCK] Would send to ${adminEmail}: Report for ad ${data.adId}`,
+        );
         this.logger.log(JSON.stringify(data, null, 2));
         return false;
       }
@@ -88,8 +94,18 @@ export class EmailService {
     reportedBy: string;
     reportCount: number;
   }): string {
-    const urgencyColor = data.reportCount >= 10 ? '#dc2626' : data.reportCount >= 5 ? '#ea580c' : '#ca8a04';
-    const urgencyText = data.reportCount >= 10 ? 'CRITICAL - Auto-Disabled' : data.reportCount >= 5 ? 'High Priority' : 'New Report';
+    const urgencyColor =
+      data.reportCount >= 10
+        ? '#dc2626'
+        : data.reportCount >= 5
+          ? '#ea580c'
+          : '#ca8a04';
+    const urgencyText =
+      data.reportCount >= 10
+        ? 'CRITICAL - Auto-Disabled'
+        : data.reportCount >= 5
+          ? 'High Priority'
+          : 'New Report';
 
     return `
       <!DOCTYPE html>
@@ -137,12 +153,16 @@ export class EmailService {
                 </div>
               </div>
 
-              ${data.description ? `
+              ${
+                data.description
+                  ? `
                 <div class="detail-row">
                   <div class="label">Reporter's Description</div>
                   <div class="value" style="font-style: italic;">"${data.description}"</div>
                 </div>
-              ` : ''}
+              `
+                  : ''
+              }
 
               <div class="detail-row">
                 <div class="label">Reported By (User ID)</div>
@@ -155,14 +175,18 @@ export class EmailService {
                 </a>
               </div>
 
-              ${data.reportCount >= 10 ? `
+              ${
+                data.reportCount >= 10
+                  ? `
                 <div style="margin-top: 20px; padding: 15px; background: #fef2f2; border: 2px solid #dc2626; border-radius: 8px;">
                   <strong style="color: #dc2626;">⚠️ AUTO-DISABLED</strong>
                   <p style="margin: 10px 0 0 0; color: #991b1b; font-size: 14px;">
                     This ad has been automatically disabled due to reaching 10 reports. Please review immediately.
                   </p>
                 </div>
-              ` : ''}
+              `
+                  : ''
+              }
 
               <div class="footer">
                 <p>This is an automated notification from GOLO's content moderation system.</p>

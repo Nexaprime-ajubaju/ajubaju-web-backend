@@ -3,7 +3,7 @@ import { Document } from 'mongoose';
 
 export type SystemSettingsDocument = SystemSettings & Document;
 
-@Schema({ timestamps: true })
+@Schema({ timestamps: true, optimisticConcurrency: true })
 export class SystemSettings {
   @Prop({ required: true, unique: true, default: 'global' })
   key: string;
@@ -39,4 +39,5 @@ export class SystemSettings {
   updatedAt: Date;
 }
 
-export const SystemSettingsSchema = SchemaFactory.createForClass(SystemSettings);
+export const SystemSettingsSchema =
+  SchemaFactory.createForClass(SystemSettings);

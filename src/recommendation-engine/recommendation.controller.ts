@@ -3,11 +3,11 @@ import { HomepageRecommendationService } from './homepage-recommendation.service
 import { RecommendationService } from './recommendation.service';
 import { RecommendationContext } from './interfaces/recommendation.context';
 
-@Controller('v1/recommendations')
+@Controller(['v1/recommendations', 'recommendations'])
 export class RecommendationController {
   constructor(
     private readonly homepageService: HomepageRecommendationService,
-    private readonly recommendationService: RecommendationService
+    private readonly recommendationService: RecommendationService,
   ) {}
 
   @Get('homepage')
@@ -17,26 +17,57 @@ export class RecommendationController {
   }
 
   @Get('products/:productId')
-  async getProductRecommendations(@Param('productId') productId: string, @Query() query: any, @Req() req: any) {
+  async getProductRecommendations(
+    @Param('productId') productId: string,
+    @Query() query: any,
+    @Req() req: any,
+  ) {
     const context = this.buildContext(query, req);
     context.productId = productId;
     // FBT is the main strategy for PDP
-    return this.recommendationService.executeStrategy('frequently_bought_together', context, 'Frequently Bought Together');
+    return this.recommendationService.executeStrategy(
+      'frequently_bought_together',
+      context,
+      'Frequently Bought Together',
+    );
   }
 
   @Get(':strategy')
-  async getStrategy(@Param('strategy') strategy: string, @Query() query: any, @Req() req: any) {
+  async getStrategy(
+    @Param('strategy') strategy: string,
+    @Query() query: any,
+    @Req() req: any,
+  ) {
     const context = this.buildContext(query, req);
-    return this.recommendationService.executeStrategy(strategy, context, strategy);
+    return this.recommendationService.executeStrategy(
+      strategy,
+      context,
+      strategy,
+    );
   }
 
   private buildContext(query: any, req: any): RecommendationContext {
+    const latitude = query.latitude
+      ? parseFloat(query.latitude)
+      : query.lat
+        ? parseFloat(query.lat)
+        : undefined;
+    const longitude = query.longitude
+      ? parseFloat(query.longitude)
+      : query.lng
+        ? parseFloat(query.lng)
+        : undefined;
+
     return {
       userId: req.user?.id || query.userId,
-      latitude: query.latitude ? parseFloat(query.latitude) : (query.lat ? parseFloat(query.lat) : undefined),
-      longitude: query.longitude ? parseFloat(query.longitude) : (query.lng ? parseFloat(query.lng) : undefined),
-      city: query.city,
-      area: query.area,
+      latitude,
+      longitude,
+      coordinates:
+        latitude !== undefined && longitude !== undefined
+          ? { latitude, longitude }
+          : undefined,
+      city: query.city || query.location || query.locationName,
+      area: query.area || query.region,
       pincode: query.pincode,
       page: query.page ? parseInt(query.page, 10) : 1,
       limit: query.limit ? parseInt(query.limit, 10) : 10,

@@ -1,17 +1,17 @@
-import { 
-  IsString, 
-  IsNotEmpty, 
-  IsEnum, 
-  IsNumber, 
-  IsOptional, 
-  IsArray, 
+import {
+  IsString,
+  IsNotEmpty,
+  IsEnum,
+  IsNumber,
+  IsOptional,
+  IsArray,
   IsBoolean,
   ValidateNested,
   Min,
   IsLatitude,
   IsLongitude,
   IsUrl,
-  IsObject
+  IsObject,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ContactInfoDto } from './contact-info.dto';
@@ -27,10 +27,24 @@ export class CreateAdDto {
   description: string;
 
   @IsEnum([
-    'Education', 'Matrimonial', 'Vehicle', 'Business', 'Travel',
-    'Astrology', 'Property', 'Public Notice', 'Lost & Found',
-    'Service', 'Personal', 'Employment', 'Pets', 'Mobiles',
-    'Electronics & Home appliances', 'Furniture', 'Greetings & Tributes', 'Other'
+    'Education',
+    'Matrimonial',
+    'Vehicle',
+    'Business',
+    'Travel',
+    'Astrology',
+    'Property',
+    'Public Notice',
+    'Lost & Found',
+    'Service',
+    'Personal',
+    'Employment',
+    'Pets',
+    'Mobiles',
+    'Electronics & Home appliances',
+    'Furniture',
+    'Greetings & Tributes',
+    'Other',
   ])
   category: string;
 
@@ -43,7 +57,7 @@ export class CreateAdDto {
   @IsOptional()
   userId: string;
 
-  @IsEnum(['Customer', 'Admin'])  // ← Should match your schema
+  @IsEnum(['Customer', 'Admin']) // ← Should match your schema
   userType: string;
 
   @IsArray()
@@ -94,30 +108,29 @@ export class CreateAdDto {
   @Type(() => ContactInfoDto)
   contactInfo: ContactInfoDto;
 
-   // ==================== NEW FIELDS FROM FRONTEND ====================
-  
-  @IsOptional()
-  @IsString()
-  language?: string;  // From frontend language selector
+  // ==================== NEW FIELDS FROM FRONTEND ====================
 
   @IsOptional()
   @IsString()
-  primaryContact?: string;  // From frontend primary contact field
+  language?: string; // From frontend language selector
+
+  @IsOptional()
+  @IsString()
+  primaryContact?: string; // From frontend primary contact field
 
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
-  cities?: string[];  // Multiple locations from frontend
+  cities?: string[]; // Multiple locations from frontend
 
   @IsOptional()
   @IsArray()
   @Type(() => Date)
-  selectedDates?: Date[];  // Selected dates from scheduling
+  selectedDates?: Date[]; // Selected dates from scheduling
 
   @IsOptional()
   @IsNumber()
-  templateId?: number;  // Template ID for UI (1, 2, or 3)
-
+  templateId?: number; // Template ID for UI (1, 2, or 3)
 
   // For Property category
   @IsOptional()

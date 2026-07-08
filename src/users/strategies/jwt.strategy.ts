@@ -14,7 +14,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   ) {
     // Get secret from config service
     const secret = configService.get<string>('JWT_SECRET');
-    
+
     if (!secret) {
       throw new Error('JWT_SECRET is not defined in environment variables');
     }
@@ -29,9 +29,11 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   async validate(payload: any) {
     try {
       if (!payload || !payload.sub) {
-        throw new UnauthorizedException('Invalid JWT payload - missing sub claim');
+        throw new UnauthorizedException(
+          'Invalid JWT payload - missing sub claim',
+        );
       }
-      
+
       // Handle admin tokens - they come from GOLO_Admin_Backend and have role: 'admin'
       if (payload.role === 'admin' || payload.adminType) {
         return {
@@ -41,13 +43,13 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
           name: payload.name || payload.email,
         };
       }
-      
+
       // For regular users, look them up in the database
       const user = await this.userModel.findById(payload.sub).exec();
       if (!user) {
         throw new UnauthorizedException('User not found');
       }
-      
+
       // Convert _id to string to avoid ObjectId issues
       return {
         id: user._id.toString(),

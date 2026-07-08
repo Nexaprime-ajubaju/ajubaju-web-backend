@@ -30,7 +30,8 @@ export class SimilarProduct {
   algorithmVersion: string;
 }
 
-export const SimilarProductSchema = SchemaFactory.createForClass(SimilarProduct);
+export const SimilarProductSchema =
+  SchemaFactory.createForClass(SimilarProduct);
 
 SimilarProductSchema.index({ productId: 1 });
 // Compound index for fast querying per product and sorting by score

@@ -42,11 +42,15 @@ export class VouchersController {
       throw new BadRequestException('User ID not found');
     }
 
-    return await this.vouchersService.claimOffer(userId, claimOfferDto.offerId, {
-      latitude: claimOfferDto.latitude,
-      longitude: claimOfferDto.longitude,
-      location: claimOfferDto.location,
-    });
+    return await this.vouchersService.claimOffer(
+      userId,
+      claimOfferDto.offerId,
+      {
+        latitude: claimOfferDto.latitude,
+        longitude: claimOfferDto.longitude,
+        location: claimOfferDto.location,
+      },
+    );
   }
 
   /**
@@ -142,7 +146,10 @@ export class VouchersController {
     @CurrentUser() user: any,
   ) {
     const merchantId = user?.id || user?._id;
-    return await this.vouchersService.verifyVoucherByCode(body.code, merchantId);
+    return await this.vouchersService.verifyVoucherByCode(
+      body.code,
+      merchantId,
+    );
   }
 
   /**

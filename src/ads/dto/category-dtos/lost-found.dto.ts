@@ -1,4 +1,12 @@
-import { IsEnum, IsString, IsOptional, IsArray, IsEmail, IsUrl, IsDate } from 'class-validator';
+import {
+  IsEnum,
+  IsString,
+  IsOptional,
+  IsArray,
+  IsEmail,
+  IsUrl,
+  IsDate,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class LostFoundDto {

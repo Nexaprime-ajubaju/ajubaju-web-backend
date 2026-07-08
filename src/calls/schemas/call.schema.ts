@@ -33,7 +33,16 @@ export class Call {
 
   @Prop({
     required: true,
-    enum: ['initiated', 'ringing', 'accepted', 'rejected', 'missed', 'ended', 'failed', 'busy'],
+    enum: [
+      'initiated',
+      'ringing',
+      'accepted',
+      'rejected',
+      'missed',
+      'ended',
+      'failed',
+      'busy',
+    ],
     default: 'initiated',
     index: true,
   })
@@ -51,7 +60,9 @@ export class Call {
   @Prop({ default: 0 })
   durationSec?: number;
 
-  @Prop({ enum: ['hangup', 'declined', 'timeout', 'network_error', 'busy', 'failed'] })
+  @Prop({
+    enum: ['hangup', 'declined', 'timeout', 'network_error', 'busy', 'failed'],
+  })
   endReason?: string;
 
   @Prop({ type: [String], default: [] })

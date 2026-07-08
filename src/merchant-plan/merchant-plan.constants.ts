@@ -1,7 +1,7 @@
 export enum MerchantPlanType {
   TRIAL = 'trial',
   FREE = 'free',
-  PREMIUM = 'premium'
+  PREMIUM = 'premium',
 }
 
 export enum PlanErrorCode {
@@ -12,7 +12,7 @@ export enum PlanErrorCode {
   PRODUCT_LIMIT_REACHED = 'PRODUCT_LIMIT_REACHED',
   PRODUCT_DELETE_NOT_ALLOWED = 'PRODUCT_DELETE_NOT_ALLOWED',
   CSV_EXPORT_NOT_ALLOWED = 'CSV_EXPORT_NOT_ALLOWED',
-  ANALYTICS_NOT_AVAILABLE = 'ANALYTICS_NOT_AVAILABLE'
+  ANALYTICS_NOT_AVAILABLE = 'ANALYTICS_NOT_AVAILABLE',
 }
 
 export const PLAN_LIMITS = {

@@ -12,9 +12,7 @@ import { UserRole } from '../../users/schemas/user.schema';
 export class RecommendationDebugController {
   private readonly logger = new Logger(RecommendationDebugController.name);
 
-  constructor(
-    private readonly recommendationFactory: RecommendationFactory,
-  ) {}
+  constructor(private readonly recommendationFactory: RecommendationFactory) {}
 
   @Get()
   async debugRecommendations(
@@ -25,7 +23,7 @@ export class RecommendationDebugController {
     @Query('variant') variant?: string,
   ) {
     this.logger.log(`Debugging strategy '${strategyKey}' for user '${userId}'`);
-    
+
     const strategy = this.recommendationFactory.get(strategyKey);
     if (!strategy) {
       return { error: `Strategy '${strategyKey}' not found.` };
@@ -33,9 +31,12 @@ export class RecommendationDebugController {
 
     const context: RecommendationContext = {
       userId,
-      coordinates: (lat && lng) ? { latitude: Number(lat), longitude: Number(lng) } : undefined,
+      coordinates:
+        lat && lng
+          ? { latitude: Number(lat), longitude: Number(lng) }
+          : undefined,
       experimentVariant: variant,
-      limit: 15
+      limit: 15,
     };
 
     const results = await strategy.getRecommendations(context);
@@ -43,21 +44,21 @@ export class RecommendationDebugController {
     // In a real debug scenario, we might want to bypass the PostProcessor mapping
     // But since our PostProcessor now attaches recommendationExplainability directly to the response,
     // we can just return the processed results and the admin will see the full metadata block.
-    
+
     return {
       metadata: {
         userId,
         strategy: strategyKey,
         variant: variant || 'default',
         location: context.coordinates,
-        returnedCount: results.products.length
+        returnedCount: results.products.length,
       },
-      results: results.products.map(r => ({
+      results: results.products.map((r) => ({
         productId: r._id || r.product?._id,
         title: r.title || r.product?.title,
         finalScore: r.finalScore,
-        explainability: r.recommendationExplainability
-      }))
+        explainability: r.recommendationExplainability,
+      })),
     };
   }
 }

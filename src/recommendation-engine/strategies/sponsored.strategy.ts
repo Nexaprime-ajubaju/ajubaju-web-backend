@@ -1,5 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { RecommendationStrategy, StrategyResult, RecommendationReason, RecommendationSource } from '../interfaces/recommendation-strategy.interface';
+import {
+  RecommendationStrategy,
+  StrategyResult,
+  RecommendationReason,
+  RecommendationSource,
+} from '../interfaces/recommendation-strategy.interface';
 import { RecommendationContext } from '../interfaces/recommendation.context';
 import { CandidateRetrieverService } from '../retrievers/candidate-retriever.service';
 import { RankingService } from '../ranking/ranking.service';
@@ -19,51 +24,79 @@ export class SponsoredStrategy implements RecommendationStrategy {
     private readonly featureStore: ProductFeatureService,
   ) {}
 
-  async getRecommendations(context: RecommendationContext): Promise<StrategyResult> {
+  async getRecommendations(
+    context: RecommendationContext,
+  ): Promise<StrategyResult> {
     try {
       const limit = context.limit || 10;
       const MAX_SPONSORED = 2;
-      
+
       // Fetch sponsored pool
-      const sponsoredCandidates = await this.candidateRetriever.findSponsored(10);
-      
+      const sponsoredCandidates =
+        await this.candidateRetriever.findSponsored(10);
+
       let sponsoredRanked = [];
       if (sponsoredCandidates.length > 0) {
-        const sponsoredIds = sponsoredCandidates.map(c => c._id.toString());
-        const sponsoredFeatures = await this.featureStore.getFeatures(sponsoredIds);
-        
-        sponsoredRanked = this.rankingService.rankCandidates(sponsoredCandidates, sponsoredFeatures, context, null, {
-          popularity: 0.5,
-          freshness: 0.5,
-          affinity: 0,
-          distance: 0
-        });
-        
-        sponsoredRanked = this.postProcessor.process(sponsoredRanked, MAX_SPONSORED);
+        const sponsoredIds = sponsoredCandidates.map((c) => c._id.toString());
+        const sponsoredFeatures =
+          await this.featureStore.getFeatures(sponsoredIds);
+
+        sponsoredRanked = this.rankingService.rankCandidates(
+          sponsoredCandidates,
+          sponsoredFeatures,
+          context,
+          null,
+          {
+            popularity: 0.5,
+            freshness: 0.5,
+            affinity: 0,
+            distance: 0,
+          },
+        );
+
+        sponsoredRanked = this.postProcessor.process(
+          sponsoredRanked,
+          MAX_SPONSORED,
+        );
         // Mark them as sponsored in the output
-        sponsoredRanked.forEach(item => item.product.isSponsored = true);
+        sponsoredRanked.forEach((item) => (item.product.isSponsored = true));
       }
 
       // Fetch organic pool to mix in
       const organicNeeded = limit - sponsoredRanked.length;
       let organicRanked = [];
-      
+
       if (organicNeeded > 0) {
         // Fallback to best sellers for organic mix
-        const organicCandidates = await this.candidateRetriever.findOfflineCollection('best_sellers', {}, organicNeeded * 2);
-        
+        const organicCandidates =
+          await this.candidateRetriever.findOfflineCollection(
+            'best_sellers',
+            {},
+            organicNeeded * 2,
+          );
+
         if (organicCandidates.length > 0) {
-          const organicIds = organicCandidates.map(c => c._id.toString());
-          const organicFeatures = await this.featureStore.getFeatures(organicIds);
-          
-          organicRanked = this.rankingService.rankCandidates(organicCandidates, organicFeatures, context, null, {
-            popularity: 0.8,
-            distance: 0.2,
-            affinity: 0,
-            freshness: 0
-          });
-          
-          organicRanked = this.postProcessor.process(organicRanked, organicNeeded);
+          const organicIds = organicCandidates.map((c) => c._id.toString());
+          const organicFeatures =
+            await this.featureStore.getFeatures(organicIds);
+
+          organicRanked = this.rankingService.rankCandidates(
+            organicCandidates,
+            organicFeatures,
+            context,
+            null,
+            {
+              popularity: 0.8,
+              distance: 0.2,
+              affinity: 0,
+              freshness: 0,
+            },
+          );
+
+          organicRanked = this.postProcessor.process(
+            organicRanked,
+            organicNeeded,
+          );
         }
       }
 
@@ -75,7 +108,8 @@ export class SponsoredStrategy implements RecommendationStrategy {
       for (let i = 0; i < limit; i++) {
         if (i === 0 && sIdx < sponsoredRanked.length) {
           finalResults.push(sponsoredRanked[sIdx++]);
-        } else if (i === 3 && sIdx < sponsoredRanked.length) { // 4th slot
+        } else if (i === 3 && sIdx < sponsoredRanked.length) {
+          // 4th slot
           finalResults.push(sponsoredRanked[sIdx++]);
         } else if (oIdx < organicRanked.length) {
           finalResults.push(organicRanked[oIdx++]);
@@ -85,10 +119,31 @@ export class SponsoredStrategy implements RecommendationStrategy {
         }
       }
 
-      return { products: finalResults, metadata: { confidence: 0.5, reason: RecommendationReason.MIXED_SIGNALS, source: RecommendationSource.ONLINE, retrievedCandidates: finalResults.length, returnedProducts: finalResults.length } };
+      return {
+        products: finalResults,
+        metadata: {
+          confidence: 0.5,
+          reason: RecommendationReason.MIXED_SIGNALS,
+          source: RecommendationSource.ONLINE,
+          retrievedCandidates: finalResults.length,
+          returnedProducts: finalResults.length,
+        },
+      };
     } catch (error) {
-      this.logger.error(`Error in SponsoredStrategy: ${error.message}`, error.stack);
-      return { products: [], metadata: { confidence: 0, reason: RecommendationReason.MIXED_SIGNALS, source: RecommendationSource.ONLINE, retrievedCandidates: 0, returnedProducts: 0 } };
+      this.logger.error(
+        `Error in SponsoredStrategy: ${error.message}`,
+        error.stack,
+      );
+      return {
+        products: [],
+        metadata: {
+          confidence: 0,
+          reason: RecommendationReason.MIXED_SIGNALS,
+          source: RecommendationSource.ONLINE,
+          retrievedCandidates: 0,
+          returnedProducts: 0,
+        },
+      };
     }
   }
 }

@@ -196,7 +196,9 @@ export class BannersController {
     @Query('status') status: string,
     @CurrentUser() user: any,
   ) {
-    if (!['admin', 'manager'].includes(String(user?.role || '').toLowerCase())) {
+    if (
+      !['admin', 'manager'].includes(String(user?.role || '').toLowerCase())
+    ) {
       throw new ForbiddenException(
         'Only admin/manager can view banner moderation queue',
       );
@@ -217,7 +219,9 @@ export class BannersController {
     @Body() body: ReviewBannerPromotionDto,
     @CurrentUser() user: any,
   ) {
-    if (!['admin', 'manager'].includes(String(user?.role || '').toLowerCase())) {
+    if (
+      !['admin', 'manager'].includes(String(user?.role || '').toLowerCase())
+    ) {
       throw new ForbiddenException(
         'Only admin/manager can review banner promotions',
       );
@@ -244,7 +248,9 @@ export class BannersController {
     @Param('requestId') requestId: string,
     @CurrentUser() user: any,
   ) {
-    if (!['admin', 'manager'].includes(String(user?.role || '').toLowerCase())) {
+    if (
+      !['admin', 'manager'].includes(String(user?.role || '').toLowerCase())
+    ) {
       throw new ForbiddenException(
         'Only admin/manager can delete banner promotions',
       );

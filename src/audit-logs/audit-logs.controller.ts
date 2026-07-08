@@ -16,7 +16,10 @@ export class AuditLogsController {
     @Query('page') page: string = '1',
     @Query('limit') limit: string = '50',
   ) {
-    const data = await this.auditLogsService.getAllLogs(parseInt(page), parseInt(limit));
+    const data = await this.auditLogsService.getAllLogs(
+      parseInt(page),
+      parseInt(limit),
+    );
     return {
       success: true,
       logs: data.logs,

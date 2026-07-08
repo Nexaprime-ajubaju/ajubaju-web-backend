@@ -12,6 +12,9 @@ export class RecommendationSectionMetadataDto {
   retrievedCandidates?: number;
   returnedProducts?: number;
   executionTime?: number;
+  requestedStrategy?: string;
+  resolvedStrategy?: string;
+  sectionKey?: string;
 }
 
 export class RecommendationSectionDto {

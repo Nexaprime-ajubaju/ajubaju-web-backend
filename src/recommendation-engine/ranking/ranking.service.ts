@@ -38,15 +38,17 @@ export class RankingService {
     features: Record<string, ProductFeature>,
     context: RecommendationContext,
     profile?: BlendedInterestProfile | null,
-    customWeights?: Partial<RankingWeights>
+    customWeights?: Partial<RankingWeights>,
   ): CandidateWithScore[] {
-    const variantConfig = this.rankingConfigService.getConfig(context.experimentVariant || 'default');
+    const variantConfig = this.rankingConfigService.getConfig(
+      context.experimentVariant || 'default',
+    );
     const weights = { ...variantConfig, ...customWeights };
 
-    const scored = candidates.map(product => {
+    const scored = candidates.map((product) => {
       const productId = product._id.toString();
-      const feature = features[productId] || {} as Partial<ProductFeature>;
-      
+      const feature = features[productId] || ({} as Partial<ProductFeature>);
+
       let finalScore = 0;
       const componentScores: Record<string, number> = {};
       const reasons: string[] = [];
@@ -55,26 +57,36 @@ export class RankingService {
       const components = this.componentRegistry.getAll();
 
       for (const component of components) {
-        const result = component.calculate({ candidate: product, feature, context, profile });
+        const result = component.calculate({
+          candidate: product,
+          feature,
+          context,
+          profile,
+        });
         const weight = weights[component.key] || 0;
-        
+
         const weightedScore = result.score * weight;
         finalScore += weightedScore;
         componentScores[component.key] = Math.round(result.score * 100) / 100;
-        
+
         if (result.reason) reasons.push(result.reason);
         if (result.matchedTags) matchedTags.push(...result.matchedTags);
-        if (result.matchedCategories) matchedCategories.push(...result.matchedCategories);
+        if (result.matchedCategories)
+          matchedCategories.push(...result.matchedCategories);
       }
-      
-      return { 
-        product, 
-        finalScore: Math.round(finalScore * 100) / 100, 
+
+      return {
+        product,
+        finalScore: Math.round(finalScore * 100) / 100,
         components: componentScores,
-        matchedTags: matchedTags.length > 0 ? Array.from(new Set(matchedTags)) : undefined,
-        matchedCategories: matchedCategories.length > 0 ? Array.from(new Set(matchedCategories)) : undefined,
+        matchedTags:
+          matchedTags.length > 0 ? Array.from(new Set(matchedTags)) : undefined,
+        matchedCategories:
+          matchedCategories.length > 0
+            ? Array.from(new Set(matchedCategories))
+            : undefined,
         reasons,
-        policyAdjustments: []
+        policyAdjustments: [],
       };
     });
 

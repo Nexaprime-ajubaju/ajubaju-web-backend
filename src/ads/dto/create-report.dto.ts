@@ -3,7 +3,8 @@ import { ReportReason } from '../schemas/report.schema';
 
 export class CreateReportDto {
   @IsEnum(ReportReason, {
-    message: 'Reason must be one of: spam, inappropriate, fraud, duplicate, other',
+    message:
+      'Reason must be one of: spam, inappropriate, fraud, duplicate, other',
   })
   reason: ReportReason;
 

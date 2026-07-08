@@ -1,5 +1,9 @@
 import { Injectable, OnModuleInit } from '@nestjs/common';
-import { RankingComponent, RankingComponentContext, RankingComponentResult } from './ranking-component.interface';
+import {
+  RankingComponent,
+  RankingComponentContext,
+  RankingComponentResult,
+} from './ranking-component.interface';
 import { RankingComponentRegistry } from '../ranking-component.registry';
 
 @Injectable()
@@ -18,7 +22,7 @@ export class FreshnessComponent implements RankingComponent, OnModuleInit {
 
     return {
       score,
-      reason: score > 0.9 ? 'New arrival' : undefined
+      reason: score > 0.9 ? 'New arrival' : undefined,
     };
   }
 }

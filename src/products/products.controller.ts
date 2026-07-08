@@ -35,14 +35,19 @@ export class ProductsController {
     @Body() createProductDto: CreateProductDto,
     @CurrentUser() user: any,
   ) {
-    this.logger.log(`Merchant ${user.id} creating product: ${createProductDto.productName}`);
+    this.logger.log(
+      `Merchant ${user.id} creating product: ${createProductDto.productName}`,
+    );
 
     if (user.accountType !== 'merchant') {
       throw new ForbiddenException('Only merchants can create products');
     }
 
     try {
-      const product = await this.productsService.createProduct(user.id, createProductDto);
+      const product = await this.productsService.createProduct(
+        user.id,
+        createProductDto,
+      );
 
       return {
         success: true,
@@ -52,7 +57,9 @@ export class ProductsController {
       };
     } catch (error) {
       this.logger.error(`Error creating product: ${error.message}`);
-      throw new BadRequestException(error.message || 'Failed to create product');
+      throw new BadRequestException(
+        error.message || 'Failed to create product',
+      );
     }
   }
 
@@ -98,7 +105,9 @@ export class ProductsController {
       };
     } catch (error) {
       this.logger.error(`Error fetching merchant products: ${error.message}`);
-      throw new BadRequestException(error.message || 'Failed to fetch products');
+      throw new BadRequestException(
+        error.message || 'Failed to fetch products',
+      );
     }
   }
 
@@ -141,7 +150,9 @@ export class ProductsController {
       };
     } catch (error) {
       this.logger.error(`Error searching products: ${error.message}`);
-      throw new BadRequestException(error.message || 'Failed to search products');
+      throw new BadRequestException(
+        error.message || 'Failed to search products',
+      );
     }
   }
 
@@ -151,7 +162,8 @@ export class ProductsController {
   @Get('category/:category')
   async getProductsByCategory(@Param('category') category: string) {
     try {
-      const products = await this.productsService.getProductsByCategory(category);
+      const products =
+        await this.productsService.getProductsByCategory(category);
 
       return {
         success: true,
@@ -160,7 +172,9 @@ export class ProductsController {
       };
     } catch (error) {
       this.logger.error(`Error fetching by category: ${error.message}`);
-      throw new BadRequestException(error.message || 'Failed to fetch products');
+      throw new BadRequestException(
+        error.message || 'Failed to fetch products',
+      );
     }
   }
 
@@ -215,7 +229,9 @@ export class ProductsController {
       };
     } catch (error) {
       this.logger.error(`Error updating product: ${error.message}`);
-      throw new BadRequestException(error.message || 'Failed to update product');
+      throw new BadRequestException(
+        error.message || 'Failed to update product',
+      );
     }
   }
 
@@ -233,7 +249,10 @@ export class ProductsController {
     }
 
     try {
-      const product = await this.productsService.deleteProduct(productId, user.id);
+      const product = await this.productsService.deleteProduct(
+        productId,
+        user.id,
+      );
 
       return {
         success: true,
@@ -243,7 +262,9 @@ export class ProductsController {
       };
     } catch (error) {
       this.logger.error(`Error deleting product: ${error.message}`);
-      throw new BadRequestException(error.message || 'Failed to delete product');
+      throw new BadRequestException(
+        error.message || 'Failed to delete product',
+      );
     }
   }
 }

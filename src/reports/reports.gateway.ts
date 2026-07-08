@@ -21,7 +21,9 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
     credentials: true,
   },
 })
-export class ReportsGateway implements OnGatewayConnection, OnGatewayDisconnect {
+export class ReportsGateway
+  implements OnGatewayConnection, OnGatewayDisconnect
+{
   @WebSocketServer()
   server: Server;
 
@@ -35,14 +37,19 @@ export class ReportsGateway implements OnGatewayConnection, OnGatewayDisconnect 
   ) {
     // Listen for report events from the entire application
     if (this.eventEmitter) {
-      this.eventEmitter.on('report.submitted', (data) => this.handleReportSubmitted(data));
+      this.eventEmitter.on('report.submitted', (data) =>
+        this.handleReportSubmitted(data),
+      );
     }
   }
 
   async handleConnection(client: Socket) {
     try {
       const tokenFromAuth = client.handshake.auth?.token;
-      const tokenFromHeader = client.handshake.headers.authorization?.replace('Bearer ', '');
+      const tokenFromHeader = client.handshake.headers.authorization?.replace(
+        'Bearer ',
+        '',
+      );
       const token = tokenFromAuth || tokenFromHeader;
 
       if (!token) {
@@ -63,7 +70,9 @@ export class ReportsGateway implements OnGatewayConnection, OnGatewayDisconnect 
 
       // Only admins can connect to reports namespace
       if (decoded.role !== 'admin') {
-        this.logger.error(`❌ Non-admin user tried to connect: ${decoded.sub} (role: ${decoded.role})`);
+        this.logger.error(
+          `❌ Non-admin user tried to connect: ${decoded.sub} (role: ${decoded.role})`,
+        );
         throw new WsException('Only admins can access reports');
       }
 
@@ -73,7 +82,9 @@ export class ReportsGateway implements OnGatewayConnection, OnGatewayDisconnect 
       // Track admin clients
       this.adminSockets.add(client.id);
 
-      this.logger.log(`✅ Admin ${decoded.sub} connected to reports (Total admins: ${this.adminSockets.size})`);
+      this.logger.log(
+        `✅ Admin ${decoded.sub} connected to reports (Total admins: ${this.adminSockets.size})`,
+      );
 
       // Send confirmation
       client.emit('connected', {
@@ -83,8 +94,11 @@ export class ReportsGateway implements OnGatewayConnection, OnGatewayDisconnect 
         role: decoded.role,
       });
     } catch (error: any) {
-      this.logger.error(`❌ Socket connection failed: ${error.message}`, error.stack);
-      client.emit('error', { 
+      this.logger.error(
+        `❌ Socket connection failed: ${error.message}`,
+        error.stack,
+      );
+      client.emit('error', {
         message: error.message || 'Authentication failed',
         status: 'error',
       });
@@ -94,7 +108,9 @@ export class ReportsGateway implements OnGatewayConnection, OnGatewayDisconnect 
 
   async handleDisconnect(client: Socket) {
     this.adminSockets.delete(client.id);
-    this.logger.log(`❌ Admin disconnected from reports (Total admins: ${this.adminSockets.size})`);
+    this.logger.log(
+      `❌ Admin disconnected from reports (Total admins: ${this.adminSockets.size})`,
+    );
   }
 
   /**
@@ -110,7 +126,9 @@ export class ReportsGateway implements OnGatewayConnection, OnGatewayDisconnect 
    */
   public broadcastNewReport(reportData: any) {
     if (this.server && this.adminSockets.size > 0) {
-      this.logger.log(`📢 Broadcasting new report to ${this.adminSockets.size} admins`);
+      this.logger.log(
+        `📢 Broadcasting new report to ${this.adminSockets.size} admins`,
+      );
       this.server.emit('new_report', {
         reportId: reportData.reportId,
         adId: reportData.adId,

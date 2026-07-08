@@ -1,8 +1,13 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-import { HomepageConfig, HomepageConfigDocument, HomepageSection } from './schemas/homepage-config.schema';
+import {
+  HomepageConfig,
+  HomepageConfigDocument,
+  HomepageSection,
+} from './schemas/homepage-config.schema';
 import { UpdateHomepageConfigDto } from './dto/update-homepage-config.dto';
+import { TransactionService } from '../common/services/transaction.service';
 
 const DEFAULT_SECTIONS: HomepageSection[] = [
   {
@@ -114,7 +119,7 @@ const DEFAULT_SECTIONS: HomepageSection[] = [
     limit: 10,
     displayOrder: 10,
     metadata: {},
-  }
+  },
 ];
 
 @Injectable()
@@ -123,7 +128,9 @@ export class HomepageConfigService {
   private cachedConfig: HomepageConfig | null = null;
 
   constructor(
-    @InjectModel(HomepageConfig.name) private configModel: Model<HomepageConfigDocument>,
+    @InjectModel(HomepageConfig.name)
+    private configModel: Model<HomepageConfigDocument>,
+    private readonly transactionService: TransactionService,
   ) {}
 
   async getConfig(): Promise<HomepageConfig> {
@@ -131,14 +138,23 @@ export class HomepageConfigService {
       return this.cachedConfig;
     }
 
-    let config = await this.configModel.findOne().exec();
-    if (!config) {
-      this.logger.log('No homepage config found, creating default...');
-      config = await this.configModel.create({
-        version: 1,
-        sections: DEFAULT_SECTIONS,
-      });
-    }
+    const config = await this.transactionService.execute(async (session) => {
+      let cfg = await this.configModel.findOne().session(session).exec();
+      if (!cfg) {
+        this.logger.log('No homepage config found, creating default...');
+        const created = await this.configModel.create(
+          [
+            {
+              version: 1,
+              sections: DEFAULT_SECTIONS,
+            },
+          ],
+          { session },
+        );
+        cfg = created[0];
+      }
+      return cfg;
+    });
 
     this.cachedConfig = config;
     return config;
@@ -151,7 +167,7 @@ export class HomepageConfigService {
     // Validate duplicates
     const keys = new Set();
     const displayOrders = new Set();
-    
+
     for (const section of updateDto.sections) {
       if (keys.has(section.key)) {
         throw new BadRequestException(`Duplicate key found: ${section.key}`);
@@ -159,48 +175,59 @@ export class HomepageConfigService {
       keys.add(section.key);
 
       if (displayOrders.has(section.displayOrder)) {
-        throw new BadRequestException(`Duplicate displayOrder found: ${section.displayOrder}`);
+        throw new BadRequestException(
+          `Duplicate displayOrder found: ${section.displayOrder}`,
+        );
       }
       displayOrders.add(section.displayOrder);
     }
 
-    let config = await this.configModel.findOne().exec();
-    if (!config) {
-      config = new this.configModel({ version: 1 });
-    }
+    const savedConfig = await this.transactionService.execute(
+      async (session) => {
+        let cfg = await this.configModel.findOne().session(session).exec();
+        if (!cfg) {
+          cfg = new this.configModel({ version: 1 });
+        }
 
-    // TODO: Integrate with actual audit logger if available
-    this.logger.log(`Homepage config updated by admin ${adminId || 'unknown'}`);
+        this.logger.log(
+          `Homepage config updated by admin ${adminId || 'unknown'}`,
+        );
 
-    config.sections = updateDto.sections as HomepageSection[];
-    config.version += 1;
-    config.updatedBy = adminId;
-    
-    const savedConfig = await config.save();
-    
-    // Invalidate cache
+        cfg.sections = updateDto.sections as HomepageSection[];
+        cfg.version += 1;
+        cfg.updatedBy = adminId;
+
+        await cfg.save({ session });
+        return cfg;
+      },
+    );
+
     this.cachedConfig = savedConfig;
-    
     return savedConfig;
   }
 
   async resetDefaults(adminId?: string): Promise<HomepageConfig> {
-    let config = await this.configModel.findOne().exec();
-    if (!config) {
-      config = new this.configModel({ version: 1 });
-    }
+    const savedConfig = await this.transactionService.execute(
+      async (session) => {
+        let cfg = await this.configModel.findOne().session(session).exec();
+        if (!cfg) {
+          cfg = new this.configModel({ version: 1 });
+        }
 
-    this.logger.log(`Homepage config reset by admin ${adminId || 'unknown'}`);
+        this.logger.log(
+          `Homepage config reset by admin ${adminId || 'unknown'}`,
+        );
 
-    config.sections = DEFAULT_SECTIONS;
-    config.version += 1;
-    config.updatedBy = adminId;
+        cfg.sections = DEFAULT_SECTIONS;
+        cfg.version += 1;
+        cfg.updatedBy = adminId;
 
-    const savedConfig = await config.save();
-    
-    // Invalidate cache
+        await cfg.save({ session });
+        return cfg;
+      },
+    );
+
     this.cachedConfig = savedConfig;
-    
     return savedConfig;
   }
 }

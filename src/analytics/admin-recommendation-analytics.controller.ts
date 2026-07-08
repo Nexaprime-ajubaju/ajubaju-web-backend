@@ -1,7 +1,10 @@
 import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-import { RecommendationMetric, RecommendationMetricDocument } from './schemas/recommendation-metric.schema';
+import {
+  RecommendationMetric,
+  RecommendationMetricDocument,
+} from './schemas/recommendation-metric.schema';
 import { RecommendationHealthService } from './recommendation-health.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
@@ -13,7 +16,8 @@ import { UserRole } from '../users/schemas/user.schema';
 @Roles(UserRole.ADMIN)
 export class AdminRecommendationAnalyticsController {
   constructor(
-    @InjectModel(RecommendationMetric.name) private readonly metricModel: Model<RecommendationMetricDocument>,
+    @InjectModel(RecommendationMetric.name)
+    private readonly metricModel: Model<RecommendationMetricDocument>,
     private readonly healthService: RecommendationHealthService,
   ) {}
 
@@ -32,14 +36,17 @@ export class AdminRecommendationAnalyticsController {
     const query: any = {};
     if (strategy) query.strategy = strategy;
     if (variant) query.variant = variant;
-    
+
     if (startDate || endDate) {
       query.timeWindow = {};
       if (startDate) query.timeWindow.$gte = startDate;
       if (endDate) query.timeWindow.$lte = endDate;
     }
 
-    const metrics = await this.metricModel.find(query).sort({ timeWindow: -1 }).lean();
+    const metrics = await this.metricModel
+      .find(query)
+      .sort({ timeWindow: -1 })
+      .lean();
 
     return {
       success: true,
@@ -68,7 +75,7 @@ export class AdminRecommendationAnalyticsController {
           totalViewed: { $sum: '$viewed' },
           totalClicked: { $sum: '$clicked' },
           totalPurchased: { $sum: '$purchased' },
-        }
+        },
       },
       {
         $project: {
@@ -78,11 +85,23 @@ export class AdminRecommendationAnalyticsController {
           totalViewed: 1,
           totalClicked: 1,
           totalPurchased: 1,
-          ctr: { $cond: [{ $gt: ['$totalServed', 0] }, { $divide: ['$totalClicked', '$totalServed'] }, 0] },
-          cvr: { $cond: [{ $gt: ['$totalClicked', 0] }, { $divide: ['$totalPurchased', '$totalClicked'] }, 0] },
-        }
+          ctr: {
+            $cond: [
+              { $gt: ['$totalServed', 0] },
+              { $divide: ['$totalClicked', '$totalServed'] },
+              0,
+            ],
+          },
+          cvr: {
+            $cond: [
+              { $gt: ['$totalClicked', 0] },
+              { $divide: ['$totalPurchased', '$totalClicked'] },
+              0,
+            ],
+          },
+        },
       },
-      { $sort: { strategy: 1, variant: 1 } }
+      { $sort: { strategy: 1, variant: 1 } },
     ]);
 
     return {

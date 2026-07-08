@@ -1,4 +1,14 @@
-import { IsArray, IsBoolean, IsInt, IsNotEmpty, IsOptional, IsString, Min, ValidateNested, ValidationArguments } from 'class-validator';
+import {
+  IsArray,
+  IsBoolean,
+  IsInt,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  Min,
+  ValidateNested,
+  ValidationArguments,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class HomepageSectionDto {

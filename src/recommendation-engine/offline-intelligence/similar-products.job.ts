@@ -3,7 +3,10 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { OfflineRecommendationJob } from './offline-job.interface';
 import { Ad, AdDocument } from '../../ads/schemas/category-schemas/ad.schema';
-import { SimilarProduct, SimilarProductDocument } from './schemas/similar-product.schema';
+import {
+  SimilarProduct,
+  SimilarProductDocument,
+} from './schemas/similar-product.schema';
 
 @Injectable()
 export class SimilarProductsJob implements OfflineRecommendationJob {
@@ -13,7 +16,8 @@ export class SimilarProductsJob implements OfflineRecommendationJob {
 
   constructor(
     @InjectModel(Ad.name) private readonly adModel: Model<AdDocument>,
-    @InjectModel(SimilarProduct.name) private readonly similarProductModel: Model<SimilarProductDocument>
+    @InjectModel(SimilarProduct.name)
+    private readonly similarProductModel: Model<SimilarProductDocument>,
   ) {}
 
   async execute(): Promise<void> {
@@ -24,17 +28,20 @@ export class SimilarProductsJob implements OfflineRecommendationJob {
     try {
       // 1. Fetch active products
       // In production, you'd process in chunks. For MVP, we'll fetch all active.
-      const activeAds = await this.adModel.find({ status: 'active' })
+      const activeAds = await this.adModel
+        .find({ status: 'active' })
         .select('_id title category subCategory tags price userId')
         .lean();
 
-      this.logger.log(`Found ${activeAds.length} active ads for similarity calculation`);
+      this.logger.log(
+        `Found ${activeAds.length} active ads for similarity calculation`,
+      );
 
       // 2. Clear old similarities (for MVP we recompute entirely)
       await this.similarProductModel.deleteMany({});
 
       const batch = [];
-      
+
       // 3. Compute O(N^2) similarity for MVP (Can be optimized to use search indices or vector embeddings later)
       for (let i = 0; i < activeAds.length; i++) {
         const source = activeAds[i];
@@ -42,7 +49,7 @@ export class SimilarProductsJob implements OfflineRecommendationJob {
 
         for (let j = 0; j < activeAds.length; j++) {
           if (i === j) continue;
-          
+
           const target = activeAds[j];
           let score = 0;
           let matchedCategory = false;
@@ -79,7 +86,7 @@ export class SimilarProductsJob implements OfflineRecommendationJob {
             for (const tag of source.tags) {
               if (target.tags.includes(tag)) {
                 matchedTags.push(tag);
-                score += 0.1; 
+                score += 0.1;
               }
             }
           }
@@ -93,7 +100,7 @@ export class SimilarProductsJob implements OfflineRecommendationJob {
               matchedMerchant,
               matchedPriceRange,
               matchedTags,
-              algorithmVersion: 'v1.0.0'
+              algorithmVersion: 'v1.0.0',
             });
           }
         }
@@ -116,9 +123,14 @@ export class SimilarProductsJob implements OfflineRecommendationJob {
       }
 
       const duration = (Date.now() - startTime) / 1000;
-      this.logger.log(`Completed SimilarProductsJob. Generated ${computedCount} links in ${duration}s.`);
+      this.logger.log(
+        `Completed SimilarProductsJob. Generated ${computedCount} links in ${duration}s.`,
+      );
     } catch (error) {
-      this.logger.error(`SimilarProductsJob failed: ${error.message}`, error.stack);
+      this.logger.error(
+        `SimilarProductsJob failed: ${error.message}`,
+        error.stack,
+      );
     }
   }
 }

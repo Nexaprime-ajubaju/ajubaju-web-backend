@@ -1,5 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { RecommendationStrategy, StrategyResult, RecommendationReason, RecommendationSource } from '../interfaces/recommendation-strategy.interface';
+import {
+  RecommendationStrategy,
+  StrategyResult,
+  RecommendationReason,
+  RecommendationSource,
+} from '../interfaces/recommendation-strategy.interface';
 import { RecommendationContext } from '../interfaces/recommendation.context';
 import { CandidateRetrieverService } from '../retrievers/candidate-retriever.service';
 import { RankingService } from '../ranking/ranking.service';
@@ -21,34 +26,75 @@ export class SeasonalStrategy implements RecommendationStrategy {
     private readonly seasonResolver: SeasonResolverService,
   ) {}
 
-  async getRecommendations(context: RecommendationContext): Promise<StrategyResult> {
+  async getRecommendations(
+    context: RecommendationContext,
+  ): Promise<StrategyResult> {
     try {
       const limit = context.limit || 10;
-      
+
       const tags = this.seasonResolver.getCurrentTags();
-      
-      const candidates = await this.candidateRetriever.findByTags(tags, limit * 2);
+
+      const candidates = await this.candidateRetriever.findByTags(
+        tags,
+        limit * 2,
+      );
 
       if (candidates.length === 0) {
-        return { products: [], metadata: { confidence: 0, reason: RecommendationReason.MIXED_SIGNALS, source: RecommendationSource.ONLINE, retrievedCandidates: 0, returnedProducts: 0 } };
+        return {
+          products: [],
+          metadata: {
+            confidence: 0,
+            reason: RecommendationReason.MIXED_SIGNALS,
+            source: RecommendationSource.ONLINE,
+            retrievedCandidates: 0,
+            returnedProducts: 0,
+          },
+        };
       }
 
-      const candidateIds = candidates.map(c => c._id.toString());
+      const candidateIds = candidates.map((c) => c._id.toString());
       const features = await this.featureStore.getFeatures(candidateIds);
 
       // Rank by popularity mainly
-      const ranked = this.rankingService.rankCandidates(candidates, features, context, null, {
-        popularity: 0.8,
-        freshness: 0.2,
-        affinity: 0,
-        distance: 0
-      });
+      const ranked = this.rankingService.rankCandidates(
+        candidates,
+        features,
+        context,
+        null,
+        {
+          popularity: 0.8,
+          freshness: 0.2,
+          affinity: 0,
+          distance: 0,
+        },
+      );
 
       const products = this.postProcessor.process(ranked, limit);
-      return { products, metadata: { confidence: 0.5, reason: RecommendationReason.MIXED_SIGNALS, source: RecommendationSource.ONLINE, retrievedCandidates: products.length, returnedProducts: products.length } };
+      return {
+        products,
+        metadata: {
+          confidence: 0.5,
+          reason: RecommendationReason.MIXED_SIGNALS,
+          source: RecommendationSource.ONLINE,
+          retrievedCandidates: products.length,
+          returnedProducts: products.length,
+        },
+      };
     } catch (error) {
-      this.logger.error(`Error in SeasonalStrategy: ${error.message}`, error.stack);
-      return { products: [], metadata: { confidence: 0, reason: RecommendationReason.MIXED_SIGNALS, source: RecommendationSource.ONLINE, retrievedCandidates: 0, returnedProducts: 0 } };
+      this.logger.error(
+        `Error in SeasonalStrategy: ${error.message}`,
+        error.stack,
+      );
+      return {
+        products: [],
+        metadata: {
+          confidence: 0,
+          reason: RecommendationReason.MIXED_SIGNALS,
+          source: RecommendationSource.ONLINE,
+          retrievedCandidates: 0,
+          returnedProducts: 0,
+        },
+      };
     }
   }
 }

@@ -35,7 +35,7 @@ export class HomepageSection {
 
 const HomepageSectionSchema = SchemaFactory.createForClass(HomepageSection);
 
-@Schema({ timestamps: true })
+@Schema({ timestamps: true, optimisticConcurrency: true })
 export class HomepageConfig {
   @Prop({ required: true, default: 1 })
   version: number;
@@ -47,4 +47,5 @@ export class HomepageConfig {
   sections: HomepageSection[];
 }
 
-export const HomepageConfigSchema = SchemaFactory.createForClass(HomepageConfig);
+export const HomepageConfigSchema =
+  SchemaFactory.createForClass(HomepageConfig);

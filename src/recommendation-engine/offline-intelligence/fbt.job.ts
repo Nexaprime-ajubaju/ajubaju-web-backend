@@ -1,7 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-import { ProductRelationship, ProductRelationshipDocument } from './schemas/product-relationship.schema';
+import {
+  ProductRelationship,
+  ProductRelationshipDocument,
+} from './schemas/product-relationship.schema';
 import { OfflineRecommendationJob } from './offline-job.interface';
 
 @Injectable()
@@ -11,14 +14,17 @@ export class FbtJob implements OfflineRecommendationJob {
   readonly schedule = '0 3 * * *'; // Run daily at 3 AM
 
   constructor(
-    @InjectModel(ProductRelationship.name) private readonly relationshipModel: Model<ProductRelationshipDocument>,
+    @InjectModel(ProductRelationship.name)
+    private readonly relationshipModel: Model<ProductRelationshipDocument>,
     // In a real system, you would inject the Order model here
     // @InjectModel(Order.name) private readonly orderModel: Model<OrderDocument>,
   ) {}
 
   async execute(): Promise<void> {
-    this.logger.log('Starting offline Frequently Bought Together computation...');
-    
+    this.logger.log(
+      'Starting offline Frequently Bought Together computation...',
+    );
+
     try {
       /*
         MVP Mock Implementation

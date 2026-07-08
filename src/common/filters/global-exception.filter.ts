@@ -16,7 +16,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
     const request = ctx.getRequest<Request>();
-    
+
     // Default to 500 if not an HttpException
     const status =
       exception instanceof HttpException
@@ -32,12 +32,18 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     const errorResponse = {
       success: false,
       statusCode: status,
-      errorCode: status === HttpStatus.INTERNAL_SERVER_ERROR ? 'INTERNAL_SERVER_ERROR' : 'API_ERROR',
-      message: status === HttpStatus.INTERNAL_SERVER_ERROR 
-        ? 'An unexpected error occurred.' 
-        : typeof message === 'object' && message !== null && 'message' in message 
-          ? (message as any).message 
-          : message,
+      errorCode:
+        status === HttpStatus.INTERNAL_SERVER_ERROR
+          ? 'INTERNAL_SERVER_ERROR'
+          : 'API_ERROR',
+      message:
+        status === HttpStatus.INTERNAL_SERVER_ERROR
+          ? 'An unexpected error occurred.'
+          : typeof message === 'object' &&
+              message !== null &&
+              'message' in message
+            ? (message as any).message
+            : message,
       timestamp: new Date().toISOString(),
       path: request.originalUrl,
     };
@@ -51,9 +57,15 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     };
 
     if (status >= 500) {
-      this.logger.error(`Internal Server Error: ${request.method} ${request.originalUrl}`, logPayload);
+      this.logger.error(
+        `Internal Server Error: ${request.method} ${request.originalUrl}`,
+        logPayload,
+      );
     } else if (status >= 400) {
-      this.logger.warn(`Client Error: ${request.method} ${request.originalUrl}`, logPayload);
+      this.logger.warn(
+        `Client Error: ${request.method} ${request.originalUrl}`,
+        logPayload,
+      );
     }
 
     response.status(status).json(errorResponse);

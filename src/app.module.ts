@@ -36,6 +36,7 @@ import { LoggerModule } from 'nestjs-pino';
 import { v4 as uuidv4 } from 'uuid';
 
 import { FeatureStoreModule } from './feature-store/feature-store.module';
+import { TransactionModule } from './common/services/transaction.module';
 
 const logger = new Logger('MongoDB');
 
@@ -47,7 +48,9 @@ const logger = new Logger('MongoDB');
       load: [configuration],
       envFilePath: '.env',
       validationSchema: Joi.object({
-        NODE_ENV: Joi.string().valid('development', 'production', 'test').default('development'),
+        NODE_ENV: Joi.string()
+          .valid('development', 'production', 'test')
+          .default('development'),
         PORT: Joi.number().default(3005),
         MONGODB_URI: Joi.string().required(),
         JWT_SECRET: Joi.string().required(),
@@ -105,21 +108,26 @@ const logger = new Logger('MongoDB');
       useFactory: async (configService: ConfigService) => {
         // Get URI from config
         let uri = configService.get<string>('config.mongodb.uri');
-        
+
         // Fallback to environment variable if config doesn't have it
         if (!uri) {
-          logger.warn('MongoDB URI not found in config, checking environment variable...');
+          logger.warn(
+            'MongoDB URI not found in config, checking environment variable...',
+          );
           uri = process.env.MONGODB_URI;
         }
-        
-        console.log("--> CONNECTING TO MONGO URI:", uri.substring(0, 50) + '...');
-        
+
+        console.log(
+          '--> CONNECTING TO MONGO URI:',
+          uri.substring(0, 50) + '...',
+        );
+
         // Final fallback to localhost
         if (!uri) {
-            logger.warn('Using fallback MongoDB URI to localhost');
-            uri = 'mongodb://localhost:27017/golo';
+          logger.warn('Using fallback MongoDB URI to localhost');
+          uri = 'mongodb://localhost:27017/golo';
         }
-        
+
         // Log sanitized URI
         const sanitizedUri = uri.replace(/\/\/.*@/, '//<credentials>@');
         logger.log(`Attempting MongoDB connection to: ${sanitizedUri}`);
@@ -145,6 +153,7 @@ const logger = new Logger('MongoDB');
 
     // Feature Modules - order doesn't matter with forwardRef
     RedisModule, // Global Redis caching
+    TransactionModule,
     KafkaModule,
     OutboxModule,
     AdsModule,
@@ -178,4 +187,4 @@ const logger = new Logger('MongoDB');
     },
   ],
 })
-export class AppModule { }
+export class AppModule {}

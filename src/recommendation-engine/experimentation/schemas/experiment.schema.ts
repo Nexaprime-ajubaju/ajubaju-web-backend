@@ -8,7 +8,11 @@ export class Experiment {
   @Prop({ required: true, unique: true })
   name: string; // e.g., 'Homepage_Ranking_Test_Q3'
 
-  @Prop({ required: true, enum: ['active', 'draft', 'completed'], default: 'draft' })
+  @Prop({
+    required: true,
+    enum: ['active', 'draft', 'completed'],
+    default: 'draft',
+  })
   status: string;
 
   @Prop({ type: [{ key: String, weight: Number }], default: [] })

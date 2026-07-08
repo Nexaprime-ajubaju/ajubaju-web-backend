@@ -21,7 +21,8 @@ export class TrendingProduct {
   updatedAt?: Date;
 }
 
-export const TrendingProductSchema = SchemaFactory.createForClass(TrendingProduct);
+export const TrendingProductSchema =
+  SchemaFactory.createForClass(TrendingProduct);
 
 // Compound index for fast queries by locality sorted by score/rank
 TrendingProductSchema.index({ geohash: 1, rank: 1 });

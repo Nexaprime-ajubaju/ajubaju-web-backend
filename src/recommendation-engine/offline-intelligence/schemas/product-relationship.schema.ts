@@ -21,7 +21,8 @@ export class ProductRelationship {
   updatedAt?: Date;
 }
 
-export const ProductRelationshipSchema = SchemaFactory.createForClass(ProductRelationship);
+export const ProductRelationshipSchema =
+  SchemaFactory.createForClass(ProductRelationship);
 
 // Compound index for querying a product's highest-scored relations
 ProductRelationshipSchema.index({ productId: 1, relationType: 1, score: -1 });

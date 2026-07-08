@@ -1,12 +1,23 @@
-import { IsEnum, IsOptional, IsString, MaxLength, IsArray, IsNumber } from 'class-validator';
-import { UserReportReason, UserReportStatus } from '../schemas/user-report.schema';
+import {
+  IsEnum,
+  IsOptional,
+  IsString,
+  MaxLength,
+  IsArray,
+  IsNumber,
+} from 'class-validator';
+import {
+  UserReportReason,
+  UserReportStatus,
+} from '../schemas/user-report.schema';
 
 export class CreateUserReportDto {
   @IsString()
   reportedUserId: string;
 
   @IsEnum(UserReportReason, {
-    message: 'Reason must be one of: harassment, abuse, fraud, scam, fake_account, spam, other',
+    message:
+      'Reason must be one of: harassment, abuse, fraud, scam, fake_account, spam, other',
   })
   reason: UserReportReason;
 
@@ -22,7 +33,8 @@ export class CreateUserReportDto {
 
 export class UpdateUserReportStatusDto {
   @IsEnum(UserReportStatus, {
-    message: 'Status must be one of: pending, under_investigation, resolved, dismissed',
+    message:
+      'Status must be one of: pending, under_investigation, resolved, dismissed',
   })
   status: UserReportStatus;
 

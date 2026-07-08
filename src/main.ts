@@ -41,15 +41,15 @@ const validationPipe = new ValidationPipe({
 });
 
 async function bootstrap() {
-  console.log("--> BOOTSTRAP STARTING");
+  console.log('--> BOOTSTRAP STARTING');
   const kafkaEnabled = parseBoolean(process.env.ENABLE_KAFKA);
 
   const app = await NestFactory.create(AppModule, { rawBody: true });
   const logger = app.get(Logger);
   app.useLogger(logger);
-  
+
   const configService = app.get(ConfigService);
-  
+
   const httpAdapter = app.getHttpAdapter();
   if (process.env.TRUST_PROXY === 'true') {
     httpAdapter.getInstance().set('trust proxy', 1);
@@ -116,9 +116,14 @@ async function bootstrap() {
         return;
       }
 
-      const allowedOrigins = corsOrigins.length > 0
-        ? corsOrigins
-        : ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:3004'];
+      const allowedOrigins =
+        corsOrigins.length > 0
+          ? corsOrigins
+          : [
+              'http://localhost:3000',
+              'http://localhost:3001',
+              'http://localhost:3004',
+            ];
 
       if (isAllowedOrigin(origin, allowedOrigins)) {
         callback(null, true);
@@ -145,8 +150,8 @@ async function bootstrap() {
     SwaggerModule.setup('api-docs', app, document);
   }
 
-  console.log("--> ABOUT TO LISTEN ON PORT", port);
+  console.log('--> ABOUT TO LISTEN ON PORT', port);
   await app.listen(port, '0.0.0.0');
-  console.log("--> LISTENING ON PORT", port);
+  console.log('--> LISTENING ON PORT', port);
 }
-bootstrap().catch(err => console.error("--> BOOTSTRAP FAILED", err));
+bootstrap().catch((err) => console.error('--> BOOTSTRAP FAILED', err));

@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { v4 as uuidv4 } from 'uuid';
@@ -19,11 +24,16 @@ export class ProductsService {
     merchantId: string,
     createProductDto: CreateProductDto,
   ): Promise<Product> {
-    const merchant = await this.merchantModel.findOne({ userId: merchantId }).exec();
+    const merchant = await this.merchantModel
+      .findOne({ userId: merchantId })
+      .exec();
     if (merchant) {
-      const planDetails = await this.merchantPlanService.getPlanDetails(merchant);
+      const planDetails =
+        await this.merchantPlanService.getPlanDetails(merchant);
       if (!planDetails.planFeatures.canAddProduct) {
-        throw new ForbiddenException('Free Tier merchants cannot add new products. Please upgrade to Premium.');
+        throw new ForbiddenException(
+          'Free Tier merchants cannot add new products. Please upgrade to Premium.',
+        );
       }
     }
 
@@ -66,14 +76,17 @@ export class ProductsService {
       };
     });
 
-    return { data: processedData as Product[], total };
+    return { data: processedData, total };
   }
 
   async getProductById(
     productId: string,
     merchantId?: string,
   ): Promise<Product> {
-    const product = await this.productModel.findOne({ productId }).lean().exec();
+    const product = await this.productModel
+      .findOne({ productId })
+      .lean()
+      .exec();
 
     if (!product) {
       throw new NotFoundException(`Product with ID ${productId} not found`);
@@ -106,15 +119,17 @@ export class ProductsService {
     return product;
   }
 
-  async deleteProduct(
-    productId: string,
-    merchantId: string,
-  ): Promise<Product> {
-    const merchant = await this.merchantModel.findOne({ userId: merchantId }).exec();
+  async deleteProduct(productId: string, merchantId: string): Promise<Product> {
+    const merchant = await this.merchantModel
+      .findOne({ userId: merchantId })
+      .exec();
     if (merchant) {
-      const planDetails = await this.merchantPlanService.getPlanDetails(merchant);
+      const planDetails =
+        await this.merchantPlanService.getPlanDetails(merchant);
       if (!planDetails.planFeatures.canDeleteProduct) {
-        throw new ForbiddenException('Free Tier merchants cannot delete products. Please upgrade to Premium.');
+        throw new ForbiddenException(
+          'Free Tier merchants cannot delete products. Please upgrade to Premium.',
+        );
       }
     }
 
@@ -149,11 +164,7 @@ export class ProductsService {
       searchFilter.merchantId = merchantId;
     }
 
-    return this.productModel
-      .find(searchFilter)
-      .limit(10)
-      .lean()
-      .exec();
+    return this.productModel.find(searchFilter).limit(10).lean().exec();
   }
 
   async getProductsByCategory(
@@ -197,13 +208,19 @@ export class ProductsService {
       .exec();
 
     const totalProducts = products.length;
-    const totalStock = products.reduce((sum, p) => sum + (p.stockQuantity || 0), 0);
+    const totalStock = products.reduce(
+      (sum, p) => sum + (p.stockQuantity || 0),
+      0,
+    );
     const totalValue = products.reduce(
       (sum, p) => sum + p.regularPrice * (p.stockQuantity || 0),
       0,
     );
     const totalViews = products.reduce((sum, p) => sum + (p.views || 0), 0);
-    const totalPurchases = products.reduce((sum, p) => sum + (p.purchases || 0), 0);
+    const totalPurchases = products.reduce(
+      (sum, p) => sum + (p.purchases || 0),
+      0,
+    );
 
     return {
       totalProducts,

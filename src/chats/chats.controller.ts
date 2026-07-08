@@ -1,4 +1,13 @@
-import { Body, Controller, Delete, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { ChatsService } from './chats.service';
@@ -12,7 +21,10 @@ export class ChatsController {
   constructor(private readonly chatsService: ChatsService) {}
 
   @Post('start')
-  async startConversation(@CurrentUser() user: any, @Body() dto: StartConversationDto) {
+  async startConversation(
+    @CurrentUser() user: any,
+    @Body() dto: StartConversationDto,
+  ) {
     const data = await this.chatsService.startConversation(user.id, dto);
     return {
       success: true,
@@ -36,7 +48,11 @@ export class ChatsController {
     @Param('conversationId') conversationId: string,
     @Query() query: ListMessagesDto,
   ) {
-    const data = await this.chatsService.listMessages(user.id, conversationId, query);
+    const data = await this.chatsService.listMessages(
+      user.id,
+      conversationId,
+      query,
+    );
     return {
       success: true,
       data,
@@ -49,7 +65,11 @@ export class ChatsController {
     @Param('conversationId') conversationId: string,
     @Body() dto: SendMessageDto,
   ) {
-    const data = await this.chatsService.sendMessage(user.id, conversationId, dto);
+    const data = await this.chatsService.sendMessage(
+      user.id,
+      conversationId,
+      dto,
+    );
     return {
       success: true,
       data,

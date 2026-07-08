@@ -49,6 +49,6 @@ export interface RecommendationStrategy {
   priority?: number;
   cacheTTL?: number; // TTL in seconds
   requiresLocation?: boolean;
-  
+
   getRecommendations(context: RecommendationContext): Promise<StrategyResult>;
 }

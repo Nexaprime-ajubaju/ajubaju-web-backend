@@ -18,7 +18,8 @@ export class SimilarCustomer {
   recommendedProductIds: string[];
 }
 
-export const SimilarCustomerSchema = SchemaFactory.createForClass(SimilarCustomer);
+export const SimilarCustomerSchema =
+  SchemaFactory.createForClass(SimilarCustomer);
 
 SimilarCustomerSchema.index({ userId: 1 });
 SimilarCustomerSchema.index({ userId: 1, similarityScore: -1 });
