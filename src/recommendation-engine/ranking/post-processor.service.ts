@@ -70,8 +70,9 @@ export class PostProcessorService {
       } else {
         // Fallback to presenting the offer itself if no specific products are selected
         const p = { ...offer };
-        p.id = p._id ? p._id.toString() : p.id;
-        p.type = 'offer'; 
+        p.id = p.userId ? p.userId.toString() : (p._id ? p._id.toString() : p.id);
+        p.merchantId = p.merchantId || p.userId;
+        p.type = p.type || 'offer'; 
         p.imageUrl = p.imageUrl || (p.images && p.images[0]) || '/images/placeholder.webp';
         p.badge = p.promoTag || null;
         p.recommendationExplainability = explainability;
