@@ -23,6 +23,7 @@
     "kafka:create-topics": "node scripts/create-topics.js"
   },
   "dependencies": {
+    "@google-cloud/vision": "^5.3.7",
     "@nestjs/common": "^10.4.22",
     "@nestjs/config": "^3.3.0",
     "@nestjs/core": "^10.4.22",

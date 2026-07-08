@@ -29,6 +29,7 @@ import * as nodemailer from 'nodemailer';
 import { v4 as uuidv4 } from 'uuid';
 import { RedisService } from '../common/services/redis.service';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
+import { ModerationService } from '../moderation/moderation.service';
 
 @Injectable()
 export class AdsService implements OnModuleInit, OnModuleDestroy {
@@ -329,6 +330,9 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
 
     // ✅ Kafka OPTIONAL
     @Optional() private readonly kafkaService?: KafkaService,
+
+    // Image Moderation
+    private readonly moderationService?: ModerationService,
   ) {
     // Initialize email transporter
     this.emailEnabled = !!this.configService.get('EMAIL_USER');
@@ -547,8 +551,23 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
       );
     }
 
+    // --- Image Moderation Check ---
+    if (this.moderationService && createAdDto.images && createAdDto.images.length > 0) {
+      for (const imageUrl of createAdDto.images) {
+        const isSafe = await this.moderationService.isImageSafe(imageUrl);
+        if (!isSafe) {
+          throw new BadRequestException(
+            'One or more images contain inappropriate content and cannot be uploaded.',
+          );
+        }
+      }
+    }
+    // ------------------------------
+
     let categorySpecificData: any = {};
     const payload: any = createAdDto as any;
+    
+    this.logger.log(`Received createAdDto: ${JSON.stringify(createAdDto, null, 2)}`);
 
     switch (createAdDto.category) {
       case 'Vehicle':
@@ -657,6 +676,33 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
           }
         : undefined;
 
+    const namedCategoryData: any = {};
+    const categoryKeyMap: Record<string, string> = {
+      Vehicle: 'vehicleData',
+      Property: 'propertyData',
+      Service: 'serviceData',
+      Mobiles: 'mobileData',
+      Electronics: 'electronicsData',
+      'Electronics & Home appliances': 'electronicsData',
+      Furniture: 'furnitureData',
+      Education: 'educationData',
+      Pets: 'petsData',
+      Matrimonial: 'matrimonialData',
+      Business: 'businessData',
+      Travel: 'travelData',
+      Astrology: 'astrologyData',
+      Employment: 'employmentData',
+      'Lost & Found': 'lostFoundData',
+      Personal: 'personalData',
+      'Public Notice': 'publicNoticeData',
+      'Greetings & Tributes': 'greetingsData',
+      Other: 'otherData',
+    };
+    const namedKey = categoryKeyMap[createAdDto.category];
+    if (namedKey && categorySpecificData && Object.keys(categorySpecificData).length > 0) {
+      namedCategoryData[namedKey] = categorySpecificData;
+    }
+
     const adData: any = {
       ...createAdDto,
       ...(latitude !== undefined && !Number.isNaN(latitude)
@@ -667,6 +713,7 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
         : {}),
       ...(locationCoordinates ? { locationCoordinates } : {}),
       categorySpecificData,
+      ...namedCategoryData,
       adId: uuidv4(),
       status: 'active',
       views: 0,
@@ -1591,6 +1638,21 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
     if (hasUsedEdit) {
       throw new ForbiddenException('You can edit an ad only once');
     }
+
+    // --- Image Moderation Check ---
+    if (this.moderationService && updateData.images && updateData.images.length > 0) {
+      for (const imageUrl of updateData.images) {
+        // Optionally skip if image is already in the old ad, 
+        // but for safety, we check all provided images.
+        const isSafe = await this.moderationService.isImageSafe(imageUrl);
+        if (!isSafe) {
+          throw new BadRequestException(
+            'One or more images contain inappropriate content and cannot be uploaded.',
+          );
+        }
+      }
+    }
+    // ------------------------------
 
     const updatedAd = await this.adModel
       .findOneAndUpdate(

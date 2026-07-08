@@ -20,6 +20,7 @@ import { MerchantsModule } from './merchants/merchants.module';
 import { OrdersModule } from './orders/orders.module';
 import { VouchersModule } from './vouchers/vouchers.module';
 import { ReviewsModule } from './reviews/reviews.module';
+import { ModerationModule } from './moderation/moderation.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 
@@ -78,6 +79,7 @@ const logger = new Logger('MongoDB');
     OrdersModule,
     VouchersModule,
     ReviewsModule,
+    ModerationModule,
   ],
   controllers: [AppController],
   providers: [AppService],
