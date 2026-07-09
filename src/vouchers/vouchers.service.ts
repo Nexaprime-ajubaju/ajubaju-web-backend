@@ -43,7 +43,7 @@ export class VouchersService implements OnModuleInit {
     @InjectModel(MerchantProduct.name) private merchantProductModel: Model<MerchantProductDocument>,
     private ordersService: OrdersService,
     private redisService: RedisService,
-  ) {}
+  ) { }
 
   private getRedemptionRedisKey(merchantId: string) {
     return `merchant:redemptions:daily:${merchantId}`;
@@ -83,7 +83,7 @@ export class VouchersService implements OnModuleInit {
       const hasDesiredVerificationCodeIndex =
         Boolean(verificationCodeIndex?.unique) &&
         verificationCodeIndex?.partialFilterExpression?.verificationCode?.$type ===
-          'string';
+        'string';
 
       if (!hasDesiredVerificationCodeIndex) {
         // Replace legacy sparse index with partial index (or create fresh if missing).
@@ -222,7 +222,7 @@ export class VouchersService implements OnModuleInit {
     }
   }
 
-private isLikelyOffer(offer: {
+  private isLikelyOffer(offer: {
     promotionType?: BannerPromotionType;
     bannerCategory?: string;
     bannerTitle?: string;
@@ -278,9 +278,9 @@ private isLikelyOffer(offer: {
 
       // Find offer from either collection
       const offerResult = await this.findOfferById(offerId);
-if (!offerResult) {
-          throw new NotFoundException('Offer not found');
-        }
+      if (!offerResult) {
+        throw new NotFoundException('Offer not found');
+      }
 
       const offer = offerResult.offer;
       const isFromOfferCollection = offerResult.source === 'offer';
@@ -314,8 +314,8 @@ if (!offerResult) {
       const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
 
       // Get offer title and merchant info based on source
-      const offerTitle = isFromOfferCollection 
-        ? offer.title 
+      const offerTitle = isFromOfferCollection
+        ? offer.title
         : offer.bannerTitle;
       const merchantName = isFromOfferCollection
         ? offer.merchantName
@@ -364,12 +364,12 @@ if (!offerResult) {
       // Create an order for the merchant when voucher is claimed
       try {
         const orderAmount = offer.totalPrice || 0;
-        
+
         // Get merchant profile to find the correct userId for the order
         // The offer's merchantId might be the profile ID, but orders are filtered by user ID from JWT
         const merchantProfile = await this.merchantModel.findById(merchantId).select('userId').lean().exec();
         const orderMerchantId = merchantProfile?.userId || String(merchantId);
-        
+
         await this.ordersService.createOrder(
           userId,
           orderMerchantId,
@@ -505,9 +505,9 @@ if (!offerResult) {
   async getVoucherById(voucherId: string, userId?: string) {
     try {
       console.log(`[getVoucherById] Looking up voucher with ID: ${voucherId}`);
-      
+
       let voucher;
-      
+
       // Check if it's a MongoDB ObjectId (24 hex characters)
       if (/^[0-9a-fA-F]{24}$/.test(voucherId)) {
         console.log(`[getVoucherById] Searching by MongoDB _id`);
@@ -592,9 +592,9 @@ if (!offerResult) {
   async downloadVoucherQR(voucherId: string, userId?: string) {
     try {
       console.log(`[downloadVoucherQR] Downloading QR for voucher: ${voucherId}`);
-      
+
       let voucher;
-      
+
       // Check if it's a MongoDB ObjectId (24 hex characters)
       if (/^[0-9a-fA-F]{24}$/.test(voucherId)) {
         console.log(`[downloadVoucherQR] Searching by MongoDB _id`);
@@ -645,9 +645,9 @@ if (!offerResult) {
   async shareVoucher(voucherId: string, friendEmail: string, userId: string) {
     try {
       console.log(`[shareVoucher] Sharing voucher: ${voucherId}`);
-      
+
       let voucher;
-      
+
       // Check if it's a MongoDB ObjectId (24 hex characters)
       if (/^[0-9a-fA-F]{24}$/.test(voucherId)) {
         console.log(`[shareVoucher] Searching by MongoDB _id`);
@@ -694,7 +694,7 @@ if (!offerResult) {
   async verifyVoucherByCode(verificationCode: string, merchantId?: string) {
     try {
       console.log(`[verifyVoucherByCode] Verifying code: ${verificationCode}`);
-      
+
       // Search by verification code
       const voucher = await this.voucherModel.findOne({ verificationCode });
       console.log(`[verifyVoucherByCode] Found voucher:`, !!voucher);
@@ -753,11 +753,11 @@ if (!offerResult) {
     } catch (error) {
       console.error(`[verifyVoucherByCode] Error:`, error);
       this.logger.error(`Error verifying voucher by code: ${error.message}`, error.stack);
-      
+
       if (error instanceof BadRequestException || error instanceof ForbiddenException) {
         throw error;
       }
-      
+
       throw new InternalServerErrorException(`Failed to verify voucher: ${error.message}`);
     }
   }
@@ -992,22 +992,22 @@ if (!offerResult) {
         }
       }
 
-       // Credit points to user
-       if (loyaltyPoints > 0) {
-         const user = await this.userModel.findById(voucher.userId);
-         if (user) {
-           // Add to total points
-           user.loyaltyPoints = (user.loyaltyPoints || 0) + loyaltyPoints;
-           // Add to per-merchant points (replace object to ensure change detection)
-           const merchantIdStr = String(offerMerchantId || voucher.merchantId);
-           const current = user.merchantLoyaltyPoints || {};
-           user.merchantLoyaltyPoints = {
-             ...current,
-             [merchantIdStr]: (current[merchantIdStr] || 0) + loyaltyPoints,
-           };
-           await user.save();
-         }
-       }
+      // Credit points to user
+      if (loyaltyPoints > 0) {
+        const user = await this.userModel.findById(voucher.userId);
+        if (user) {
+          // Add to total points
+          user.loyaltyPoints = (user.loyaltyPoints || 0) + loyaltyPoints;
+          // Add to per-merchant points (replace object to ensure change detection)
+          const merchantIdStr = String(offerMerchantId || voucher.merchantId);
+          const current = user.merchantLoyaltyPoints || {};
+          user.merchantLoyaltyPoints = {
+            ...current,
+            [merchantIdStr]: (current[merchantIdStr] || 0) + loyaltyPoints,
+          };
+          await user.save();
+        }
+      }
 
       // Normalize merchant identifier to merchant userId (some rows use profile _id)
       const resolveMerchantUserId = async (candidateId?: string) => {

@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, Logger, NotFoundException } from '@nes
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { UserDocument } from '../users/schemas/user.schema';
+import { Merchant, MerchantDocument } from '../users/schemas/merchant.schema';
 import { Order, OrderDocument, OrderStatus } from './schemas/order.schema';
 import { Notification, NotificationDocument } from '../users/schemas/notification.schema';
 
@@ -13,7 +14,87 @@ export class OrdersService {
     @InjectModel(Order.name) private readonly orderModel: Model<OrderDocument>,
     @InjectModel('User') private readonly userModel: Model<UserDocument>,
     @InjectModel('Notification') private readonly notificationModel: Model<NotificationDocument>,
+    @InjectModel(Merchant.name) private readonly merchantModel: Model<MerchantDocument>,
   ) {}
+
+  private async sendPushNotificationToMerchant(
+    merchantId: string,
+    title: string,
+    body: string,
+    data?: Record<string, any>,
+  ): Promise<void> {
+    try {
+      const merchant = await this.merchantModel
+        .findOne({ userId: String(merchantId) })
+        .select('notificationSettings pushTokens')
+        .lean()
+        .exec();
+
+      const pushEnabled = merchant?.notificationSettings?.pushNotifications !== false;
+      const pushTokens = Array.isArray((merchant as any)?.pushTokens)
+        ? (merchant as any).pushTokens.filter(Boolean)
+        : [];
+
+      if (!pushEnabled || !pushTokens.length) {
+        return;
+      }
+
+      await fetch('https://exp.host/--/api/v2/push/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          to: pushTokens,
+          title,
+          body,
+          sound: 'default',
+          ttl: 60,
+          priority: 'high',
+          data: { type: 'notification', ...(data || {}) },
+        }),
+      });
+    } catch (error: any) {
+      this.logger.warn(`Failed to send push notification to merchant ${merchantId}: ${error?.message || 'unknown error'}`);
+    }
+  }
+
+  private async sendPushNotificationToCustomer(
+    customerId: string,
+    title: string,
+    body: string,
+    data?: Record<string, any>,
+  ): Promise<void> {
+    try {
+      const customer = await this.userModel
+        .findById(String(customerId))
+        .select('pushTokens')
+        .lean()
+        .exec();
+
+      const pushTokens = Array.isArray((customer as any)?.pushTokens)
+        ? (customer as any).pushTokens.filter(Boolean)
+        : [];
+
+      if (!pushTokens.length) {
+        return;
+      }
+
+      await fetch('https://exp.host/--/api/v2/push/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          to: pushTokens,
+          title,
+          body,
+          sound: 'default',
+          ttl: 60,
+          priority: 'high',
+          data: { type: 'notification', ...(data || {}) },
+        }),
+      });
+    } catch (error: any) {
+      this.logger.warn(`Failed to send push notification to customer ${customerId}: ${error?.message || 'unknown error'}`);
+    }
+  }
 
   async createOrder(userId: string, merchantId: string, amount: number, itemsCount = 1, voucherId?: string) {
     const orderNumber = `ORD-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
@@ -37,7 +118,7 @@ export class OrdersService {
       const customer = await this.userModel.findById(userId).select('name').lean().exec();
       
       if (merchant && customer) {
-        await this.notificationModel.create({
+        const notification = await this.notificationModel.create({
           recipientId: String(merchantId),
           senderId: String(userId),
           senderName: customer.name || 'Customer',
@@ -47,6 +128,12 @@ export class OrdersService {
           message: `${customer.name || 'Customer'} claimed your offer`,
           read: false,
         });
+        await this.sendPushNotificationToMerchant(
+          String(merchantId),
+          'New order',
+          `${customer.name || 'Customer'} claimed your offer`,
+          { notificationId: String(notification._id), adId: order.voucherId || 'order', type: 'order_placed' },
+        );
         this.logger.log(`Notification created for merchant ${merchantId} for order ${order.orderNumber}`);
       }
     } catch (notifError) {
@@ -168,7 +255,7 @@ export class OrdersService {
       const merchantName = merchant?.name || 'Merchant';
 
       if (status === OrderStatus.ACCEPTED) {
-        await this.notificationModel.create({
+        const notification = await this.notificationModel.create({
           recipientId: customerId,
           senderId: String(merchantId),
           senderName: merchantName,
@@ -178,8 +265,12 @@ export class OrdersService {
           message: `${merchantName} accepted your claimed offer`,
           read: false,
         });
+        await this.sendPushNotificationToCustomer(customerId, 'Offer accepted', `${merchantName} accepted your claimed offer`, {
+          notificationId: String(notification._id),
+          type: 'order_accepted',
+        });
       } else if (status === OrderStatus.REJECTED) {
-        await this.notificationModel.create({
+        const notification = await this.notificationModel.create({
           recipientId: customerId,
           senderId: String(merchantId),
           senderName: merchantName,
@@ -188,6 +279,10 @@ export class OrdersService {
           type: 'order_rejected',
           message: `${merchantName} rejected your claimed offer`,
           read: false,
+        });
+        await this.sendPushNotificationToCustomer(customerId, 'Offer update', `${merchantName} rejected your claimed offer`, {
+          notificationId: String(notification._id),
+          type: 'order_rejected',
         });
       }
     } catch (notifError) {

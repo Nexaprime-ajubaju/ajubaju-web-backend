@@ -108,6 +108,129 @@ export class UsersService implements OnModuleInit {
     return { latitude, longitude, isValid };
   }
 
+  private async sendPushNotificationToRecipient(
+    recipientId: string,
+    payload: { title: string; body: string; type?: string; data?: Record<string, any> },
+  ): Promise<void> {
+    try {
+      const recipientIdStr = String(recipientId);
+      const [merchantRecipient, userRecipient] = await Promise.all([
+        this.merchantModel
+          .findOne({ userId: recipientIdStr })
+          .select('notificationSettings pushTokens')
+          .lean()
+          .exec(),
+        this.userModel
+          .findById(recipientIdStr)
+          .select('profile notificationSettings')
+          .lean()
+          .exec(),
+      ]);
+
+      const merchantTokens = Array.isArray((merchantRecipient as any)?.pushTokens)
+        ? (merchantRecipient as any).pushTokens.filter(Boolean)
+        : [];
+      const merchantPushEnabled = merchantRecipient?.notificationSettings?.pushNotifications !== false;
+
+      const userTokens = Array.isArray((userRecipient as any)?.pushTokens)
+        ? (userRecipient as any).pushTokens.filter(Boolean)
+        : [];
+      const userPushEnabled = (userRecipient as any)?.notificationSettings?.pushNotifications !== false;
+
+      const tokens = [...merchantTokens, ...userTokens];
+      const pushEnabled = merchantPushEnabled || userPushEnabled;
+
+      if (!pushEnabled || !tokens.length) {
+        return;
+      }
+
+      const response = await fetch('https://exp.host/--/api/v2/push/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          to: tokens,
+          title: payload.title,
+          body: payload.body,
+          sound: 'default',
+          ttl: 60,
+          priority: 'high',
+          data: {
+            type: payload.type || 'notification',
+            ...(payload.data || {}),
+          },
+        }),
+      });
+
+      if (!response.ok) {
+        const detail = await response.text().catch(() => '');
+        this.logger.warn(`Expo push delivery failed for recipient ${recipientId}: ${response.status} ${detail}`);
+      }
+    } catch (error: any) {
+      this.logger.warn(`Failed to send push notification to recipient ${recipientId}: ${error?.message || 'unknown error'}`);
+    }
+  }
+
+  private async createNotificationAndPush(
+    recipientId: string,
+    senderId: string,
+    senderName: string,
+    adId: string,
+    adTitle: string,
+    type: string,
+    message: string,
+    title?: string,
+  ): Promise<NotificationDocument> {
+    const created = await this.notificationModel.create({
+      recipientId: String(recipientId),
+      senderId: String(senderId),
+      senderName: String(senderName || 'System'),
+      adId: String(adId || ''),
+      adTitle: String(adTitle || ''),
+      type,
+      message,
+      read: false,
+    });
+
+    await this.sendPushNotificationToRecipient(String(recipientId), {
+      title: title || 'New notification',
+      body: message,
+      type,
+      data: {
+        notificationId: String(created._id),
+        adId: String(adId || ''),
+        adTitle: String(adTitle || ''),
+      },
+    });
+
+    return created;
+  }
+
+  async registerPushToken(userId: string, pushToken?: string): Promise<{ success: boolean; message: string; data?: { pushTokens: string[] } }> {
+    const token = String(pushToken || '').trim();
+    if (!token) {
+      throw new BadRequestException('Push token is required');
+    }
+
+    const user = await this.userModel.findById(String(userId)).exec();
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    const existingTokens = Array.isArray((user as any).pushTokens) ? (user as any).pushTokens.filter(Boolean) : [];
+    if (!existingTokens.includes(token)) {
+      existingTokens.push(token);
+    }
+
+    (user as any).pushTokens = existingTokens.slice(-10);
+    await user.save();
+
+    return {
+      success: true,
+      message: 'Push token registered successfully',
+      data: { pushTokens: (user as any).pushTokens },
+    };
+  }
+
   /**
    * Admin: Send a warning notification to a user
    */
@@ -117,16 +240,16 @@ export class UsersService implements OnModuleInit {
     if (!user) {
       throw new NotFoundException('User not found');
     }
-    await this.notificationModel.create({
-      recipientId: userId,
-      senderId: adminId,
-      senderName: adminEmail || 'admin',
-      adId: '-',
-      adTitle: '-',
-      type: 'admin_warning',
-      message: message || 'You have received a warning from admin.',
-      read: false,
-    });
+    await this.createNotificationAndPush(
+      userId,
+      adminId,
+      adminEmail || 'admin',
+      '-',
+      '-',
+      'admin_warning',
+      message || 'You have received a warning from admin.',
+      'Admin warning',
+    );
     if (this.auditLogsService) {
       await this.auditLogsService.log({
         action: 'USER_WARNED',
@@ -1468,16 +1591,16 @@ export class UsersService implements OnModuleInit {
         const ad = await this.adsService.getAdById(adId);
         const adOwnerId = (ad as any).userId?.toString();
         if (adOwnerId && adOwnerId !== userId) {
-          await this.notificationModel.create({
-            recipientId: adOwnerId,
-            senderId: userId,
-            senderName: user.name,
+          await this.createNotificationAndPush(
+            adOwnerId,
+            userId,
+            user.name,
             adId,
-            adTitle: (ad as any).title || 'your ad',
-            type: 'wishlist_add',
-            message: `${user.name} wishlisted your ad "${(ad as any).title || 'your ad'}"`,
-            read: false,
-          });
+            (ad as any).title || 'your ad',
+            'wishlist_add',
+            `${user.name} wishlisted your ad "${(ad as any).title || 'your ad'}"`,
+            'New wishlist',
+          );
         }
       } catch (err) {
         this.logger.warn(`Failed to create wishlist notification: ${err.message}`);

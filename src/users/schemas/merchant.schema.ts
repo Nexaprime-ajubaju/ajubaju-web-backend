@@ -68,6 +68,9 @@ export class Merchant {
     pushNotifications: boolean;
   };
 
+  @Prop({ type: [String], default: [] })
+  pushTokens?: string[];
+
   @Prop()
   createdAt: Date;
 
