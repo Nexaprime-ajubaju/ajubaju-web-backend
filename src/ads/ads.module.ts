@@ -9,6 +9,7 @@ import { User, UserSchema } from '../users/schemas/user.schema';
 import { Report, ReportSchema } from './schemas/report.schema';
 import { KafkaModule } from '../kafka/kafka.module';
 import { RedisModule } from '../common/services/redis.module';
+import { ModerationModule } from '../moderation/moderation.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { RedisModule } from '../common/services/redis.module';
     EventEmitterModule.forRoot(),
     forwardRef(() => KafkaModule),
     RedisModule, // Cache ad listings, search results, category listings
+    ModerationModule,
   ],
   controllers: [AdsController, AdsKafkaController],
   providers: [AdsService],

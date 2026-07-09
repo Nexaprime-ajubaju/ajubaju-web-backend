@@ -798,8 +798,10 @@ export class VouchersService implements OnModuleInit {
         };
       }
 
-      // Check if expired
-      if (new Date() > voucher.expiresAt) {
+      // Check if expired (Enforce 6-hour validity from claim time)
+      const claimedTime = voucher.claimedAt ? new Date(voucher.claimedAt).getTime() : new Date((voucher as any).createdAt).getTime();
+      const sixHoursMs = 6 * 60 * 60 * 1000;
+      if (Date.now() > claimedTime + sixHoursMs || new Date() > voucher.expiresAt) {
         // Update status if expired
         await this.voucherModel.findOneAndUpdate(
           { voucherId },
@@ -809,7 +811,7 @@ export class VouchersService implements OnModuleInit {
         return {
           success: false,
           valid: false,
-          message: 'Voucher has expired',
+          message: 'Voucher has expired (6 hours validity period exceeded)',
           data: null,
         };
       }
@@ -902,11 +904,13 @@ export class VouchersService implements OnModuleInit {
         throw new BadRequestException('Voucher already redeemed');
       }
 
-      // Check if expired
-      if (new Date() > voucher.expiresAt) {
+      // Check if expired (Enforce 6-hour validity from claim time)
+      const claimedTime = voucher.claimedAt ? new Date(voucher.claimedAt).getTime() : new Date((voucher as any).createdAt).getTime();
+      const sixHoursMs = 6 * 60 * 60 * 1000;
+      if (Date.now() > claimedTime + sixHoursMs || new Date() > voucher.expiresAt) {
         voucher.status = VoucherStatus.EXPIRED;
         await voucher.save();
-        throw new BadRequestException('Voucher has expired');
+        throw new BadRequestException('Voucher has expired (6 hours validity period exceeded)');
       }
 
       // Update voucher status
