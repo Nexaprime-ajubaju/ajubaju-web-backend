@@ -36,9 +36,35 @@ export class ModerationService {
     }
 
     try {
-      this.logger.log(`Moderating image: ${imageUrl}`);
+      this.logger.log(`Moderating image: ${imageUrl.substring(0, 50)}...`);
       
-      const [result] = await this.client.safeSearchDetection(imageUrl);
+      let requestPayload: any = imageUrl;
+      
+      // If it's a base64 data URI, extract the base64 part and pass as Buffer
+      if (imageUrl.startsWith('data:image/')) {
+        const base64Data = imageUrl.split(',')[1];
+        if (base64Data) {
+          requestPayload = Buffer.from(base64Data, 'base64');
+        }
+      } else if (imageUrl.length > 200 && !imageUrl.startsWith('http') && !imageUrl.startsWith('gs://')) {
+        // If it's a very long string that doesn't start with http/gs, it's likely raw base64
+        requestPayload = Buffer.from(imageUrl, 'base64');
+      } else if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
+        // Download the image first to prevent Google Cloud Vision from being blocked by Cloudinary or CDN
+        try {
+          const response = await fetch(imageUrl);
+          if (response.ok) {
+            const arrayBuffer = await response.arrayBuffer();
+            requestPayload = Buffer.from(arrayBuffer);
+          } else {
+            this.logger.warn(`Failed to fetch image from URL: ${imageUrl}, status: ${response.status}`);
+          }
+        } catch (fetchError) {
+          this.logger.warn(`Error fetching image from URL: ${imageUrl} - ${fetchError.message}`);
+        }
+      }
+      
+      const [result] = await this.client.safeSearchDetection(requestPayload);
       const detections = result.safeSearchAnnotation;
       
       if (!detections) {
@@ -63,7 +89,8 @@ export class ModerationService {
       return true;
 
     } catch (error) {
-      this.logger.error(`Error moderating image ${imageUrl}: ${error.message}`, error.stack);
+      this.logger.error(`Error moderating image ${imageUrl.substring(0, 50)}...: ${error.message}`, error.stack);
+      require('fs').appendFileSync('moderation_error.log', new Date().toISOString() + '\\n' + error.stack + '\\n\\n');
       // If the API call fails, we assume it's unsafe to prevent malicious uploads bypassing the check, 
       // but you could also choose to return true if you don't want to block users when Google API is down.
       // For strict moderation, return false.
