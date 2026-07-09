@@ -57,7 +57,7 @@ export class PostProcessorService {
             type: 'offer',
             title: sp.productName,
             category: offer.category,
-            imageUrl: sp.imageUrl || offer.imageUrl || '/images/placeholder.webp',
+            imageUrl: offer.imageUrl || (offer.images && offer.images[0]) || sp.imageUrl || '/images/placeholder.webp',
             price: sp.offerPrice,
             originalPrice: sp.originalPrice,
             discountPercent,
