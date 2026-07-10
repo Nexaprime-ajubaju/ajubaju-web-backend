@@ -11,6 +11,7 @@ import { MerchantProduct, MerchantProductSchema } from '../merchant-products/sch
 import { KafkaModule } from '../kafka/kafka.module';
 import { VouchersKafkaController } from './vouchers.kafka.controller';
 import { OrdersModule } from '../orders/orders.module';
+import { ModerationModule } from '../moderation/moderation.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { OrdersModule } from '../orders/orders.module';
     ]),
     forwardRef(() => KafkaModule),
     OrdersModule,
+    ModerationModule,
   ],
   controllers: [VouchersController, VouchersKafkaController],
   providers: [VouchersService],

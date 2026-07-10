@@ -4,6 +4,7 @@ import { Model, isValidObjectId } from 'mongoose';
 import { v4 as uuidv4 } from 'uuid';
 import { KafkaService } from '../kafka/kafka.service';
 import { RedisService } from '../common/services/redis.service';
+import { ModerationService } from '../moderation/moderation.service';
 import { OfferPromotion, OfferPromotionDocument, OfferPromotionStatus, OfferPaymentStatus } from './schemas/offer-promotion.schema';
 import { Voucher, VoucherDocument, VoucherStatus } from '../vouchers/schemas/voucher.schema';
 // Banner models removed to keep offers module independent from banners
@@ -21,6 +22,7 @@ export class OffersService implements OnModuleInit {
     @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
     @InjectModel(Merchant.name) private readonly merchantModel: Model<MerchantDocument>,
     private readonly redisService: RedisService,
+    private readonly moderationService: ModerationService,
     @Optional() private readonly kafkaService?: KafkaService,
   ) {}
 
@@ -208,6 +210,13 @@ export class OffersService implements OnModuleInit {
     const platformFee = Number(payload.platformFee ?? (selectedDays > 0 ? 49 : 0));
     const computedTotal = dailyRate * selectedDays + platformFee;
 
+    if (payload.imageUrl) {
+      const isSafe = await this.moderationService.isImageSafe(payload.imageUrl);
+      if (!isSafe) {
+        throw new BadRequestException('One or more images contain inappropriate content and cannot be uploaded.');
+      }
+    }
+
     const request = await this.offerModel.create({
       requestId: uuidv4(),
       merchantId,
@@ -346,7 +355,15 @@ export class OffersService implements OnModuleInit {
 
     if (payload.title !== undefined) request.title = String(payload.title).trim();
     if (payload.category !== undefined) request.category = String(payload.category).trim();
-    if (payload.imageUrl !== undefined) request.imageUrl = payload.imageUrl;
+    if (payload.imageUrl !== undefined) {
+      if (payload.imageUrl) {
+        const isSafe = await this.moderationService.isImageSafe(payload.imageUrl);
+        if (!isSafe) {
+          throw new BadRequestException('One or more images contain inappropriate content and cannot be uploaded.');
+        }
+      }
+      request.imageUrl = payload.imageUrl;
+    }
     if (payload.promotionExpiryText !== undefined) request.promotionExpiryText = String(payload.promotionExpiryText || '');
     if (payload.termsAndConditions !== undefined) request.termsAndConditions = String(payload.termsAndConditions || '');
     if (payload.loyaltyRewardEnabled !== undefined) request.loyaltyRewardEnabled = Boolean(payload.loyaltyRewardEnabled);
