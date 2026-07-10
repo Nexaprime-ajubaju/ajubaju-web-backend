@@ -173,6 +173,13 @@ export class MerchantProductsService implements OnModuleInit {
       filter.$or = [{ name: searchRegex }, { category: searchRegex }];
     }
 
+    const merchant = await this.merchantModel.findOne({ userId: merchantId }).exec();
+    if (!merchant) {
+      throw new NotFoundException('Merchant not found');
+    }
+    const planDetails = await this.merchantPlanService.getPlanDetails(merchant);
+    const maxProducts = planDetails.planFeatures.maxProducts;
+
     const [
       products,
       total,
@@ -180,7 +187,7 @@ export class MerchantProductsService implements OnModuleInit {
       lowStockProducts,
       outOfStockProducts,
       inventoryAgg,
-      top10Products,
+      topProducts,
     ] = await Promise.all([
       this.merchantProductModel
         .find(filter)
@@ -209,23 +216,25 @@ export class MerchantProductsService implements OnModuleInit {
           },
         },
       ]),
-      this.merchantProductModel
-        .find({ merchantId })
-        .sort({ createdAt: -1 })
-        .limit(10)
-        .select('_id')
-        .lean()
-        .exec(),
+      maxProducts === -1
+        ? Promise.resolve(null)
+        : this.merchantProductModel
+            .find({ merchantId })
+            .sort({ createdAt: -1 })
+            .limit(maxProducts)
+            .select('_id')
+            .lean()
+            .exec(),
     ]);
 
     const inventoryValue = inventoryAgg[0]?.total || 0;
-    const eligibleIds = new Set(top10Products.map((p) => String(p._id)));
+    const eligibleIds = topProducts ? new Set(topProducts.map((p) => String(p._id))) : null;
 
     const response = {
       success: true,
       data: {
         products: products.map((product) => {
-          const isEligible = eligibleIds.has(String(product._id));
+          const isEligible = maxProducts === -1 || eligibleIds.has(String(product._id));
           return {
             ...this.mapProduct(product),
             offerEligible: isEligible,
@@ -233,7 +242,7 @@ export class MerchantProductsService implements OnModuleInit {
               ? {}
               : {
                   offerEligibilityReason:
-                    'Only your 10 most recently created products can receive offers on the Free Tier.',
+                    `Only your ${maxProducts} most recently created products can receive offers on your current tier.`,
                 }),
           };
         }),
@@ -271,7 +280,14 @@ export class MerchantProductsService implements OnModuleInit {
       filter.$or = [{ name: searchRegex }, { category: searchRegex }];
     }
 
-    const [products, total, top10Products] = await Promise.all([
+    const merchant = await this.merchantModel.findOne({ userId: merchantId }).exec();
+    if (!merchant) {
+      throw new NotFoundException('Merchant not found');
+    }
+    const planDetails = await this.merchantPlanService.getPlanDetails(merchant);
+    const maxProducts = planDetails.planFeatures.maxProducts;
+
+    const [products, total, topProducts] = await Promise.all([
       this.merchantProductModel
         .find(filter)
         .sort({ createdAt: -1 })
@@ -279,22 +295,24 @@ export class MerchantProductsService implements OnModuleInit {
         .limit(limit)
         .exec(),
       this.merchantProductModel.countDocuments(filter),
-      this.merchantProductModel
-        .find({ merchantId })
-        .sort({ createdAt: -1 })
-        .limit(10)
-        .select('_id')
-        .lean()
-        .exec(),
+      maxProducts === -1
+        ? Promise.resolve(null)
+        : this.merchantProductModel
+            .find({ merchantId })
+            .sort({ createdAt: -1 })
+            .limit(maxProducts)
+            .select('_id')
+            .lean()
+            .exec(),
     ]);
 
-    const eligibleIds = new Set(top10Products.map((p) => String(p._id)));
+    const eligibleIds = topProducts ? new Set(topProducts.map((p) => String(p._id))) : null;
 
     return {
       success: true,
       data: {
         products: products.map((product) => {
-          const isEligible = eligibleIds.has(String(product._id));
+          const isEligible = maxProducts === -1 || eligibleIds.has(String(product._id));
           return {
             ...this.mapProduct(product),
             offerEligible: isEligible,
@@ -302,7 +320,7 @@ export class MerchantProductsService implements OnModuleInit {
               ? {}
               : {
                   offerEligibilityReason:
-                    'Only your 10 most recently created products can receive offers on the Free Tier.',
+                    `Only your ${maxProducts} most recently created products can receive offers on your current tier.`,
                 }),
           };
         }),

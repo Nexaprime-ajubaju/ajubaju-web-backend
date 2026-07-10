@@ -307,16 +307,16 @@ export class OffersService implements OnModuleInit {
           Array.isArray(payload.selectedProducts) &&
           payload.selectedProducts.length > 0
         ) {
-          const top10Products = await this.merchantProductModel
+          const topProducts = await this.merchantProductModel
             .find({ merchantId })
             .sort({ createdAt: -1 })
-            .limit(10)
+            .limit(features.maxProducts)
             .select('_id')
             .lean()
             .exec();
 
           const eligibleProductIds = new Set(
-            top10Products.map((p) => String(p._id)),
+            topProducts.map((p) => String(p._id)),
           );
           const invalidProducts = payload.selectedProducts.filter(
             (id) => !eligibleProductIds.has(String(id)),
@@ -328,7 +328,7 @@ export class OffersService implements OnModuleInit {
               statusCode: 400,
               errorCode: 'PRODUCT_NOT_ELIGIBLE',
               message:
-                'Offers can only be created on your 10 most recently added products.',
+                `Offers can only be created on your ${features.maxProducts} most recently added products.`,
             });
           }
         }
