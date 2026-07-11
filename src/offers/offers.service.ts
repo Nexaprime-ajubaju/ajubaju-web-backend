@@ -12,17 +12,9 @@ import { Model, isValidObjectId } from 'mongoose';
 import { v4 as uuidv4 } from 'uuid';
 import { KafkaService } from '../kafka/kafka.service';
 import { RedisService } from '../common/services/redis.service';
-import {
-  OfferPromotion,
-  OfferPromotionDocument,
-  OfferPromotionStatus,
-  OfferPaymentStatus,
-} from './schemas/offer-promotion.schema';
-import {
-  Voucher,
-  VoucherDocument,
-  VoucherStatus,
-} from '../vouchers/schemas/voucher.schema';
+import { ModerationService } from '../moderation/moderation.service';
+import { OfferPromotion, OfferPromotionDocument, OfferPromotionStatus, OfferPaymentStatus } from './schemas/offer-promotion.schema';
+import { Voucher, VoucherDocument, VoucherStatus } from '../vouchers/schemas/voucher.schema';
 // Banner models removed to keep offers module independent from banners
 import { User, UserDocument } from '../users/schemas/user.schema';
 import { Merchant, MerchantDocument } from '../users/schemas/merchant.schema';
@@ -51,6 +43,7 @@ export class OffersService implements OnModuleInit {
     private readonly merchantPlanService: MerchantPlanService,
     private readonly redisService: RedisService,
     private readonly transactionService: TransactionService,
+    private readonly moderationService: ModerationService,
     @Optional() private readonly kafkaService?: KafkaService,
   ) {}
 
@@ -291,6 +284,13 @@ export class OffersService implements OnModuleInit {
         throw new BadRequestException('Selected dates cannot be in the past');
 
       const selectedDays = normalizedDates.length;
+
+      if (payload.imageUrl && this.moderationService) {
+        const isSafe = await this.moderationService.isImageSafe(payload.imageUrl);
+        if (!isSafe) {
+          throw new BadRequestException('One or more images contain inappropriate content and cannot be uploaded.');
+        }
+      }
 
       // Free Tier Validation
       const merchantDoc = await this.merchantModel
@@ -564,32 +564,29 @@ export class OffersService implements OnModuleInit {
       .findOne({ requestId, merchantId })
       .exec();
     if (!request) throw new NotFoundException('Offer not found');
-
-    if (payload.title !== undefined)
-      request.title = String(payload.title).trim();
-    if (payload.category !== undefined)
-      request.category = String(payload.category).trim();
-    if (payload.imageUrl !== undefined) request.imageUrl = payload.imageUrl;
-    if (payload.promotionExpiryText !== undefined)
-      request.promotionExpiryText = String(payload.promotionExpiryText || '');
-    if (payload.termsAndConditions !== undefined)
-      request.termsAndConditions = String(payload.termsAndConditions || '');
-    if (payload.loyaltyRewardEnabled !== undefined)
-      request.loyaltyRewardEnabled = Boolean(payload.loyaltyRewardEnabled);
-    if (payload.loyaltyPointsPerPurchase !== undefined)
-      request.loyaltyPointsPerPurchase = Number(
-        payload.loyaltyPointsPerPurchase || 0,
-      );
-    if (payload.loyaltyStarsToOffer !== undefined)
-      request.loyaltyStarsToOffer = Number(payload.loyaltyStarsToOffer || 0);
-    if (payload.loyaltyStarsPerPurchase !== undefined)
-      request.loyaltyStarsPerPurchase = Number(
-        payload.loyaltyStarsPerPurchase || 1,
-      );
-    if (payload.loyaltyScorePerStar !== undefined)
-      request.loyaltyScorePerStar = Number(payload.loyaltyScorePerStar || 10);
-    if (Array.isArray(payload.selectedProducts))
-      request.selectedProducts = payload.selectedProducts;
+    if (payload.title !== undefined) request.title = String(payload.title).trim();
+    if (payload.category !== undefined) request.category = String(payload.category).trim();
+    if (payload.imageUrl !== undefined) {
+      if (payload.imageUrl && this.moderationService) {
+        const isSafe = await this.moderationService.isImageSafe(payload.imageUrl);
+        if (!isSafe) {
+          throw new BadRequestException('One or more images contain inappropriate content and cannot be uploaded.');
+        }
+      }
+      request.imageUrl = payload.imageUrl;
+    }
+    if (payload.description !== undefined) request.description = payload.description;
+    if (payload.recommendedSize !== undefined) request.recommendedSize = payload.recommendedSize;
+    if (payload.totalPrice !== undefined) request.totalPrice = Number(payload.totalPrice || 0);
+    if (payload.promotionExpiryText !== undefined) request.promotionExpiryText = payload.promotionExpiryText;
+    if (payload.termsAndConditions !== undefined) request.termsAndConditions = payload.termsAndConditions;
+    if (payload.exampleUsage !== undefined) request.exampleUsage = payload.exampleUsage;
+    if (payload.loyaltyRewardEnabled !== undefined) request.loyaltyRewardEnabled = Boolean(payload.loyaltyRewardEnabled);
+    if (payload.loyaltyPointsPerPurchase !== undefined) request.loyaltyPointsPerPurchase = Number(payload.loyaltyPointsPerPurchase || 0);
+    if (payload.loyaltyStarsToOffer !== undefined) request.loyaltyStarsToOffer = Number(payload.loyaltyStarsToOffer || 0);
+    if (payload.loyaltyStarsPerPurchase !== undefined) request.loyaltyStarsPerPurchase = Number(payload.loyaltyStarsPerPurchase || 1);
+    if (payload.loyaltyScorePerStar !== undefined) request.loyaltyScorePerStar = Number(payload.loyaltyScorePerStar || 10);
+    if (Array.isArray(payload.selectedProducts)) request.selectedProducts = payload.selectedProducts;
     if (Array.isArray(payload.selectedDates) && payload.selectedDates.length) {
       const normalized = this.normalizeDateStrings(payload.selectedDates);
       if (!normalized.length)
@@ -692,11 +689,9 @@ export class OffersService implements OnModuleInit {
       throw new NotFoundException('Offer not found');
     }
 
-    const merchant = await this.merchantModel
+    const merchant: any = await this.merchantModel
       .findOne({ userId: String(row.merchantId) })
-      .select(
-        'userId storeName storeLocation storeLocationLatitude storeLocationLongitude profilePhoto shopPhoto storeCategory storeSubCategory',
-      )
+      .select('userId storeName storeLocation storeLocationLatitude storeLocationLongitude profilePhoto shopPhoto storeCategory storeSubCategory contactNumber phoneNumber mobile mobileNumber merchantPhone storePhone')
       .lean()
       .exec();
 
@@ -752,6 +747,11 @@ export class OffersService implements OnModuleInit {
         latitude: merchant?.storeLocationLatitude || null,
         longitude: merchant?.storeLocationLongitude || null,
         profilePhoto: merchant?.profilePhoto || merchant?.shopPhoto || '',
+        contactNumber: merchant?.contactNumber || merchant?.phoneNumber || merchant?.mobile || merchant?.mobileNumber || merchant?.merchantPhone || merchant?.storePhone || null,
+        phone: merchant?.phoneNumber || merchant?.contactNumber || merchant?.mobile || merchant?.mobileNumber || merchant?.merchantPhone || merchant?.storePhone || null,
+        phoneNumber: merchant?.phoneNumber || merchant?.contactNumber || merchant?.mobile || merchant?.mobileNumber || merchant?.merchantPhone || merchant?.storePhone || null,
+        mobile: merchant?.mobile || merchant?.mobileNumber || merchant?.phoneNumber || merchant?.contactNumber || merchant?.merchantPhone || merchant?.storePhone || null,
+        mobileNumber: merchant?.mobileNumber || merchant?.mobile || merchant?.phoneNumber || merchant?.contactNumber || merchant?.merchantPhone || merchant?.storePhone || null,
       },
       selectedProducts,
       createdAt: rowAny.createdAt,

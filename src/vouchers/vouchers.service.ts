@@ -1085,6 +1085,15 @@ export class VouchersService implements OnModuleInit {
         throw new BadRequestException('Voucher already redeemed');
       }
 
+      // Check if expired (Enforce 6-hour validity from claim time)
+      const claimedTime = voucher.claimedAt ? new Date(voucher.claimedAt).getTime() : new Date((voucher as any).createdAt).getTime();
+      const sixHoursMs = 6 * 60 * 60 * 1000;
+      if (Date.now() > claimedTime + sixHoursMs || new Date() > voucher.expiresAt) {
+        voucher.status = VoucherStatus.EXPIRED;
+        await voucher.save();
+        throw new BadRequestException('Voucher has expired (6 hours validity period exceeded)');
+      }
+
       const lockKey = `lock:voucher:redeem:${voucherId}`;
       let lockToken: string | null = null;
       if (this.redisService.isEnabled()) {

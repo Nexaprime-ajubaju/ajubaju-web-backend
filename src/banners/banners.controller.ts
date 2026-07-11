@@ -36,7 +36,7 @@ export class BannersController {
 
     return {
       success: true,
-      message: 'Banner promotion request submitted for review',
+      message: 'Banner promotion approved successfully',
       data: request,
       timestamp: new Date().toISOString(),
     };

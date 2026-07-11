@@ -153,5 +153,8 @@ async function bootstrap() {
   console.log('--> ABOUT TO LISTEN ON PORT', port);
   await app.listen(port, '0.0.0.0');
   console.log('--> LISTENING ON PORT', port);
+  console.log(`Application is running on: ${await app.getUrl()}`);
+  console.log(`Backend forcefully restarted to pick up latest ModerationService changes!`);
+  logger.log(`HTTP mode enabled. Server is running on port ${port}`);
 }
 bootstrap().catch((err) => console.error('--> BOOTSTRAP FAILED', err));

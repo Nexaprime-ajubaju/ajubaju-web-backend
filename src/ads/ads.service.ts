@@ -29,6 +29,7 @@ import * as nodemailer from 'nodemailer';
 import { v4 as uuidv4 } from 'uuid';
 import { RedisService } from '../common/services/redis.service';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
+import { ModerationService } from '../moderation/moderation.service';
 
 @Injectable()
 export class AdsService implements OnModuleInit, OnModuleDestroy {
@@ -329,6 +330,9 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
 
     // ✅ Kafka OPTIONAL
     @Optional() private readonly kafkaService?: KafkaService,
+
+    // Image Moderation
+    private readonly moderationService?: ModerationService,
   ) {
     // Initialize email transporter
     this.emailEnabled = !!this.configService.get('EMAIL_USER');
@@ -547,8 +551,23 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
       );
     }
 
+    // --- Image Moderation Check ---
+    if (this.moderationService && createAdDto.images && createAdDto.images.length > 0) {
+      for (const imageUrl of createAdDto.images) {
+        const isSafe = await this.moderationService.isImageSafe(imageUrl);
+        if (!isSafe) {
+          throw new BadRequestException(
+            'One or more images contain inappropriate content and cannot be uploaded.',
+          );
+        }
+      }
+    }
+    // ------------------------------
+
     let categorySpecificData: any = {};
     const payload: any = createAdDto as any;
+    
+    this.logger.log(`Received createAdDto: ${JSON.stringify(createAdDto, null, 2)}`);
 
     switch (createAdDto.category) {
       case 'Vehicle':
@@ -657,6 +676,33 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
           }
         : undefined;
 
+    const namedCategoryData: any = {};
+    const categoryKeyMap: Record<string, string> = {
+      Vehicle: 'vehicleData',
+      Property: 'propertyData',
+      Service: 'serviceData',
+      Mobiles: 'mobileData',
+      Electronics: 'electronicsData',
+      'Electronics & Home appliances': 'electronicsData',
+      Furniture: 'furnitureData',
+      Education: 'educationData',
+      Pets: 'petsData',
+      Matrimonial: 'matrimonialData',
+      Business: 'businessData',
+      Travel: 'travelData',
+      Astrology: 'astrologyData',
+      Employment: 'employmentData',
+      'Lost & Found': 'lostFoundData',
+      Personal: 'personalData',
+      'Public Notice': 'publicNoticeData',
+      'Greetings & Tributes': 'greetingsData',
+      Other: 'otherData',
+    };
+    const namedKey = categoryKeyMap[createAdDto.category];
+    if (namedKey && categorySpecificData && Object.keys(categorySpecificData).length > 0) {
+      namedCategoryData[namedKey] = categorySpecificData;
+    }
+
     const adData: any = {
       ...createAdDto,
       ...(latitude !== undefined && !Number.isNaN(latitude)
@@ -667,6 +713,7 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
         : {}),
       ...(locationCoordinates ? { locationCoordinates } : {}),
       categorySpecificData,
+      ...namedCategoryData,
       adId: uuidv4(),
       status: 'active',
       views: 0,
@@ -865,14 +912,22 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
         if (resolvedCity) break;
       }
 
-      // Build a list of terms to match: resolved aliases OR the first meaningful segment
-      const termsToMatch: string[] =
-        resolvedAliases.length > 0
-          ? resolvedAliases
-          : [
-              segments.find((s) => s.length >= 2 && !/^\d+$/.test(s)) ||
-                segments[0],
-            ];
+      // Build a list of terms to match: always include the first meaningful specific segment, 
+      // plus any resolved broad city/district aliases.
+      const isBroadTerm = (term: string) => {
+        const broad = ['india', 'maharashtra', 'state', 'district', 'country'];
+        return broad.includes(term.toLowerCase()) || /^\d+$/.test(term);
+      };
+      const firstMeaningfulSegment = segments.find((s) => s.length >= 2 && !isBroadTerm(s)) || segments[0];
+      const termsToMatch: string[] = [];
+      if (firstMeaningfulSegment) {
+        termsToMatch.push(firstMeaningfulSegment);
+      }
+      for (const alias of resolvedAliases) {
+        if (!termsToMatch.includes(alias)) {
+          termsToMatch.push(alias);
+        }
+      }
 
       const escapeTerm = (term: string) =>
         term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -961,14 +1016,91 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
     let sort: any = {};
     const countQuery = { ...mongoQuery };
 
-    if (sortBy === 'distance' && lat !== undefined && lng !== undefined) {
-      mongoQuery.locationCoordinates = {
-        $near: {
-          $geometry: { type: 'Point', coordinates: [lng, lat] },
-        },
-      };
-      // $near fails in countDocuments, so just count docs that have coordinates matching other filters
-      countQuery.locationCoordinates = { $exists: true, $ne: null };
+    if (lat !== undefined && lng !== undefined) {
+      if (sortBy === 'distance') {
+        mongoQuery.locationCoordinates = {
+          $near: {
+            $geometry: { type: 'Point', coordinates: [lng, lat] },
+          },
+        };
+        countQuery.locationCoordinates = { $exists: true, $ne: null };
+      } else {
+        // Enforce a 50km city/suburb boundary when coordinates are supplied.
+        // Use $or to include BOTH:
+        //   1. Ads that have GeoJSON coordinates within 50km (web-posted ads)
+        //   2. Ads that have matching city/location text but no coordinates (app-posted ads)
+        const maxDistance = 50000; // 50 km in meters
+
+        // Infer city name from known city/coordinate lookup (reverse lookup by proximity)
+        const CITY_COORDS: Record<string, { lat: number; lng: number; aliases: string[] }> = {
+          kolhapur: { lat: 16.7058, lng: 74.2437, aliases: ['kolhapur', 'karvir', 'karveer'] },
+          sangli: { lat: 16.8552, lng: 74.5673, aliases: ['sangli'] },
+          mumbai: { lat: 19.0760, lng: 72.8777, aliases: ['mumbai', 'bombay', 'navi mumbai'] },
+          pune: { lat: 18.5204, lng: 73.8567, aliases: ['pune', 'poona'] },
+          ashta: { lat: 17.0333, lng: 74.4167, aliases: ['ashta', 'walwa'] },
+        };
+
+        const toRad = (deg: number) => (deg * Math.PI) / 180;
+        const haversineDistKm = (lat1: number, lng1: number, lat2: number, lng2: number) => {
+          const R = 6371;
+          const dLat = toRad(lat2 - lat1);
+          const dLng = toRad(lng2 - lng1);
+          const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+          return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        };
+
+        // Collect city aliases that are within 50km of the provided coordinates
+        const cityAliasesInRange: string[] = [];
+        for (const cityData of Object.values(CITY_COORDS)) {
+          const distKm = haversineDistKm(lat, lng, cityData.lat, cityData.lng);
+          if (distKm <= 50) {
+            for (const alias of cityData.aliases) {
+              if (!cityAliasesInRange.includes(alias)) {
+                cityAliasesInRange.push(alias);
+              }
+            }
+          }
+        }
+
+        // Build text conditions for ads without coordinates
+        const textFallbackConditions: any[] = cityAliasesInRange.flatMap((alias) => {
+          const escaped = alias.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          const regex = new RegExp(escaped, 'i');
+          return [
+            { location: regex },
+            { city: regex },
+            { cities: { $elemMatch: { $regex: escaped, $options: 'i' } } },
+          ];
+        });
+
+        // Combine geo-boundary (for ads with coords) and text fallback (for ads without coords)
+        const geoCondition = {
+          locationCoordinates: {
+            $geoWithin: {
+              $centerSphere: [[lng, lat], maxDistance / 6378100],
+            },
+          },
+        };
+
+        const boundaryConditions: any[] = [geoCondition, ...textFallbackConditions];
+
+        if (mongoQuery.$or) {
+          // Wrap existing $or (location text filter) with the boundary conditions
+          mongoQuery.$and = [
+            ...(mongoQuery.$and || []),
+            { $or: mongoQuery.$or },
+            { $or: boundaryConditions },
+          ];
+          delete mongoQuery.$or;
+        } else if (mongoQuery.$and) {
+          mongoQuery.$and.push({ $or: boundaryConditions });
+        } else {
+          mongoQuery.$or = boundaryConditions;
+        }
+        countQuery.$or = mongoQuery.$or;
+        if (mongoQuery.$and) countQuery.$and = mongoQuery.$and;
+        sort[sortBy] = sortOrder === 'desc' ? -1 : 1;
+      }
     } else {
       sort[sortBy] = sortOrder === 'desc' ? -1 : 1;
     }
@@ -1520,6 +1652,21 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
     if (hasUsedEdit) {
       throw new ForbiddenException('You can edit an ad only once');
     }
+
+    // --- Image Moderation Check ---
+    if (this.moderationService && updateData.images && updateData.images.length > 0) {
+      for (const imageUrl of updateData.images) {
+        // Optionally skip if image is already in the old ad, 
+        // but for safety, we check all provided images.
+        const isSafe = await this.moderationService.isImageSafe(imageUrl);
+        if (!isSafe) {
+          throw new BadRequestException(
+            'One or more images contain inappropriate content and cannot be uploaded.',
+          );
+        }
+      }
+    }
+    // ------------------------------
 
     const updatedAd = await this.adModel
       .findOneAndUpdate(

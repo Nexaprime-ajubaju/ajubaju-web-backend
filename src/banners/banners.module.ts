@@ -1,6 +1,7 @@
 import { Module, forwardRef } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { KafkaModule } from '../kafka/kafka.module';
+import { ModerationModule } from '../moderation/moderation.module';
 import { User, UserSchema } from '../users/schemas/user.schema';
 import { Merchant, MerchantSchema } from '../users/schemas/merchant.schema';
 import {
@@ -20,6 +21,7 @@ import { TransactionModule } from '../common/services/transaction.module';
     ]),
     forwardRef(() => KafkaModule),
     TransactionModule,
+    ModerationModule,
   ],
   controllers: [BannersController],
   providers: [BannersService],

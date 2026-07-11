@@ -407,6 +407,15 @@ export class UsersController {
     };
   }
 
+  @Post('notifications/push-token')
+  @UseGuards(JwtAuthGuard)
+  async registerPushToken(
+    @CurrentUser() user: any,
+    @Body() body: { pushToken?: string },
+  ) {
+    return this.usersService.registerPushToken(user?.id || user?._id, body?.pushToken);
+  }
+
   @Post('notifications/:notificationId/read')
   @UseGuards(JwtAuthGuard)
   async markNotificationRead(

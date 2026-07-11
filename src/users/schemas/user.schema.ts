@@ -43,6 +43,9 @@ export class User {
   @Prop({ type: [String], default: [] })
   refreshTokens: string[];
 
+  @Prop({ type: [String], default: [] })
+  pushTokens?: string[];
+
   @Prop({
     type: {
       phone: String,

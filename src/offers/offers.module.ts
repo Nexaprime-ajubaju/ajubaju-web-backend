@@ -19,6 +19,8 @@ import { Voucher, VoucherSchema } from '../vouchers/schemas/voucher.schema';
 import { OffersController } from './offers.controller';
 import { OffersService } from './offers.service';
 import { BannersModule } from '../banners/banners.module';
+import { RedisModule } from '../common/services/redis.module';
+import { ModerationModule } from '../moderation/moderation.module';
 
 import { MerchantPlanModule } from '../merchant-plan/merchant-plan.module';
 import { TransactionModule } from '../common/services/transaction.module';
@@ -37,6 +39,8 @@ import { TransactionModule } from '../common/services/transaction.module';
     BannersModule,
     MerchantPlanModule,
     TransactionModule,
+    RedisModule, // Offers cache
+    ModerationModule,
   ],
   controllers: [OffersController],
   providers: [OffersService],

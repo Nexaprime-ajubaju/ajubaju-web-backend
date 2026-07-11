@@ -13,6 +13,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { KafkaService } from '../kafka/kafka.service';
 import { KAFKA_TOPICS } from '../common/constants/kafka-topics';
 import { RedisService } from '../common/services/redis.service';
+import { ModerationService } from '../moderation/moderation.service';
 import { User, UserDocument } from '../users/schemas/user.schema';
 import { Merchant, MerchantDocument } from '../users/schemas/merchant.schema';
 import {
@@ -49,6 +50,7 @@ export class BannersService implements OnModuleInit {
     private readonly merchantModel: Model<MerchantDocument>,
     private readonly redisService: RedisService,
     private readonly transactionService: TransactionService,
+    private readonly moderationService: ModerationService,
     @Optional() private readonly kafkaService?: KafkaService,
   ) {}
 
@@ -311,6 +313,13 @@ export class BannersService implements OnModuleInit {
         ? BannerPromotionType.OFFER
         : BannerPromotionType.BANNER;
 
+    if (payload.imageUrl && this.moderationService) {
+      const isSafe = await this.moderationService.isImageSafe(payload.imageUrl);
+      if (!isSafe) {
+        throw new BadRequestException('One or more images contain inappropriate content and cannot be uploaded.');
+      }
+    }
+
     const request = await this.transactionService.execute(async (session) => {
       const created = await this.bannerPromotionModel.create(
         [
@@ -342,7 +351,7 @@ export class BannersService implements OnModuleInit {
             termsAndConditions: payload.termsAndConditions || '',
             exampleUsage: payload.exampleUsage || '',
             selectedProducts,
-            status: BannerPromotionStatus.UNDER_REVIEW,
+            status: BannerPromotionStatus.APPROVED,
             paymentStatus: BannerPaymentStatus.PENDING,
             isHomepageVisible: false,
           },

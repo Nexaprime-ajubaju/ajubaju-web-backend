@@ -32,6 +32,85 @@ export class OrdersService {
     private readonly transactionService: TransactionService,
   ) {}
 
+  private async sendPushNotificationToMerchant(
+    merchantId: string,
+    title: string,
+    body: string,
+    data?: Record<string, any>,
+  ): Promise<void> {
+    try {
+      const merchant = await this.merchantModel
+        .findOne({ userId: String(merchantId) })
+        .select('notificationSettings pushTokens')
+        .lean()
+        .exec();
+
+      const pushEnabled = merchant?.notificationSettings?.pushNotifications !== false;
+      const pushTokens = Array.isArray((merchant as any)?.pushTokens)
+        ? (merchant as any).pushTokens.filter(Boolean)
+        : [];
+
+      if (!pushEnabled || !pushTokens.length) {
+        return;
+      }
+
+      await fetch('https://exp.host/--/api/v2/push/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          to: pushTokens,
+          title,
+          body,
+          sound: 'default',
+          ttl: 60,
+          priority: 'high',
+          data: { type: 'notification', ...(data || {}) },
+        }),
+      });
+    } catch (error: any) {
+      this.logger.warn(`Failed to send push notification to merchant ${merchantId}: ${error?.message || 'unknown error'}`);
+    }
+  }
+
+  private async sendPushNotificationToCustomer(
+    customerId: string,
+    title: string,
+    body: string,
+    data?: Record<string, any>,
+  ): Promise<void> {
+    try {
+      const customer = await this.userModel
+        .findById(String(customerId))
+        .select('pushTokens')
+        .lean()
+        .exec();
+
+      const pushTokens = Array.isArray((customer as any)?.pushTokens)
+        ? (customer as any).pushTokens.filter(Boolean)
+        : [];
+
+      if (!pushTokens.length) {
+        return;
+      }
+
+      await fetch('https://exp.host/--/api/v2/push/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          to: pushTokens,
+          title,
+          body,
+          sound: 'default',
+          ttl: 60,
+          priority: 'high',
+          data: { type: 'notification', ...(data || {}) },
+        }),
+      });
+    } catch (error: any) {
+      this.logger.warn(`Failed to send push notification to customer ${customerId}: ${error?.message || 'unknown error'}`);
+    }
+  }
+
   async createOrder(
     userId: string,
     merchantId: string,
@@ -71,7 +150,7 @@ export class OrdersService {
           .exec();
 
         if (merchant && customer) {
-          await this.notificationModel.create(
+          const notifications = await this.notificationModel.create(
             [
               {
                 recipientId: String(merchantId),
@@ -86,11 +165,19 @@ export class OrdersService {
             ],
             { session: txSession },
           );
+
+          await this.sendPushNotificationToMerchant(
+            String(merchantId),
+            'New order',
+            `${customer.name || 'Customer'} claimed your offer`,
+            { notificationId: String(notifications[0]._id), adId: createdOrder.voucherId || 'order', type: 'order_placed' },
+          );
+
           this.logger.log(
             `Notification created for merchant ${merchantId} for order ${createdOrder.orderNumber}`,
           );
         }
-      } catch (notifError) {
+      } catch (notifError: any) {
         this.logger.error(
           `Failed to create notification: ${notifError.message}`,
         );
@@ -276,7 +363,7 @@ export class OrdersService {
       const merchantName = merchant?.name || 'Merchant';
 
       if (status === OrderStatus.ACCEPTED) {
-        await this.notificationModel.create({
+        const notification = await this.notificationModel.create({
           recipientId: customerId,
           senderId: String(merchantId),
           senderName: merchantName,
@@ -286,8 +373,12 @@ export class OrdersService {
           message: `${merchantName} accepted your claimed offer`,
           read: false,
         });
+        await this.sendPushNotificationToCustomer(customerId, 'Offer accepted', `${merchantName} accepted your claimed offer`, {
+          notificationId: String(notification._id),
+          type: 'order_accepted',
+        });
       } else if (status === OrderStatus.REJECTED) {
-        await this.notificationModel.create({
+        const notification = await this.notificationModel.create({
           recipientId: customerId,
           senderId: String(merchantId),
           senderName: merchantName,
@@ -296,6 +387,10 @@ export class OrdersService {
           type: 'order_rejected',
           message: `${merchantName} rejected your claimed offer`,
           read: false,
+        });
+        await this.sendPushNotificationToCustomer(customerId, 'Offer update', `${merchantName} rejected your claimed offer`, {
+          notificationId: String(notification._id),
+          type: 'order_rejected',
         });
       }
     } catch (notifError) {

@@ -6,12 +6,14 @@ import {
   Optional,
   NotFoundException,
   OnModuleInit,
+  BadRequestException,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { FilterQuery, Model } from 'mongoose';
 import { KafkaService } from '../kafka/kafka.service';
 import { KAFKA_TOPICS } from '../common/constants/kafka-topics';
 import { RedisService } from '../common/services/redis.service';
+import { ModerationService } from '../moderation/moderation.service';
 import { CreateMerchantProductDto } from './dto/create-merchant-product.dto';
 import { ListMerchantProductsDto } from './dto/list-merchant-products.dto';
 import { UpdateMerchantProductDto } from './dto/update-merchant-product.dto';
@@ -35,6 +37,7 @@ export class MerchantProductsService implements OnModuleInit {
     private readonly merchantPlanService: MerchantPlanService,
     private readonly redisService: RedisService,
     private readonly transactionService: TransactionService,
+    private readonly moderationService: ModerationService,
     @Optional() private readonly kafkaService?: KafkaService,
   ) {}
 
@@ -75,6 +78,15 @@ export class MerchantProductsService implements OnModuleInit {
   }
 
   async create(merchantId: string, dto: CreateMerchantProductDto) {
+    if (dto.images && dto.images.length > 0 && this.moderationService) {
+      for (const imageUrl of dto.images) {
+        const isSafe = await this.moderationService.isImageSafe(imageUrl);
+        if (!isSafe) {
+          throw new BadRequestException('One or more images contain inappropriate content and cannot be uploaded.');
+        }
+      }
+    }
+
     const lockKey = `lock:merchant:product:create:${merchantId}`;
     let lockToken: string | null = null;
 
@@ -425,9 +437,20 @@ export class MerchantProductsService implements OnModuleInit {
       product.status = this.deriveStatus(dto.stockQuantity);
     }
     if (Array.isArray(dto.images)) {
-      product.images = dto.images
+      const sanitizedImages = dto.images
         .map((image) => String(image || '').trim())
         .filter(Boolean);
+
+      if (sanitizedImages.length > 0) {
+        for (const imageUrl of sanitizedImages) {
+          const isSafe = await this.moderationService.isImageSafe(imageUrl);
+          if (!isSafe) {
+            throw new BadRequestException('One or more images contain inappropriate content and cannot be uploaded.');
+          }
+        }
+      }
+
+      product.images = sanitizedImages;
     }
 
     await this.transactionService.execute(async (session) => {

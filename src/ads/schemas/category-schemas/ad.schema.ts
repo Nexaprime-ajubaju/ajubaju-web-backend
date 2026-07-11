@@ -157,6 +157,60 @@ export class Ad {
     | LostFound
     | any;
 
+  // Named category-specific data fields (persisted alongside categorySpecificData)
+  @Prop({ type: MongooseSchema.Types.Mixed })
+  vehicleData?: any;
+
+  @Prop({ type: MongooseSchema.Types.Mixed })
+  propertyData?: any;
+
+  @Prop({ type: MongooseSchema.Types.Mixed })
+  serviceData?: any;
+
+  @Prop({ type: MongooseSchema.Types.Mixed })
+  mobileData?: any;
+
+  @Prop({ type: MongooseSchema.Types.Mixed })
+  electronicsData?: any;
+
+  @Prop({ type: MongooseSchema.Types.Mixed })
+  furnitureData?: any;
+
+  @Prop({ type: MongooseSchema.Types.Mixed })
+  educationData?: any;
+
+  @Prop({ type: MongooseSchema.Types.Mixed })
+  petsData?: any;
+
+  @Prop({ type: MongooseSchema.Types.Mixed })
+  matrimonialData?: any;
+
+  @Prop({ type: MongooseSchema.Types.Mixed })
+  businessData?: any;
+
+  @Prop({ type: MongooseSchema.Types.Mixed })
+  travelData?: any;
+
+  @Prop({ type: MongooseSchema.Types.Mixed })
+  astrologyData?: any;
+
+  @Prop({ type: MongooseSchema.Types.Mixed })
+  employmentData?: any;
+
+  @Prop({ type: MongooseSchema.Types.Mixed })
+  lostFoundData?: any;
+
+  @Prop({ type: MongooseSchema.Types.Mixed })
+  personalData?: any;
+
+  @Prop({ type: MongooseSchema.Types.Mixed })
+  publicNoticeData?: any;
+
+  @Prop({ type: MongooseSchema.Types.Mixed })
+  greetingsData?: any;
+
+  @Prop({ type: MongooseSchema.Types.Mixed })
+  otherData?: any;
   // ==================== NEW FIELDS FROM FRONTEND ====================
 
   @Prop({ type: [String], default: [] })
