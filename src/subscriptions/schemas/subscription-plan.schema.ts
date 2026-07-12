@@ -95,6 +95,9 @@ export class SubscriptionPlan {
   @Prop({ required: true, default: false })
   isSystem: boolean;
 
+  @Prop({ required: true, default: true })
+  isActive: boolean;
+
   @Prop({ required: true, default: 0 })
   price: number;
 

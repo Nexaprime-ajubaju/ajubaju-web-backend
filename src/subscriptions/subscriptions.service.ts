@@ -61,7 +61,7 @@ export class SubscriptionsService {
   }
 
   async getAllPublicPlans() {
-    const plans = await this.subscriptionPlanModel.find({}).sort({ price: 1 }).lean().exec();
+    const plans = await this.subscriptionPlanModel.find({ isActive: true }).sort({ price: 1 }).lean().exec();
     
     return plans.map(plan => {
       const displayFeatures = [];
@@ -107,6 +107,10 @@ export class SubscriptionsService {
         displayFeatures.push("Unlimited locations support");
       } else if (f.locations?.max > 1) {
         displayFeatures.push(`Up to ${f.locations.max} store locations`);
+      }
+
+      if (f.website?.enabled) {
+        displayFeatures.push("Mini website enabled");
       }
 
       return {
@@ -224,5 +228,31 @@ export class SubscriptionsService {
     const plan = await this.getActivePlan(merchantId);
     if (!plan) return null;
     return plan.features.analytics;
+  }
+
+  async subscribeToPlan(merchantId: string, planName: string, billingCycle: 'monthly' | 'yearly') {
+    const merchant = await this.merchantModel.findOne({ userId: merchantId }).exec();
+    if (!merchant) throw new NotFoundException('Merchant not found');
+
+    const plan = await this.subscriptionPlanModel.findOne({ name: planName, isActive: true }).exec();
+    if (!plan) throw new NotFoundException('Plan not found or not active');
+
+    const startedAt = new Date();
+    const expiresAt = moment(startedAt).add(1, billingCycle === 'yearly' ? 'year' : 'month').toDate();
+
+    merchant.subscription = {
+      planId: planName,
+      status: 'ACTIVE',
+      startedAt,
+      expiresAt,
+      trialEndsAt: merchant.subscription?.trialEndsAt || null,
+      billingCycle,
+      autoRenew: true,
+      assignedBy: 'merchant_self',
+      assignedAt: new Date()
+    };
+
+    await merchant.save();
+    return { success: true, plan: planName, expiresAt };
   }
 }
