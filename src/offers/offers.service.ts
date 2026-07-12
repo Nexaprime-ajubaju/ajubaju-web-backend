@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, Logger, NotFoundException, OnModuleInit, Optional } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, isValidObjectId } from 'mongoose';
+import { Cron, CronExpression } from '@nestjs/schedule';
 import { v4 as uuidv4 } from 'uuid';
 import { KafkaService } from '../kafka/kafka.service';
 import { RedisService } from '../common/services/redis.service';
@@ -10,6 +11,8 @@ import { Voucher, VoucherDocument, VoucherStatus } from '../vouchers/schemas/vou
 // Banner models removed to keep offers module independent from banners
 import { User, UserDocument } from '../users/schemas/user.schema';
 import { Merchant, MerchantDocument } from '../users/schemas/merchant.schema';
+import { Follow, FollowDocument } from '../users/schemas/follow.schema';
+import { Notification, NotificationDocument } from '../users/schemas/notification.schema';
 import { KAFKA_TOPICS } from '../common/constants/kafka-topics';
 
 @Injectable()
@@ -21,6 +24,8 @@ export class OffersService implements OnModuleInit {
     @InjectModel(Voucher.name) private readonly voucherModel: Model<VoucherDocument>,
     @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
     @InjectModel(Merchant.name) private readonly merchantModel: Model<MerchantDocument>,
+    @InjectModel(Follow.name) private readonly followModel: Model<FollowDocument>,
+    @InjectModel(Notification.name) private readonly notificationModel: Model<NotificationDocument>,
     private readonly redisService: RedisService,
     private readonly moderationService: ModerationService,
     @Optional() private readonly kafkaService?: KafkaService,
@@ -247,6 +252,22 @@ export class OffersService implements OnModuleInit {
       paymentStatus: OfferPaymentStatus.PENDING,
       isActive: false,
     });
+
+    const followers = await this.followModel.find({ merchantId });
+    if (followers.length > 0) {
+        const notifications = followers.map(f => ({
+            recipientId: String(f.userId),
+            senderId: 'System',
+            senderName: merchant.name,
+            merchantId: String(merchantId),
+            offerId: String(request._id),
+            type: 'new_offer',
+            message: `New offer "${request.title}" from ${merchant.name}! Check it out.`,
+            read: false,
+            createdAt: new Date()
+        }));
+        await this.notificationModel.insertMany(notifications);
+    }
 
     if (this.kafkaService) {
       try {
@@ -519,6 +540,46 @@ export class OffersService implements OnModuleInit {
     const updated = await this.merchantModel.findOneAndUpdate({ userId: merchantId }, { $set: { offerTemplate: null, updatedAt: new Date() } }, { new: true }).lean().exec();
     if (!updated) throw new BadRequestException('Failed to clear template');
     return { cleared: true };
+  }
+
+  @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
+  async checkExpiringOffers() {
+    this.logger.log('Running checkExpiringOffers cron job...');
+    try {
+      const now = new Date();
+      const in24Hours = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+
+      const expiringOffers = await this.offerModel.find({
+        status: { $in: ['active', 'approved'] },
+        endDate: { $gt: now, $lte: in24Hours },
+        expiryNotificationSent: { $ne: true }
+      }).exec();
+
+      if (expiringOffers.length === 0) return;
+
+      for (const offer of expiringOffers) {
+        const followers = await this.followModel.find({ merchantId: offer.merchantId });
+        if (followers && followers.length > 0) {
+          const notifications = followers.map(f => ({
+            recipientId: String(f.userId),
+            senderId: 'System',
+            senderName: String(offer.merchantName),
+            merchantId: String(offer.merchantId),
+            offerId: String(offer._id),
+            type: 'expiring_offer',
+            message: `The offer "${offer.title}" by ${offer.merchantName} is getting expired soon. Claim it fast!`,
+            read: false,
+            createdAt: new Date()
+          }));
+          await this.notificationModel.insertMany(notifications);
+        }
+        offer.expiryNotificationSent = true;
+        await offer.save();
+      }
+      this.logger.log(`Sent expiry notifications for ${expiringOffers.length} offers.`);
+    } catch (err) {
+      this.logger.error(`Error in checkExpiringOffers cron job: ${(err as any).message}`);
+    }
   }
 
   async getNearbyOffers(params: {

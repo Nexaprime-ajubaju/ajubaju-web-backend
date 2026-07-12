@@ -147,6 +147,9 @@ export class OfferPromotion {
   @Prop({ default: false })
   isActive: boolean;
 
+  @Prop({ default: false })
+  expiryNotificationSent: boolean;
+
   @Prop()
   createdAt: Date;
 

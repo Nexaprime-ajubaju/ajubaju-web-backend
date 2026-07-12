@@ -9,6 +9,7 @@ import { User, UserSchema } from './schemas/user.schema';
 import { Notification, NotificationSchema } from './schemas/notification.schema';
 import { Merchant, MerchantSchema } from './schemas/merchant.schema';
 import { UserReport, UserReportSchema } from './schemas/user-report.schema';
+import { Follow, FollowSchema } from './schemas/follow.schema';
 import { OfferLikeHistory, OfferLikeHistorySchema } from '../offers/schemas/offer-like-history.schema';
 import { OfferPromotion, OfferPromotionSchema } from '../offers/schemas/offer-promotion.schema';
 import { JwtStrategy } from './strategies/jwt.strategy';
@@ -26,6 +27,7 @@ import { RedisModule } from '../common/services/redis.module';
       { name: 'PendingMerchantLocation', schema: require('./schemas/pending-merchant-location.schema').PendingMerchantLocationSchema },
       { name: Payment.name, schema: PaymentSchema },
       { name: UserReport.name, schema: UserReportSchema },
+      { name: Follow.name, schema: FollowSchema },
       { name: OfferLikeHistory.name, schema: OfferLikeHistorySchema },
       { name: OfferPromotion.name, schema: OfferPromotionSchema },
     ]),

@@ -24,6 +24,27 @@ export class UsersController {
     private readonly redisService: RedisService,
   ) {}
 
+  // ==================== FOLLOW MERCHANT ====================
+  @Post('merchants/:merchantId/follow')
+  @UseGuards(JwtAuthGuard)
+  async toggleFollowMerchant(
+    @Param('merchantId') merchantId: string,
+    @CurrentUser() user: any
+  ) {
+    const userId = user?.id || user?._id;
+    return this.usersService.toggleFollowMerchant(userId, merchantId);
+  }
+
+  @Get('merchants/:merchantId/follow-status')
+  @UseGuards(JwtAuthGuard)
+  async checkFollowStatus(
+    @Param('merchantId') merchantId: string,
+    @CurrentUser() user: any
+  ) {
+    const userId = user?.id || user?._id;
+    return this.usersService.checkFollowStatus(userId, merchantId);
+  }
+
   // ==================== USER REPORT ====================
   @Post(':id/report')
   @UseGuards(JwtAuthGuard)

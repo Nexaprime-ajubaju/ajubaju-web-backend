@@ -9,6 +9,7 @@ import { User, UserDocument, UserRole } from './schemas/user.schema';
 import { Notification, NotificationDocument } from './schemas/notification.schema';
 import { Merchant, MerchantDocument } from './schemas/merchant.schema';
 import { UserReport, UserReportDocument } from './schemas/user-report.schema';
+import { Follow, FollowDocument } from './schemas/follow.schema';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { SocialAuthDto } from './dto/social-auth.dto';
@@ -267,6 +268,7 @@ export class UsersService implements OnModuleInit {
     @InjectModel(Notification.name) private notificationModel: Model<NotificationDocument>,
     @InjectModel(Merchant.name) private merchantModel: Model<MerchantDocument>,
     @InjectModel(UserReport.name) private userReportModel: Model<UserReportDocument>,
+    @InjectModel(Follow.name) private followModel: Model<FollowDocument>,
     private jwtService: JwtService,
     private readonly auditLogsService: AuditLogsService,
     private configService: ConfigService,
@@ -2263,6 +2265,68 @@ export class UsersService implements OnModuleInit {
         targetType: 'User',
       });
     }
+  }
+
+  // ==================== FOLLOW MERCHANT ====================
+  async toggleFollowMerchant(userId: string, merchantId: string) {
+    if (!isValidObjectId(userId) || !isValidObjectId(merchantId)) {
+      throw new BadRequestException('Invalid user or merchant ID');
+    }
+    const merchant = await this.merchantModel.findOne({
+      $or: [{ _id: merchantId }, { userId: merchantId }]
+    });
+    if (!merchant) {
+      throw new NotFoundException('Merchant not found');
+    }
+    
+    // Always use the canonical user ID of the merchant for consistency
+    const canonicalMerchantId = String(merchant.userId);
+
+    const user = await this.userModel.findById(userId);
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    const existingFollow = await this.followModel.findOne({ userId, merchantId: canonicalMerchantId });
+
+    if (existingFollow) {
+      await this.followModel.deleteOne({ _id: existingFollow._id });
+      return { success: true, isFollowing: false, message: 'Unfollowed store successfully' };
+    } else {
+      await this.followModel.create({ userId, merchantId: canonicalMerchantId });
+
+      // Notify the merchant
+      try {
+        await this.createNotificationAndPush(
+          canonicalMerchantId,
+          userId,
+          user.name || 'A user',
+          '',
+          '',
+          'new_follower',
+          `${user.name || 'Someone'} started following your store!`,
+        );
+      } catch (err) {
+        this.logger.warn(`Failed to notify merchant about new follower: ${err.message}`);
+      }
+
+      return { success: true, isFollowing: true, message: 'Followed store successfully' };
+    }
+  }
+
+  async checkFollowStatus(userId: string, merchantId: string) {
+    if (!isValidObjectId(userId) || !isValidObjectId(merchantId)) {
+      return { success: true, isFollowing: false };
+    }
+    
+    // Check against canonical ID in case the ID provided is the internal _id
+    const merchant = await this.merchantModel.findOne({
+      $or: [{ _id: merchantId }, { userId: merchantId }]
+    });
+    const targetId = merchant ? String(merchant.userId) : merchantId;
+    
+    const existingFollow = await this.followModel.findOne({ userId, merchantId: targetId });
+    return { success: true, isFollowing: !!existingFollow };
   }
 }
 
