@@ -10,7 +10,7 @@ import {
 import { MerchantProductsController } from './merchant-products.controller';
 import { MerchantProductsService } from './merchant-products.service';
 
-import { MerchantPlanModule } from '../merchant-plan/merchant-plan.module';
+import { SubscriptionsModule } from '../subscriptions/subscriptions.module';
 import { Merchant, MerchantSchema } from '../users/schemas/merchant.schema';
 import { TransactionModule } from '../common/services/transaction.module';
 
@@ -23,7 +23,7 @@ import { TransactionModule } from '../common/services/transaction.module';
     TransactionModule,
     KafkaModule,
     RedisModule, // Cache merchant product listings, inventory
-    MerchantPlanModule,
+    SubscriptionsModule,
     ModerationModule,
   ],
   controllers: [MerchantProductsController],

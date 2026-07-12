@@ -10,7 +10,7 @@ import { KafkaModule } from '../kafka/kafka.module';
 import { RedisModule } from '../common/services/redis.module';
 
 import { Merchant, MerchantSchema } from '../users/schemas/merchant.schema';
-import { MerchantPlanModule } from '../merchant-plan/merchant-plan.module';
+import { SubscriptionsModule } from '../subscriptions/subscriptions.module';
 import { TransactionModule } from '../common/services/transaction.module';
 
 @Module({
@@ -23,7 +23,7 @@ import { TransactionModule } from '../common/services/transaction.module';
     ]),
     KafkaModule, // Order placement, status updates, fulfillment events
     RedisModule, // Cache order history, status lookups
-    MerchantPlanModule,
+    SubscriptionsModule,
     TransactionModule,
   ],
   controllers: [OrdersController, OrdersKafkaController],

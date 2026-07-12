@@ -48,7 +48,7 @@ import {
 } from '../offers/schemas/offer-promotion.schema';
 import { RedisService } from '../common/services/redis.service';
 import { OutboxService } from '../outbox/outbox.service';
-import { MerchantPlanService } from '../merchant-plan/merchant-plan.service';
+import { SubscriptionsService } from '../subscriptions/subscriptions.service';
 import { TransactionService } from '../common/services/transaction.service';
 
 import {
@@ -338,7 +338,7 @@ export class UsersService implements OnModuleInit {
     @InjectModel(OfferPromotion.name)
     private offerPromotionModel?: Model<OfferPromotionDocument>,
     @Optional() private outboxService?: OutboxService,
-    private readonly merchantPlanService?: MerchantPlanService,
+    private readonly SubscriptionsService?: SubscriptionsService,
     private readonly transactionService?: TransactionService,
   ) {
     // Support both SMTP_* and EMAIL_* env var conventions.
@@ -559,9 +559,9 @@ export class UsersService implements OnModuleInit {
 
         let trialStartDate: Date | undefined;
         let trialEndDate: Date | undefined;
-        if (this.merchantPlanService) {
+        if (this.SubscriptionsService) {
           const dates =
-            await this.merchantPlanService.calculateInitialTrialDates();
+            await this.SubscriptionsService.calculateInitialTrialDates();
           trialStartDate = dates.trialStartDate;
           trialEndDate = dates.trialEndDate;
         }
@@ -907,13 +907,13 @@ export class UsersService implements OnModuleInit {
         .findOne({ userId: user._id.toString() })
         .exec();
       if (doc) {
-        if (this.merchantPlanService) {
-          doc = (await this.merchantPlanService.ensureTrialEndDate(doc)) as any;
+        if (this.SubscriptionsService) {
+          doc = (await this.SubscriptionsService.ensureTrialEndDate(doc)) as any;
         }
         merchantProfile = doc.toObject ? doc.toObject() : doc;
-        if (this.merchantPlanService) {
+        if (this.SubscriptionsService) {
           const planDetails =
-            await this.merchantPlanService.getPlanDetails(doc);
+            await this.SubscriptionsService.getPlanDetails(doc);
           merchantProfile = {
             ...merchantProfile,
             ...planDetails, // Backward compatibility for older frontends that expect merchantProfile.planFeatures
@@ -940,9 +940,9 @@ export class UsersService implements OnModuleInit {
       // Auto-create merchant profile to avoid 404s in the frontend
       let trialStartDate: Date | undefined;
       let trialEndDate: Date | undefined;
-      if (this.merchantPlanService) {
+      if (this.SubscriptionsService) {
         const dates =
-          await this.merchantPlanService.calculateInitialTrialDates();
+          await this.SubscriptionsService.calculateInitialTrialDates();
         trialStartDate = dates.trialStartDate;
         trialEndDate = dates.trialEndDate;
       }
@@ -957,10 +957,10 @@ export class UsersService implements OnModuleInit {
     }
 
     let result: any = merchant.toObject ? merchant.toObject() : merchant;
-    if (this.merchantPlanService) {
+    if (this.SubscriptionsService) {
       result = {
         ...result,
-        ...(await this.merchantPlanService.getPlanDetails(merchant)),
+        ...(await this.SubscriptionsService.getPlanDetails(merchant)),
       };
     }
     return result;

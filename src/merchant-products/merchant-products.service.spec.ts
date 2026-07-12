@@ -1,6 +1,6 @@
 import { ForbiddenException } from '@nestjs/common';
 import { MerchantProductsService } from './merchant-products.service';
-import { MerchantPlanService } from '../merchant-plan/merchant-plan.service';
+import { SubscriptionsService } from '../subscriptions/subscriptions.service';
 import { TransactionService } from '../common/services/transaction.service';
 import { SystemSettingsService } from '../system-settings/system-settings.service';
 
@@ -36,7 +36,7 @@ describe('MerchantProductsService resilience', () => {
       }),
     } as unknown as SystemSettingsService;
 
-    const planService = new MerchantPlanService(
+    const planService = new SubscriptionsService(
       systemSettingsService,
       productModel,
       offerModel,
@@ -72,7 +72,7 @@ describe('MerchantProductsService resilience', () => {
         exec: jest.fn().mockResolvedValue(merchant),
       }),
     } as any;
-    const merchantPlanService = {
+    const SubscriptionsService = {
       getPlanDetails: jest
         .fn()
         .mockResolvedValue({ planFeatures: { maxProducts: 10 } }),
@@ -94,7 +94,7 @@ describe('MerchantProductsService resilience', () => {
     const service = new MerchantProductsService(
       merchantProductModel,
       merchantModel,
-      merchantPlanService,
+      SubscriptionsService,
       redisService,
       transactionService,
       undefined,

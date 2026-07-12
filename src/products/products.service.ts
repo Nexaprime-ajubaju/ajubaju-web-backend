@@ -9,7 +9,7 @@ import { Model } from 'mongoose';
 import { v4 as uuidv4 } from 'uuid';
 import { Product, ProductDocument } from './schemas/product.schema';
 import { CreateProductDto, UpdateProductDto } from './dto/create-product.dto';
-import { MerchantPlanService } from '../merchant-plan/merchant-plan.service';
+import { SubscriptionsService } from '../subscriptions/subscriptions.service';
 import { Merchant, MerchantDocument } from '../users/schemas/merchant.schema';
 
 @Injectable()
@@ -17,7 +17,7 @@ export class ProductsService {
   constructor(
     @InjectModel(Product.name) private productModel: Model<ProductDocument>,
     @InjectModel(Merchant.name) private merchantModel: Model<MerchantDocument>,
-    private readonly merchantPlanService: MerchantPlanService,
+    private readonly SubscriptionsService: SubscriptionsService,
   ) {}
 
   async createProduct(
@@ -29,7 +29,7 @@ export class ProductsService {
       .exec();
     if (merchant) {
       const planDetails =
-        await this.merchantPlanService.getPlanDetails(merchant);
+        await this.SubscriptionsService.getPlanDetails(merchant);
       if (!planDetails.planFeatures.canAddProduct) {
         throw new ForbiddenException(
           'Free Tier merchants cannot add new products. Please upgrade to Premium.',
@@ -125,7 +125,7 @@ export class ProductsService {
       .exec();
     if (merchant) {
       const planDetails =
-        await this.merchantPlanService.getPlanDetails(merchant);
+        await this.SubscriptionsService.getPlanDetails(merchant);
       if (!planDetails.planFeatures.canDeleteProduct) {
         throw new ForbiddenException(
           'Free Tier merchants cannot delete products. Please upgrade to Premium.',

@@ -26,7 +26,7 @@ import { AdsModule } from '../ads/ads.module';
 import { OutboxModule } from '../outbox/outbox.module';
 import { Payment, PaymentSchema } from '../payments/schemas/payment.schema';
 import { RedisModule } from '../common/services/redis.module';
-import { MerchantPlanModule } from '../merchant-plan/merchant-plan.module';
+import { SubscriptionsModule } from '../subscriptions/subscriptions.module';
 import { TransactionModule } from '../common/services/transaction.module';
 
 @Module({
@@ -69,7 +69,7 @@ import { TransactionModule } from '../common/services/transaction.module';
     OutboxModule, // Consistent events
     forwardRef(() => AdsModule),
     RedisModule, // Cache user profiles, wishlist, preferences
-    MerchantPlanModule,
+    SubscriptionsModule,
     TransactionModule,
   ],
   controllers: [UsersController],

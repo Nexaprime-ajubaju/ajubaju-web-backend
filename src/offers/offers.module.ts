@@ -22,7 +22,7 @@ import { BannersModule } from '../banners/banners.module';
 import { RedisModule } from '../common/services/redis.module';
 import { ModerationModule } from '../moderation/moderation.module';
 
-import { MerchantPlanModule } from '../merchant-plan/merchant-plan.module';
+import { SubscriptionsModule } from '../subscriptions/subscriptions.module';
 import { TransactionModule } from '../common/services/transaction.module';
 
 @Module({
@@ -37,7 +37,7 @@ import { TransactionModule } from '../common/services/transaction.module';
     ]),
     forwardRef(() => KafkaModule),
     BannersModule,
-    MerchantPlanModule,
+    SubscriptionsModule,
     TransactionModule,
     RedisModule, // Offers cache
     ModerationModule,

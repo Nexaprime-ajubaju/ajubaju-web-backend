@@ -22,7 +22,7 @@ import {
   MerchantProduct,
   MerchantProductDocument,
 } from '../merchant-products/schemas/merchant-product.schema';
-import { MerchantPlanService } from '../merchant-plan/merchant-plan.service';
+import { SubscriptionsService } from '../subscriptions/subscriptions.service';
 import { KAFKA_TOPICS } from '../common/constants/kafka-topics';
 import { TransactionService } from '../common/services/transaction.service';
 
@@ -40,7 +40,7 @@ export class OffersService implements OnModuleInit {
     private readonly merchantModel: Model<MerchantDocument>,
     @InjectModel(MerchantProduct.name)
     private readonly merchantProductModel: Model<MerchantProductDocument>,
-    private readonly merchantPlanService: MerchantPlanService,
+    private readonly SubscriptionsService: SubscriptionsService,
     private readonly redisService: RedisService,
     private readonly transactionService: TransactionService,
     private readonly moderationService: ModerationService,
@@ -298,7 +298,7 @@ export class OffersService implements OnModuleInit {
         .exec();
       if (merchantDoc) {
         const planDetails =
-          await this.merchantPlanService.getPlanDetails(merchantDoc);
+          await this.SubscriptionsService.getPlanDetails(merchantDoc);
         const features = planDetails.planFeatures;
 
         // 1. Product Eligibility Validation
@@ -319,7 +319,7 @@ export class OffersService implements OnModuleInit {
             topProducts.map((p) => String(p._id)),
           );
           const invalidProducts = payload.selectedProducts.filter(
-            (id) => !eligibleProductIds.has(String(id)),
+            (p) => !eligibleProductIds.has(String(p.productId)),
           );
 
           if (invalidProducts.length > 0) {
@@ -552,7 +552,7 @@ export class OffersService implements OnModuleInit {
       .exec();
     if (merchantDoc) {
       const planDetails =
-        await this.merchantPlanService.getPlanDetails(merchantDoc);
+        await this.SubscriptionsService.getPlanDetails(merchantDoc);
       if (!planDetails.planFeatures.canEditOffer) {
         throw new ForbiddenException(
           'Free Tier merchants cannot edit offers. Please upgrade to Premium.',
@@ -627,7 +627,7 @@ export class OffersService implements OnModuleInit {
       .exec();
     if (merchantDoc) {
       const planDetails =
-        await this.merchantPlanService.getPlanDetails(merchantDoc);
+        await this.SubscriptionsService.getPlanDetails(merchantDoc);
       if (!planDetails.planFeatures.canDeleteOffer) {
         throw new ForbiddenException(
           'Free Tier merchants cannot delete offers. Please upgrade to Premium.',

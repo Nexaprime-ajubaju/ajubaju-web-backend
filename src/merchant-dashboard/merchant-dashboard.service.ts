@@ -16,7 +16,7 @@ import {
   OfferLikeHistoryDocument,
 } from '../offers/schemas/offer-like-history.schema';
 import { RedisService } from '../common/services/redis.service';
-import { MerchantPlanService } from '../merchant-plan/merchant-plan.service';
+import { SubscriptionsService } from '../subscriptions/subscriptions.service';
 import { Merchant, MerchantDocument } from '../users/schemas/merchant.schema';
 
 @Injectable()
@@ -36,7 +36,7 @@ export class MerchantDashboardService {
     @InjectModel(Merchant.name)
     private readonly merchantModel: Model<MerchantDocument>,
     private readonly redisService: RedisService,
-    private readonly merchantPlanService: MerchantPlanService,
+    private readonly SubscriptionsService: SubscriptionsService,
   ) {}
 
   private buildDateBuckets(days: number) {
@@ -694,7 +694,7 @@ export class MerchantDashboardService {
       .exec();
     if (merchantDoc) {
       const planDetails =
-        await this.merchantPlanService.getPlanDetails(merchantDoc);
+        await this.SubscriptionsService.getPlanDetails(merchantDoc);
       if (!planDetails.planFeatures.canViewAdvancedAnalytics) {
         device.data = { Mobile: 0, Desktop: 0, Tablet: 0 };
         demographics.data = [];

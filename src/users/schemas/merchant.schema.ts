@@ -71,11 +71,31 @@ export class Merchant {
   @Prop({ type: [String], default: [] })
   pushTokens?: string[];
 
-  @Prop()
-  trialStartDate?: Date;
-
-  @Prop()
-  trialEndDate?: Date;
+  @Prop({
+    type: {
+      planId: { type: String, default: null }, // Reference to SubscriptionPlan unique name or ObjectId
+      status: { type: String, enum: ['TRIAL', 'ACTIVE', 'EXPIRED'], default: 'TRIAL' },
+      startedAt: { type: Date, default: Date.now },
+      expiresAt: { type: Date, default: null },
+      trialEndsAt: { type: Date, default: null },
+      billingCycle: { type: String, enum: ['monthly', 'yearly', 'lifetime'], default: 'monthly' },
+      autoRenew: { type: Boolean, default: false },
+      assignedBy: { type: String, default: 'system' },
+      assignedAt: { type: Date, default: Date.now }
+    },
+    default: null
+  })
+  subscription?: {
+    planId: string;
+    status: 'TRIAL' | 'ACTIVE' | 'EXPIRED';
+    startedAt: Date;
+    expiresAt: Date | null;
+    trialEndsAt: Date | null;
+    billingCycle: 'monthly' | 'yearly' | 'lifetime';
+    autoRenew: boolean;
+    assignedBy: string;
+    assignedAt: Date;
+  };
 
   @Prop()
   createdAt: Date;

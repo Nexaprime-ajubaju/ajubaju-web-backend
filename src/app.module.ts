@@ -27,7 +27,7 @@ import { ModerationModule } from './moderation/moderation.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { SystemSettingsModule } from './system-settings/system-settings.module';
-import { MerchantPlanModule } from './merchant-plan/merchant-plan.module';
+import { SubscriptionsModule } from './subscriptions/subscriptions.module';
 import { HomepageConfigModule } from './homepage-config/homepage-config.module';
 import { RecommendationEngineModule } from './recommendation-engine/recommendation-engine.module';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
@@ -174,7 +174,7 @@ const logger = new Logger('MongoDB');
     VouchersModule,
     ReviewsModule,
     SystemSettingsModule,
-    MerchantPlanModule,
+    SubscriptionsModule,
     HomepageConfigModule,
     FeatureStoreModule,
     RecommendationEngineModule,

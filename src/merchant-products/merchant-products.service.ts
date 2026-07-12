@@ -21,7 +21,7 @@ import {
   MerchantProduct,
   MerchantProductDocument,
 } from './schemas/merchant-product.schema';
-import { MerchantPlanService } from '../merchant-plan/merchant-plan.service';
+import { SubscriptionsService } from '../subscriptions/subscriptions.service';
 import { Merchant, MerchantDocument } from '../users/schemas/merchant.schema';
 import { TransactionService } from '../common/services/transaction.service';
 
@@ -34,7 +34,7 @@ export class MerchantProductsService implements OnModuleInit {
     private readonly merchantProductModel: Model<MerchantProductDocument>,
     @InjectModel(Merchant.name)
     private readonly merchantModel: Model<MerchantDocument>,
-    private readonly merchantPlanService: MerchantPlanService,
+    private readonly SubscriptionsService: SubscriptionsService,
     private readonly redisService: RedisService,
     private readonly transactionService: TransactionService,
     private readonly moderationService: ModerationService,
@@ -117,7 +117,7 @@ export class MerchantProductsService implements OnModuleInit {
           .session(session)
           .exec();
         if (merchant) {
-          const planDetails = await this.merchantPlanService.getPlanDetails(
+          const planDetails = await this.SubscriptionsService.getPlanDetails(
             merchant,
             session,
           );
@@ -189,7 +189,7 @@ export class MerchantProductsService implements OnModuleInit {
     if (!merchant) {
       throw new NotFoundException('Merchant not found');
     }
-    const planDetails = await this.merchantPlanService.getPlanDetails(merchant);
+    const planDetails = await this.SubscriptionsService.getPlanDetails(merchant);
     const maxProducts = planDetails.planFeatures.maxProducts;
 
     const [
@@ -296,7 +296,7 @@ export class MerchantProductsService implements OnModuleInit {
     if (!merchant) {
       throw new NotFoundException('Merchant not found');
     }
-    const planDetails = await this.merchantPlanService.getPlanDetails(merchant);
+    const planDetails = await this.SubscriptionsService.getPlanDetails(merchant);
     const maxProducts = planDetails.planFeatures.maxProducts;
 
     const [products, total, topProducts] = await Promise.all([
@@ -471,7 +471,7 @@ export class MerchantProductsService implements OnModuleInit {
       .exec();
     if (merchant) {
       const planDetails =
-        await this.merchantPlanService.getPlanDetails(merchant);
+        await this.SubscriptionsService.getPlanDetails(merchant);
       if (!planDetails.planFeatures.canDeleteProduct) {
         throw new ForbiddenException({
           success: false,

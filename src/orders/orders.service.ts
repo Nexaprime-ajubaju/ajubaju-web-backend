@@ -14,7 +14,7 @@ import {
   Notification,
   NotificationDocument,
 } from '../users/schemas/notification.schema';
-import { MerchantPlanService } from '../merchant-plan/merchant-plan.service';
+import { SubscriptionsService } from '../subscriptions/subscriptions.service';
 import { TransactionService } from '../common/services/transaction.service';
 
 @Injectable()
@@ -28,7 +28,7 @@ export class OrdersService {
     private readonly notificationModel: Model<NotificationDocument>,
     @InjectModel(Merchant.name)
     private readonly merchantModel: Model<MerchantDocument>,
-    private readonly merchantPlanService: MerchantPlanService,
+    private readonly SubscriptionsService: SubscriptionsService,
     private readonly transactionService: TransactionService,
   ) {}
 
@@ -321,7 +321,7 @@ export class OrdersService {
       .exec();
     if (merchant) {
       const planDetails =
-        await this.merchantPlanService.getPlanDetails(merchant);
+        await this.SubscriptionsService.getPlanDetails(merchant);
       const allowedStatuses = planDetails.planFeatures.ordersStatusAllowed;
       if (!allowedStatuses.includes(status)) {
         throw new ForbiddenException({

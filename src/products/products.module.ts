@@ -6,7 +6,7 @@ import { ProductsController } from './products.controller';
 import { KafkaModule } from '../kafka/kafka.module';
 import { RedisModule } from '../common/services/redis.module';
 
-import { MerchantPlanModule } from '../merchant-plan/merchant-plan.module';
+import { SubscriptionsModule } from '../subscriptions/subscriptions.module';
 import { Merchant, MerchantSchema } from '../users/schemas/merchant.schema';
 
 @Module({
@@ -17,7 +17,7 @@ import { Merchant, MerchantSchema } from '../users/schemas/merchant.schema';
     ]),
     KafkaModule, // Inventory updates, product events
     RedisModule, // Cache product listings, inventory, search results
-    MerchantPlanModule,
+    SubscriptionsModule,
   ],
   providers: [ProductsService],
   controllers: [ProductsController],
