@@ -54,6 +54,7 @@ export class MerchantProductsController {
     @CurrentUser() user: CurrentUserPayload,
     @Body() dto: CreateMerchantProductDto,
   ) {
+    console.log("RECEIVED DTO FOR CREATING PRODUCT:", dto);
     return this.merchantProductsService.create(user.id, dto);
   }
 

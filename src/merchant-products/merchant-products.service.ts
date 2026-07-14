@@ -77,6 +77,43 @@ export class MerchantProductsService implements OnModuleInit {
     return 'In Stock';
   }
 
+  private async moderateVideo(videoUrl: string): Promise<void> {
+    if (!videoUrl) return;
+
+    try {
+      if (videoUrl.includes('cloudinary.com') && videoUrl.includes('/video/upload/')) {
+        const baseUrl = videoUrl.substring(0, videoUrl.lastIndexOf('.')); // removes .mp4 or .webm
+        const urlWithoutExt = baseUrl;
+        
+        // Split around /upload/
+        const parts = urlWithoutExt.split('/upload/');
+        if (parts.length === 2) {
+          const prefix = parts[0];
+          const suffix = parts[1];
+          
+          const frame0 = `${prefix}/upload/so_0/${suffix}.jpg`;
+          const frame30 = `${prefix}/upload/so_30p/${suffix}.jpg`;
+          const frame70 = `${prefix}/upload/so_70p/${suffix}.jpg`;
+
+          const frames = [frame0, frame30, frame70];
+
+          for (const frame of frames) {
+            const isSafe = await this.moderationService.isImageSafe(frame);
+            if (!isSafe) {
+              throw new BadRequestException('The uploaded video contains inappropriate content and cannot be published.');
+            }
+          }
+        }
+      }
+    } catch (error) {
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+      // Log other errors but don't fail the upload if it's just a parsing error
+      console.error('Failed to moderate video:', error);
+    }
+  }
+
   async create(merchantId: string, dto: CreateMerchantProductDto) {
     if (dto.images && dto.images.length > 0 && this.moderationService) {
       for (const imageUrl of dto.images) {
@@ -108,8 +145,13 @@ export class MerchantProductsService implements OnModuleInit {
         price: dto.price,
         description: dto.description?.trim() || '',
         images: dto.images || [],
+        videoUrl: dto.videoUrl || null,
         status: this.deriveStatus(dto.stockQuantity),
       };
+
+      if (dto.videoUrl) {
+        await this.moderateVideo(dto.videoUrl);
+      }
 
       const product = await this.transactionService.execute(async (session) => {
         const merchant = await this.merchantModel
@@ -454,6 +496,13 @@ export class MerchantProductsService implements OnModuleInit {
     }
 
     await this.transactionService.execute(async (session) => {
+      if (dto.videoUrl !== undefined) {
+        if (dto.videoUrl !== null && dto.videoUrl !== product.videoUrl) {
+          await this.moderateVideo(dto.videoUrl);
+        }
+        product.videoUrl = dto.videoUrl;
+      }
+
       await product.save({ session });
     });
     await this.invalidateMerchantProductCache(merchantId);

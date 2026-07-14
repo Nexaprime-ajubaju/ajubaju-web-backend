@@ -26,6 +26,9 @@ export class MerchantProduct {
   @Prop({ type: [String], default: [] })
   images: string[];
 
+  @Prop({ type: String, default: null })
+  videoUrl: string;
+
   @Prop({ required: true, enum: ['In Stock', 'Low Stock', 'Out of Stock'] })
   status: 'In Stock' | 'Low Stock' | 'Out of Stock';
 

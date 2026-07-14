@@ -8,30 +8,25 @@ export class Notification {
   @Prop({ required: true })
   recipientId: string; // ad owner who receives the notification
 
-  @Prop({ required: true })
-  senderId: string; // user who wishlisted
+  @Prop({ required: false })
+  senderId?: string; // user who wishlisted, followed, etc.
 
-  @Prop({ required: true })
-  senderName: string;
+  @Prop({ required: false })
+  senderName?: string;
 
-  @Prop({ required: true })
-  adId: string;
+  @Prop({ required: false })
+  adId?: string;
 
-  @Prop({ required: true })
-  adTitle: string;
+  @Prop({ required: false })
+  adTitle?: string;
 
-  @Prop({
-    required: true,
-    enum: [
-      'wishlist_add',
-      'wishlist_remove',
-      'order_placed',
-      'order_accepted',
-      'order_rejected',
-      'admin_warning',
-    ],
-    default: 'wishlist_add',
-  })
+  @Prop({ required: false })
+  merchantId?: string;
+
+  @Prop({ required: false })
+  offerId?: string;
+
+  @Prop({ required: true, enum: ['wishlist_add', 'wishlist_remove', 'order_placed', 'order_accepted', 'order_rejected', 'admin_warning', 'new_follower', 'new_offer', 'expiring_offer'], default: 'wishlist_add' })
   type: string;
 
   @Prop({ required: true })

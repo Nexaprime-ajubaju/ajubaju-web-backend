@@ -12,6 +12,14 @@ import {
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
+class TargetLocationDto {
+  @IsNumber()
+  lat: number;
+
+  @IsNumber()
+  lng: number;
+}
+
 class OfferSelectedProductDto {
   @IsString()
   @IsNotEmpty()
@@ -135,6 +143,17 @@ export class SubmitBannerPromotionDto {
   @IsOptional()
   @IsString()
   exampleUsage?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  targetCities?: string[];
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => TargetLocationDto)
+  targetLocations?: TargetLocationDto[];
 
   @IsOptional()
   @IsArray()

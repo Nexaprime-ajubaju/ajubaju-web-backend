@@ -1,14 +1,7 @@
-import {
-  BadRequestException,
-  ForbiddenException,
-  Injectable,
-  Logger,
-  NotFoundException,
-  OnModuleInit,
-  Optional,
-} from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException, OnModuleInit, Optional } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, isValidObjectId } from 'mongoose';
+import { Cron, CronExpression } from '@nestjs/schedule';
 import { v4 as uuidv4 } from 'uuid';
 import { KafkaService } from '../kafka/kafka.service';
 import { RedisService } from '../common/services/redis.service';
@@ -24,6 +17,8 @@ import {
   MerchantProduct,
   MerchantProductDocument,
 } from '../merchant-products/schemas/merchant-product.schema';
+import { Follow, FollowDocument } from '../users/schemas/follow.schema';
+import { Notification, NotificationDocument } from '../users/schemas/notification.schema';
 import { SubscriptionsService } from '../subscriptions/subscriptions.service';
 import { KAFKA_TOPICS } from '../common/constants/kafka-topics';
 import { TransactionService } from '../common/services/transaction.service';
@@ -42,6 +37,8 @@ export class OffersService implements OnModuleInit {
     private readonly merchantModel: Model<MerchantDocument>,
     @InjectModel(MerchantProduct.name)
     private readonly merchantProductModel: Model<MerchantProductDocument>,
+    @InjectModel(Follow.name) private readonly followModel: Model<FollowDocument>,
+    @InjectModel(Notification.name) private readonly notificationModel: Model<NotificationDocument>,
     private readonly SubscriptionsService: SubscriptionsService,
     private readonly redisService: RedisService,
     private readonly transactionService: TransactionService,

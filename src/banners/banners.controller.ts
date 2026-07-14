@@ -179,10 +179,18 @@ export class BannersController {
   }
 
   @Get('promotions/active')
-  async getActiveHomepageBanners(@Query('limit') limit?: string) {
-    const defaultLimit = 10;
-    const safeLimit = Math.max(1, Math.min(10, Number(limit) || defaultLimit));
-    const rows = await this.bannersService.getActiveHomepageBanners(safeLimit);
+  async getActiveHomepageBanners(
+    @Query('limit') limit?: string,
+    @Query('city') city?: string,
+    @Query('fullLocation') fullLocation?: string,
+  ) {
+    const safeLimit = Number(limit) || 5;
+    const rows = await this.bannersService.getActiveHomepageBanners(
+      safeLimit,
+      city,
+      fullLocation,
+    );
+
     return {
       success: true,
       data: rows,

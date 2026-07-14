@@ -334,6 +334,11 @@ export class BannersService implements OnModuleInit {
             promotionType,
             imageUrl: payload.imageUrl,
             recommendedSize: payload.recommendedSize || '1920 x 520 px',
+            targetCities: payload.targetCities || [],
+            targetLocations: (payload.targetLocations || []).map(loc => ({
+              type: 'Point',
+              coordinates: [loc.lng, loc.lat],
+            })),
             selectedDates: normalizedDates,
             startDate,
             endDate,
