@@ -108,10 +108,6 @@ export class BannersService implements OnModuleInit {
     return `golo:banners:admin:${status || 'all'}`;
   }
 
-  private activeBannersCacheKey(limit: number): string {
-    return `golo:banners:active:${limit}`;
-  }
-
   private parseCalendarDate(dateStr: string): Date | null {
     const trimmed = String(dateStr || '').trim();
     if (!trimmed) {
@@ -321,6 +317,11 @@ export class BannersService implements OnModuleInit {
       promotionType,
       imageUrl: payload.imageUrl,
       recommendedSize: payload.recommendedSize || '1920 x 520 px',
+      targetCities: payload.targetCities || [],
+      targetLocations: (payload.targetLocations || []).map(loc => ({
+        type: 'Point',
+        coordinates: [loc.lng, loc.lat],
+      })),
       selectedDates: normalizedDates,
       startDate,
       endDate,
@@ -600,8 +601,13 @@ export class BannersService implements OnModuleInit {
     return request;
   }
 
-  async getActiveHomepageBanners(limit = 5): Promise<BannerPromotion[]> {
-    const cacheKey = this.activeBannersCacheKey(limit);
+  private activeBannersCacheKey(limit: number, city?: string, fullLocation?: string): string {
+    const locHash = fullLocation ? Buffer.from(fullLocation).toString('base64').substring(0, 10) : '';
+    return `golo:banners:active:homepage:${limit}:${city || 'all'}:${locHash}`;
+  }
+
+  async getActiveHomepageBanners(limit = 5, city?: string, fullLocation?: string): Promise<BannerPromotion[]> {
+    const cacheKey = this.activeBannersCacheKey(limit, city, fullLocation);
     const cached = await this.redisService.get<BannerPromotion[]>(cacheKey);
     if (cached) {
       return cached;
@@ -611,16 +617,37 @@ export class BannersService implements OnModuleInit {
 
     const now = new Date();
 
+    const query: any = {
+      promotionType: BannerPromotionType.BANNER,
+      status: {
+        $in: [BannerPromotionStatus.APPROVED, BannerPromotionStatus.ACTIVE],
+      },
+      isHomepageVisible: true,
+      startDate: { $lte: now },
+      endDate: { $gte: now },
+    };
+
+    if (fullLocation) {
+      const parts = fullLocation
+        .split(',')
+        .map(s => s.trim())
+        .filter(s => s.length > 0);
+      
+      if (city && !parts.includes(city)) {
+        parts.push(city);
+      }
+
+      // Find banners targeting ANY of the hierarchical location parts (e.g., city, district, state)
+      query.targetCities = {
+        $in: parts.map(p => new RegExp(`^${p}$`, 'i')),
+      };
+    } else if (city) {
+      const cityRegex = new RegExp(`^${city}$`, 'i');
+      query.targetCities = cityRegex;
+    }
+
     const rows = await this.bannerPromotionModel
-      .find({
-        promotionType: BannerPromotionType.BANNER,
-        status: {
-          $in: [BannerPromotionStatus.APPROVED, BannerPromotionStatus.ACTIVE],
-        },
-        isHomepageVisible: true,
-        startDate: { $lte: now },
-        endDate: { $gte: now },
-      })
+      .find(query)
       .sort({
         status: 1,
         paidAt: -1,
@@ -631,7 +658,7 @@ export class BannersService implements OnModuleInit {
       .exec();
 
     await this.redisService.set(cacheKey, rows, 60);
-    return rows;
+    return rows as unknown as BannerPromotion[];
   }
 
   async deleteBannerPromotion(requestId: string): Promise<BannerPromotion> {
@@ -664,13 +691,17 @@ export class BannersService implements OnModuleInit {
     expectedType: BannerPromotionType = BannerPromotionType.BANNER,
   ): Promise<BannerPromotion> {
     const bannerPromotion = await this.bannerPromotionModel
-      .findOne({ requestId, merchantId, promotionType: expectedType })
+      .findOneAndUpdate(
+        { requestId, merchantId, promotionType: expectedType },
+        { status: BannerPromotionStatus.DELETED },
+        { new: true }
+      )
       .exec();
+      
     if (!bannerPromotion) {
       throw new NotFoundException('Banner promotion request not found');
     }
 
-    await this.bannerPromotionModel.deleteOne({ requestId, merchantId }).exec();
     await this.invalidateBannerCache(merchantId);
     return bannerPromotion;
   }

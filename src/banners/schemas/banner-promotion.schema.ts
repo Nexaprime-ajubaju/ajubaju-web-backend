@@ -9,6 +9,7 @@ export enum BannerPromotionStatus {
   REJECTED = 'rejected',
   ACTIVE = 'active',
   EXPIRED = 'expired',
+  DELETED = 'deleted',
 }
 
 export enum BannerPaymentStatus {
@@ -94,6 +95,21 @@ export class BannerPromotion {
 
   @Prop({ default: '' })
   exampleUsage: string;
+
+  @Prop({ type: [String], default: [] })
+  targetCities: string[];
+
+  @Prop({
+    type: [
+      {
+        type: { type: String, enum: ['Point'], default: 'Point' },
+        coordinates: { type: [Number], required: true },
+      },
+    ],
+    default: [],
+    index: '2dsphere',
+  })
+  targetLocations: { type: string; coordinates: number[] }[];
 
   @Prop({
     type: [
