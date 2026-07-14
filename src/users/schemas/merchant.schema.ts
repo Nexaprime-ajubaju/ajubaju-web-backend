@@ -97,6 +97,27 @@ export class Merchant {
     assignedAt: Date;
   };
 
+  @Prop({
+    type: {
+      contentUploadRestrictionUntil: { type: Date, default: null },
+      riskScore: { type: Number, default: 0 },
+      restrictionCount30Days: { type: Number, default: 0 },
+      lastRestrictionAt: { type: Date, default: null },
+    },
+    default: {
+      contentUploadRestrictionUntil: null,
+      riskScore: 0,
+      restrictionCount30Days: 0,
+      lastRestrictionAt: null,
+    },
+  })
+  security?: {
+    contentUploadRestrictionUntil: Date | null;
+    riskScore: number;
+    restrictionCount30Days: number;
+    lastRestrictionAt: Date | null;
+  };
+
   @Prop()
   createdAt: Date;
 

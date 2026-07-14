@@ -13,6 +13,8 @@ import { v4 as uuidv4 } from 'uuid';
 import { KafkaService } from '../kafka/kafka.service';
 import { RedisService } from '../common/services/redis.service';
 import { ModerationService } from '../moderation/moderation.service';
+import { ModerationSecurityService } from '../security/moderation/moderation-security.service';
+import * as crypto from 'crypto';
 import { OfferPromotion, OfferPromotionDocument, OfferPromotionStatus, OfferPaymentStatus } from './schemas/offer-promotion.schema';
 import { Voucher, VoucherDocument, VoucherStatus } from '../vouchers/schemas/voucher.schema';
 // Banner models removed to keep offers module independent from banners
@@ -44,6 +46,7 @@ export class OffersService implements OnModuleInit {
     private readonly redisService: RedisService,
     private readonly transactionService: TransactionService,
     private readonly moderationService: ModerationService,
+    private readonly moderationSecurityService: ModerationSecurityService,
     @Optional() private readonly kafkaService?: KafkaService,
   ) {}
 
@@ -286,9 +289,14 @@ export class OffersService implements OnModuleInit {
       const selectedDays = normalizedDates.length;
 
       if (payload.imageUrl && this.moderationService) {
+        await this.moderationSecurityService.checkRestriction(merchantId);
         const isSafe = await this.moderationService.isImageSafe(payload.imageUrl);
         if (!isSafe) {
+          const imageHash = crypto.createHash('sha256').update(payload.imageUrl).digest('hex');
+          await this.moderationSecurityService.handleFailure(merchantId, 'new_offer', imageHash, 'INAPPROPRIATE_CONTENT');
           throw new BadRequestException('One or more images contain inappropriate content and cannot be uploaded.');
+        } else {
+          await this.moderationSecurityService.handleSuccess(merchantId, 'new_offer');
         }
       }
 
@@ -568,9 +576,14 @@ export class OffersService implements OnModuleInit {
     if (payload.category !== undefined) request.category = String(payload.category).trim();
     if (payload.imageUrl !== undefined) {
       if (payload.imageUrl && this.moderationService) {
+        await this.moderationSecurityService.checkRestriction(merchantId, request._id.toString());
         const isSafe = await this.moderationService.isImageSafe(payload.imageUrl);
         if (!isSafe) {
+          const imageHash = crypto.createHash('sha256').update(payload.imageUrl).digest('hex');
+          await this.moderationSecurityService.handleFailure(merchantId, request._id.toString(), imageHash, 'INAPPROPRIATE_CONTENT');
           throw new BadRequestException('One or more images contain inappropriate content and cannot be uploaded.');
+        } else {
+          await this.moderationSecurityService.handleSuccess(merchantId, request._id.toString());
         }
       }
       request.imageUrl = payload.imageUrl;

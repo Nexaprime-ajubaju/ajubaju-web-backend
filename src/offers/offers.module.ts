@@ -21,6 +21,7 @@ import { OffersService } from './offers.service';
 import { BannersModule } from '../banners/banners.module';
 import { RedisModule } from '../common/services/redis.module';
 import { ModerationModule } from '../moderation/moderation.module';
+import { SecurityModule } from '../security/security.module';
 
 import { SubscriptionsModule } from '../subscriptions/subscriptions.module';
 import { TransactionModule } from '../common/services/transaction.module';
@@ -41,6 +42,7 @@ import { TransactionModule } from '../common/services/transaction.module';
     TransactionModule,
     RedisModule, // Offers cache
     ModerationModule,
+    SecurityModule,
   ],
   controllers: [OffersController],
   providers: [OffersService],

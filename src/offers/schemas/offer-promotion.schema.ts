@@ -157,6 +157,21 @@ export class OfferPromotion {
   @Prop({ type: [String], default: [] })
   viewHistory: string[];
 
+  @Prop({
+    type: {
+      failedImageModerations: { type: Number, default: 0 },
+      lockedUntil: { type: Date, default: null },
+    },
+    default: {
+      failedImageModerations: 0,
+      lockedUntil: null,
+    },
+  })
+  security?: {
+    failedImageModerations: number;
+    lockedUntil: Date | null;
+  };
+
   @Prop()
   createdAt: Date;
 

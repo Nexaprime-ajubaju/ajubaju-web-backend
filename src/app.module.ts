@@ -24,6 +24,7 @@ import { VouchersModule } from './vouchers/vouchers.module';
 import { ReviewsModule } from './reviews/reviews.module';
 import { OutboxModule } from './outbox/outbox.module';
 import { ModerationModule } from './moderation/moderation.module';
+import { SecurityModule } from './security/security.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { SystemSettingsModule } from './system-settings/system-settings.module';
@@ -179,6 +180,7 @@ const logger = new Logger('MongoDB');
     FeatureStoreModule,
     RecommendationEngineModule,
     ModerationModule,
+    SecurityModule,
   ],
   controllers: [AppController],
   providers: [
