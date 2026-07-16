@@ -60,6 +60,31 @@ export class RegisterDto {
 
   @IsOptional()
   @IsString()
+  businessType?: string;
+
+  @IsOptional()
+  yearsInBusiness?: number | string;
+
+  @IsOptional()
+  @IsString()
+  businessDescription?: string;
+
+  @IsOptional()
+  @IsString()
+  profilePhoto?: string;
+
+  @IsOptional()
+  @IsString()
+  shopPhoto?: string;
+
+  @IsOptional()
+  documents?: {
+    aadhaarUrl?: string;
+    panUrl?: string;
+    businessDocs?: Record<string, string>;
+  };
+  @IsOptional()
+  @IsString()
   storeSubCategory?: string;
 
   @IsOptional()

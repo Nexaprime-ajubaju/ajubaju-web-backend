@@ -27,6 +27,15 @@ export class Merchant {
   storeSubCategory?: string;
 
   @Prop()
+  businessType?: string;
+
+  @Prop()
+  yearsInBusiness?: number;
+
+  @Prop()
+  businessDescription?: string;
+
+  @Prop()
   storeLocation?: string;
 
   @Prop({ type: Number })
@@ -41,8 +50,15 @@ export class Merchant {
   @Prop()
   shopPhoto?: string;
 
-  @Prop({ default: 'active' })
-  status: 'active' | 'inactive';
+  @Prop({ default: 'pending', enum: ['active', 'inactive', 'pending'] })
+  status: 'active' | 'inactive' | 'pending';
+
+  @Prop({ type: Object })
+  documents?: {
+    aadhaarUrl?: string;
+    panUrl?: string;
+    businessDocs?: Record<string, string>;
+  };
 
   @Prop({ type: Object, default: null })
   offerTemplate?: any;

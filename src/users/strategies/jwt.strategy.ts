@@ -32,12 +32,17 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         throw new UnauthorizedException('Invalid JWT payload - missing sub claim');
       }
       
-      // Handle admin tokens - they come from GOLO_Admin_Backend and have role: 'admin'
-      if (payload.role === 'admin') {
+      // Handle admin tokens - they come from GOLO_Admin_Backend and have adminType or role
+      const isAdminToken = payload.adminType === 'SUPER_ADMIN' || payload.adminType === 'ADMIN' || payload.adminType === 'MANAGER' || 
+                           payload.role === 'admin' || payload.role === 'SUPER_ADMIN';
+                           
+      if (isAdminToken) {
+        // Map any admin type to 'admin' role so @Roles(UserRole.ADMIN) passes
         return {
           id: payload.sub,
           email: payload.email,
-          role: 'admin',
+          role: 'admin', 
+          adminType: payload.adminType || payload.role,
           name: payload.name || payload.email,
         };
       }

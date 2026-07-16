@@ -9,16 +9,21 @@ export class EmailService {
   private enabled: boolean;
 
   constructor(private configService: ConfigService) {
-    this.enabled = !!this.configService.get('EMAIL_USER');
+    const user = this.configService.get('EMAIL_USER') || this.configService.get('SMTP_USER');
+    const host = this.configService.get('EMAIL_HOST') || this.configService.get('SMTP_HOST');
+    const port = this.configService.get('EMAIL_PORT') || this.configService.get('SMTP_PORT');
+    const pass = this.configService.get('EMAIL_PASSWORD') || this.configService.get('SMTP_PASS');
+
+    this.enabled = !!user;
     
     if (this.enabled) {
       this.transporter = nodemailer.createTransport({
-        host: this.configService.get('EMAIL_HOST'),
-        port: this.configService.get('EMAIL_PORT'),
-        secure: false, // true for 465, false for other ports
+        host: host,
+        port: port,
+        secure: port == 465, // true for 465, false for other ports
         auth: {
-          user: this.configService.get('EMAIL_USER'),
-          pass: this.configService.get('EMAIL_PASSWORD'),
+          user: user,
+          pass: pass,
         },
       });
 
@@ -55,7 +60,7 @@ export class EmailService {
     }
 
     const mailOptions = {
-      from: this.configService.get('EMAIL_FROM'),
+      from: this.configService.get('EMAIL_FROM') || this.configService.get('SMTP_FROM'),
       to: adminEmail,
       subject: `🚨 Ad Reported: ${data.reason.toUpperCase()} (${data.reportCount} total reports)`,
       html: this.generateReportEmailHTML(data),
@@ -175,6 +180,104 @@ export class EmailService {
         </body>
       </html>
     `;
+  }
+
+  async sendMerchantWelcomeEmail(email: string, storeName: string): Promise<boolean> {
+    const mailOptions = {
+      from: `"GOLO No-Reply" <${this.configService.get('EMAIL_FROM') || this.configService.get('SMTP_FROM') || this.configService.get('EMAIL_USER')}>`,
+      replyTo: 'noreply@golo.com',
+      to: email,
+      subject: `Welcome to GOLO! Your Merchant Registration is Under Review`,
+      text: `Hello ${storeName},\n\nThank you for registering on GOLO! We have received your merchant application and business documents.\n\nOur compliance team will review your details. This process usually takes around 24-48 hours. We will notify you via email once your account has been approved or if we need any further information.\n\nBest regards,\nThe GOLO Team`,
+      html: `
+        <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <h2 style="color: #157A4F; border-bottom: 2px solid #157A4F; padding-bottom: 10px;">Registration Received</h2>
+          <p>Hello ${storeName},</p>
+          <p>Thank you for registering on GOLO! We have received your merchant application and business documents.</p>
+          <p>Our compliance team will review your details. This process usually takes around 24-48 hours. We will notify you via email once your account has been approved or if we need any further information.</p>
+          <br>
+          <p>Best regards,<br><strong>The GOLO Team</strong></p>
+        </div>
+      `,
+    };
+
+    try {
+      if (!this.enabled || !this.transporter) return false;
+      await this.transporter.sendMail(mailOptions);
+      this.logger.log(`✅ Welcome email sent to merchant: ${email}`);
+      return true;
+    } catch (error: any) {
+      this.logger.error(`Failed to send merchant welcome email: ${error.message}`);
+      return false;
+    }
+  }
+
+  async sendMerchantApprovalEmail(email: string, storeName: string): Promise<boolean> {
+    const loginLink = this.configService.get('MERCHANT_LOGIN_URL') || 'http://localhost:3001/merchant-login';
+    const mailOptions = {
+      from: `"GOLO No-Reply" <${this.configService.get('EMAIL_FROM') || this.configService.get('SMTP_FROM') || this.configService.get('EMAIL_USER')}>`,
+      replyTo: 'noreply@golo.com',
+      to: email,
+      subject: `Congratulations! Your GOLO Merchant Account is Approved`,
+      text: `Hello ${storeName},\n\nGreat news! Your merchant application has been approved by our compliance team.\n\nYou are now an active merchant on GOLO. You can log in to your dashboard to start setting up your store, managing your inventory, and reaching new customers.\n\nLog In to Dashboard: ${loginLink}\n\nWelcome aboard!\n\nBest regards,\nThe GOLO Team`,
+      html: `
+        <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <h2 style="color: #157A4F; border-bottom: 2px solid #157A4F; padding-bottom: 10px;">Account Approved! 🎉</h2>
+          <p>Hello ${storeName},</p>
+          <p>Great news! Your merchant application has been <strong>approved</strong> by our compliance team.</p>
+          <p>You are now an active merchant on GOLO. You can log in to your dashboard to start setting up your store, managing your inventory, and reaching new customers.</p>
+          <p><a href="${loginLink}" style="display: inline-block; padding: 10px 20px; background: #157A4F; color: white; text-decoration: none; border-radius: 5px; font-weight: bold;">Log In to Dashboard</a></p>
+          <p>Welcome aboard!</p>
+          <br>
+          <p>Best regards,<br><strong>The GOLO Team</strong></p>
+        </div>
+      `,
+    };
+
+    try {
+      if (!this.enabled || !this.transporter) return false;
+      await this.transporter.sendMail(mailOptions);
+      this.logger.log(`✅ Approval email sent to merchant: ${email}`);
+      return true;
+    } catch (error: any) {
+      this.logger.error(`Failed to send merchant approval email: ${error.message}`);
+      return false;
+    }
+  }
+
+  async sendMerchantDeclineEmail(email: string, storeName: string, reason: string): Promise<boolean> {
+    const registerLink = this.configService.get('MERCHANT_REGISTER_URL') || 'http://localhost:3001/merchant-register';
+    const mailOptions = {
+      from: `"GOLO No-Reply" <${this.configService.get('EMAIL_FROM') || this.configService.get('SMTP_FROM') || this.configService.get('EMAIL_USER')}>`,
+      replyTo: 'noreply@golo.com',
+      to: email,
+      subject: `Update on your GOLO Merchant Application`,
+      text: `Hello ${storeName},\n\nThank you for your interest in becoming a merchant on GOLO. After careful review, we are currently unable to approve your application.\n\nReason for decline:\n${reason}\n\nPlease review the provided feedback and ensure all documents and details meet our compliance requirements. You are welcome to re-apply once these issues are addressed.\n\nRe-apply on GOLO: ${registerLink}\n\nBest regards,\nThe GOLO Team`,
+      html: `
+        <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <h2 style="color: #dc2626; border-bottom: 2px solid #dc2626; padding-bottom: 10px;">Application Update</h2>
+          <p>Hello ${storeName},</p>
+          <p>Thank you for your interest in becoming a merchant on GOLO. After careful review, we are currently unable to approve your application.</p>
+          <div style="background: #fee2e2; border-left: 4px solid #dc2626; padding: 15px; margin: 20px 0; border-radius: 4px;">
+            <p style="margin: 0;"><strong>Reason for decline:</strong><br>${reason}</p>
+          </div>
+          <p>Please review the provided feedback and ensure all documents and details meet our compliance requirements. You are welcome to re-apply once these issues are addressed.</p>
+          <p><a href="${registerLink}" style="display: inline-block; padding: 10px 20px; background: #dc2626; color: white; text-decoration: none; border-radius: 5px; font-weight: bold;">Re-apply on GOLO</a></p>
+          <br>
+          <p>Best regards,<br><strong>The GOLO Team</strong></p>
+        </div>
+      `,
+    };
+
+    try {
+      if (!this.enabled || !this.transporter) return false;
+      await this.transporter.sendMail(mailOptions);
+      this.logger.log(`✅ Decline email sent to merchant: ${email}`);
+      return true;
+    } catch (error: any) {
+      this.logger.error(`Failed to send merchant decline email: ${error.message}`);
+      return false;
+    }
   }
 
   private getReasonEmoji(reason: string): string {

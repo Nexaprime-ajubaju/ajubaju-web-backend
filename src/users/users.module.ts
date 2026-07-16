@@ -17,6 +17,7 @@ import { KafkaModule } from '../kafka/kafka.module';
 import { AdsModule } from '../ads/ads.module';
 import { Payment, PaymentSchema } from '../payments/schemas/payment.schema';
 import { RedisModule } from '../common/services/redis.module';
+import { EmailModule } from '../common/services/email.service';
 
 @Module({
   imports: [
@@ -54,6 +55,7 @@ import { RedisModule } from '../common/services/redis.module';
     KafkaModule, // User activity, registration events
     forwardRef(() => AdsModule),
     RedisModule, // Cache user profiles, wishlist, preferences
+    EmailModule, // Email service
   ],
   controllers: [UsersController],
   providers: [UsersService, JwtStrategy],

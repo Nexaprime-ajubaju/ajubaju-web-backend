@@ -169,15 +169,19 @@ export class PublicMerchantsController {
       const transporter = nodemailer.createTransport({
         host: smtpHost || 'smtp.gmail.com',
         port: smtpPort,
-        secure: false,
+        secure: smtpPort === 465,
         auth: {
           user: smtpUser,
           pass: smtpPass,
         },
+        tls: {
+          rejectUnauthorized: false
+        }
       });
 
       await transporter.sendMail({
-        from: smtpFrom,
+        from: `"GOLO No-Reply" <${smtpUser}>`,
+        replyTo: 'noreply@golo.com',
         to: email,
         subject: '🎉 Welcome to GOLO – Complete Your Merchant Registration',
         html: htmlBody,

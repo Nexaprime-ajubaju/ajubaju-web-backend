@@ -14,6 +14,7 @@ import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { SocialAuthDto } from './dto/social-auth.dto';
 import { UserResponseDto } from './dto/user-response.dto';
+
 import { KafkaService } from '../kafka/kafka.service';
 import { KAFKA_TOPICS } from '../common/constants/kafka-topics';
 import { ConfigService } from '@nestjs/config';
@@ -24,6 +25,7 @@ import { Payment, PaymentDocument, PaymentStatus } from '../payments/schemas/pay
 import { OfferLikeHistory, OfferLikeHistoryDocument } from '../offers/schemas/offer-like-history.schema';
 import { OfferPromotion, OfferPromotionDocument } from '../offers/schemas/offer-promotion.schema';
 import { RedisService } from '../common/services/redis.service';
+import { EmailService } from '../common/services/email.service';
 // OutboxService import removed as the module is not present in the repository
 
 import { validatePreferredCategories, normalizeCategories } from '../common/constants/categories';
@@ -206,6 +208,33 @@ export class UsersService implements OnModuleInit {
     return created;
   }
 
+  async validateRegistrationStep(dto: any): Promise<{ success: boolean; message?: string }> {
+    if (dto.step === 1) {
+      if (dto.email) {
+        const existingEmail = await this.userModel.findOne({ email: dto.email }).lean().exec();
+        if (existingEmail) {
+          throw new BadRequestException('Email is already registered.');
+        }
+      }
+      if (dto.phone) {
+        let phone = dto.phone;
+        const cleaned = phone.replace(/\D/g, "");
+        if (cleaned.length === 10) {
+          phone = `+91${cleaned}`;
+        } else if (!phone.startsWith("+")) {
+          phone = `+${cleaned}`;
+        }
+        
+        const existingPhone = await this.userModel.findOne({ phone: phone }).lean().exec();
+        if (existingPhone) {
+          throw new BadRequestException('Phone number is already registered.');
+        }
+      }
+    }
+    // Steps 2, 3, 4 can be validated here if needed in the future
+    return { success: true };
+  }
+
   async registerPushToken(userId: string, pushToken?: string): Promise<{ success: boolean; message: string; data?: { pushTokens: string[] } }> {
     const token = String(pushToken || '').trim();
     if (!token) {
@@ -280,6 +309,7 @@ export class UsersService implements OnModuleInit {
     @Optional() @InjectModel(OfferLikeHistory.name) private offerLikeHistoryModel?: Model<OfferLikeHistoryDocument>,
     @Optional() @InjectModel(OfferPromotion.name) private offerPromotionModel?: Model<OfferPromotionDocument>,
     @Optional() private outboxService?: any,
+    private emailService?: EmailService,
   ) {
     // Support both SMTP_* and EMAIL_* env var conventions.
     // The repo's `.env` currently uses EMAIL_* while OTP flow historically used SMTP_*.
@@ -447,8 +477,18 @@ export class UsersService implements OnModuleInit {
         storeLocation: registerDto.storeLocation?.trim() || undefined,
         storeLocationLatitude: latitude,
         storeLocationLongitude: longitude,
-        status: 'active',
+        businessType: registerDto.businessType?.trim() || undefined,
+        yearsInBusiness: registerDto.yearsInBusiness ? Number(registerDto.yearsInBusiness) : undefined,
+        businessDescription: registerDto.businessDescription?.trim() || undefined,
+        profilePhoto: registerDto.profilePhoto || undefined,
+        shopPhoto: registerDto.shopPhoto || undefined,
+        status: 'pending',
+        documents: registerDto.documents || undefined,
       });
+
+      if (this.emailService) {
+        await this.emailService.sendMerchantWelcomeEmail(registerDto.email, registerDto.storeName?.trim() || registerDto.name);
+      }
     }
 
     // Emit Kafka event
@@ -503,9 +543,15 @@ export class UsersService implements OnModuleInit {
       }
     }
 
-    if (user.accountType === 'merchant' && user.role !== UserRole.ADMIN && user.role !== UserRole.MERCHANT) {
-      user.role = UserRole.MERCHANT;
-      await user.save();
+    if (user.accountType === 'merchant') {
+      if (user.kycStatus !== 'Verified') {
+        throw new ForbiddenException(`Your merchant account is currently ${user.kycStatus ? user.kycStatus.toLowerCase() : 'pending'}. Please wait for admin approval before logging in.`);
+      }
+
+      if (user.role !== UserRole.ADMIN && user.role !== UserRole.MERCHANT) {
+        user.role = UserRole.MERCHANT;
+        await user.save();
+      }
     }
 
     // Auto-promote to admin if email matches config
@@ -868,8 +914,14 @@ export class UsersService implements OnModuleInit {
         throw new NotFoundException(`User with ID ${userId} not found`);
       }
       
+      // Fetch merchant profile if user is a merchant
+      let merchantProfile = null;
+      if (user.accountType === 'merchant') {
+        merchantProfile = await this.merchantModel.findOne({ userId: user._id }).lean().exec();
+      }
+
       this.logger.log(`User found: ${user.email}`);
-      return this.toResponseDto(user);
+      return this.toResponseDto(user, merchantProfile);
       
     } catch (error) {
       // Handle different types of errors
@@ -2165,19 +2217,27 @@ export class UsersService implements OnModuleInit {
   }
 
   async updateUserKycStatus(userId: string, kycStatus: string, rejectionReason?: string, adminId?: string, adminEmail?: string): Promise<any> {
-    this.logger.log(`Updating KYC status for user ${userId}: ${kycStatus}`);
+    this.logger.log(`[DEBUG] Updating KYC status for user ${userId}: ${kycStatus}`);
+    this.logger.log(`[DEBUG] User ID type: ${typeof userId}, length: ${userId.length}, value: "${userId}"`);
 
     const user = await this.userModel.findById(userId);
     if (!user) {
-      throw new NotFoundException('User not found');
+      this.logger.error(`[DEBUG] User not found in DB for ID: "${userId}"`);
+      throw new NotFoundException(`User not found for ID: ${userId}`);
     }
 
     user.kycStatus = kycStatus;
-    if (rejectionReason && kycStatus === 'Rejected') {
-      user.kycRejectionReason = rejectionReason;
-    }
 
     await user.save();
+
+    if (user.accountType === 'merchant' && this.emailService) {
+      const storeName = user.name || 'Merchant';
+      if (kycStatus === 'Verified') {
+        await this.emailService.sendMerchantApprovalEmail(user.email, storeName);
+      } else if (kycStatus === 'Rejected') {
+        await this.emailService.sendMerchantDeclineEmail(user.email, storeName, rejectionReason || 'No specific reason provided');
+      }
+    }
 
     // Log audit if audit service available
     if (this.auditLogsService) {
@@ -2227,6 +2287,8 @@ export class UsersService implements OnModuleInit {
       isEmailVerified: user.isEmailVerified || false,
       profile: user.profile || {},
       profilePhoto: user.profilePhoto || null,
+      kycStatus: user.kycStatus || 'Pending',
+      kycRejectionReason: user.kycRejectionReason,
       preferredCategories: Array.isArray(user.preferredCategories) ? user.preferredCategories : [],
       merchantProfile,
       iWantPreference: user.iWantPreference || null,
@@ -2328,5 +2390,7 @@ export class UsersService implements OnModuleInit {
     const existingFollow = await this.followModel.findOne({ userId, merchantId: targetId });
     return { success: true, isFollowing: !!existingFollow };
   }
+
+
 }
 

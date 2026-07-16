@@ -121,7 +121,11 @@ export class UsersController {
     return { success: true, data: user };
   }
 
-  // ==================== PUBLIC ROUTES ====================
+  @Post('validate-registration-step')
+  async validateRegistrationStep(@Body() dto: any) {
+    return this.usersService.validateRegistrationStep(dto);
+  }
+
   @Post('register')
   async register(@Body() dto: RegisterDto, @Ip() ip: string, @Req() req: any) {
     const user = await this.usersService.register(dto, ip, req?.headers?.['user-agent']);
@@ -275,6 +279,7 @@ export class UsersController {
     return { success: true, message: 'Password changed successfully', data: result };
   }
 
+
   // ==================== WISHLIST ====================
 
   @Get('wishlist')
@@ -370,6 +375,21 @@ export class UsersController {
   async deleteUser(@Param('id') id: string, @CurrentUser() admin: any) {
     await this.usersService.adminDeleteUser(id, admin.id, admin.email);
     return { success: true };
+  }
+
+  @Post('admin/users/:id/kyc')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  async updateUserKyc(
+    @Param('id') id: string,
+    @Body('kycStatus') kycStatus: string,
+    @Body('rejectionReason') rejectionReason: string,
+    @CurrentUser() admin: any
+  ) {
+    const adminId = admin?.id || 'test-admin';
+    const adminEmail = admin?.email || 'test@admin.com';
+    const data = await this.usersService.updateUserKycStatus(id, kycStatus, rejectionReason, adminId, adminEmail);
+    return { success: true, data };
   }
 
   // ==================== DYNAMIC ====================
