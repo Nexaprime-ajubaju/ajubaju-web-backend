@@ -287,7 +287,7 @@ export class OffersService implements OnModuleInit {
 
       if (payload.imageUrl && this.moderationService) {
         await this.moderationSecurityService.checkRestriction(merchantId);
-        const isSafe = await this.moderationService.isImageSafe(payload.imageUrl);
+        const isSafe = await this.moderationService.isImageSafe(payload.imageUrl, merchantId);
         if (!isSafe) {
           const imageHash = crypto.createHash('sha256').update(payload.imageUrl).digest('hex');
           await this.moderationSecurityService.handleFailure(merchantId, 'new_offer', imageHash, 'INAPPROPRIATE_CONTENT');
@@ -574,7 +574,7 @@ export class OffersService implements OnModuleInit {
     if (payload.imageUrl !== undefined) {
       if (payload.imageUrl && this.moderationService) {
         await this.moderationSecurityService.checkRestriction(merchantId, request._id.toString());
-        const isSafe = await this.moderationService.isImageSafe(payload.imageUrl);
+        const isSafe = await this.moderationService.isImageSafe(payload.imageUrl, merchantId);
         if (!isSafe) {
           const imageHash = crypto.createHash('sha256').update(payload.imageUrl).digest('hex');
           await this.moderationSecurityService.handleFailure(merchantId, request._id.toString(), imageHash, 'INAPPROPRIATE_CONTENT');

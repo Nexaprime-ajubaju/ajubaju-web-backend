@@ -182,9 +182,17 @@ export class BannersController {
   async getActiveHomepageBanners(
     @Query('limit') limit?: string,
     @Query('city') city?: string,
-    @Query('fullLocation') fullLocation?: string,
+    @Query('fullLocation') fullLocationStr?: string,
   ) {
     const safeLimit = Number(limit) || 5;
+    let fullLocation: { lat: number; lng: number; radius: number } | undefined;
+    if (fullLocationStr) {
+      try {
+        fullLocation = JSON.parse(fullLocationStr);
+      } catch (e) {
+        // ignore
+      }
+    }
     const rows = await this.bannersService.getActiveHomepageBanners(
       safeLimit,
       city,

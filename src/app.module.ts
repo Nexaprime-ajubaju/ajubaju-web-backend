@@ -3,7 +3,7 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
-import { ScheduleModule } from '@nestjs/schedule';
+
 import configuration from './config/configuration';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { KafkaModule } from './kafka/kafka.module';

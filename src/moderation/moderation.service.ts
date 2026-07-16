@@ -1,12 +1,15 @@
 import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import { ImageAnnotatorClient } from '@google-cloud/vision';
+import { RedisService } from '../common/services/redis.service';
+import { SecurityConfig } from '../security/config/security.config';
+import * as crypto from 'crypto';
 
 @Injectable()
 export class ModerationService {
   private readonly logger = new Logger(ModerationService.name);
   private client: ImageAnnotatorClient;
 
-  constructor() {
+  constructor(private readonly redisService: RedisService) {
     // Initializes the client. 
     // It will automatically pick up GOOGLE_APPLICATION_CREDENTIALS from the environment.
     try {
@@ -21,13 +24,35 @@ export class ModerationService {
    * Returns true if the image is safe, false if it contains inappropriate content.
    * @param imageUrl URL of the image to moderate.
    */
-  async isImageSafe(imageUrl: string): Promise<boolean> {
+  async isImageSafe(imageUrl: string, merchantId?: string): Promise<boolean> {
     // Development bypass
     if (process.env.MOCK_VISION_API === 'true') {
       this.logger.log(`[MOCK] Moderating image: ${imageUrl}`);
       // Simulate safe image. You can temporarily change this to 'return false' 
       // if you want to test the rejection behavior in the UI.
       return true;
+    }
+
+    let imageHash = '';
+    if (imageUrl) {
+      imageHash = crypto.createHash('sha256').update(imageUrl).digest('hex');
+      const cachedResult = await this.redisService.get<boolean>(`golo:moderation:cache:${imageHash}`);
+      if (cachedResult !== null && cachedResult !== undefined) {
+        this.logger.log(`[CACHE HIT] Returning cached moderation result for image`);
+        return cachedResult;
+      }
+    }
+
+    if (merchantId) {
+      const today = new Date().toISOString().split('T')[0];
+      const rateLimitKey = `golo:moderation:ratelimit:${merchantId}:${today}`;
+      const currentUsage = await this.redisService.get<number>(rateLimitKey) || 0;
+      
+      if (currentUsage >= SecurityConfig.maxDailyModerationCalls) {
+        throw new BadRequestException(`Daily image scan limit (${SecurityConfig.maxDailyModerationCalls}) exceeded to protect system resources. Please try again tomorrow.`);
+      }
+      
+      await this.redisService.set(rateLimitKey, currentUsage + 1, 86400); // 24 hours
     }
 
     if (!this.client) {
@@ -69,6 +94,7 @@ export class ModerationService {
       
       if (!detections) {
         this.logger.warn(`No SafeSearch data returned for image: ${imageUrl}`);
+        if (imageHash) await this.redisService.set(`golo:moderation:cache:${imageHash}`, true, 7 * 24 * 3600);
         return true; // If no detection data, assume safe
       }
 
@@ -82,10 +108,12 @@ export class ModerationService {
         this.logger.warn(
           `Image ${imageUrl} rejected! Adult: ${detections.adult}, Violence: ${detections.violence}, Racy: ${detections.racy}`
         );
+        if (imageHash) await this.redisService.set(`golo:moderation:cache:${imageHash}`, false, 7 * 24 * 3600);
         return false;
       }
 
       this.logger.log(`Image ${imageUrl} approved! Adult: ${detections.adult}, Violence: ${detections.violence}, Racy: ${detections.racy}`);
+      if (imageHash) await this.redisService.set(`golo:moderation:cache:${imageHash}`, true, 7 * 24 * 3600);
       return true;
 
     } catch (error) {

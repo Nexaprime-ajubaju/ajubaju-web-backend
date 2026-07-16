@@ -107,14 +107,19 @@ export class ModerationSecurityService {
     }
 
     // 3. Merchant-wide lock (Level 2)
-    const windowStart = new Date(nowUTC.getTime() - SecurityConfig.rollingWindowHours * 3600000);
+    const merchant = await this.merchantModel.findOne({ userId: merchantId }).exec();
+    
+    let windowStart = new Date(nowUTC.getTime() - SecurityConfig.rollingWindowHours * 3600000);
+    if (merchant?.security?.lastRestrictionAt && merchant.security.lastRestrictionAt > windowStart) {
+      windowStart = merchant.security.lastRestrictionAt;
+    }
+
     const merchantFailures24h = await this.moderationAttemptModel.countDocuments({
       merchantId,
       createdAt: { $gte: windowStart },
     }).exec();
 
     if (merchantFailures24h >= SecurityConfig.merchantFailureLimit) {
-      const merchant = await this.merchantModel.findOne({ userId: merchantId }).exec();
       const restrictionCount = (merchant?.security?.restrictionCount30Days || 0) + 1;
       
       const restrictionHoursIndex = Math.min(restrictionCount - 1, SecurityConfig.merchantRestrictionHours.length - 1);
@@ -132,7 +137,10 @@ export class ModerationSecurityService {
           ]
         },
         { 
-          $set: { 'security.contentUploadRestrictionUntil': restrictedUntil },
+          $set: { 
+            'security.contentUploadRestrictionUntil': restrictedUntil,
+            'security.lastRestrictionAt': nowUTC
+          },
           $inc: { 'security.restrictionCount30Days': 1 }
         },
         { new: true }

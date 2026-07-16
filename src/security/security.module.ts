@@ -6,6 +6,8 @@ import { SecurityEvent, SecurityEventSchema } from './schemas/security-event.sch
 import { MerchantModerationAttempt, MerchantModerationAttemptSchema } from './schemas/merchant-moderation-attempt.schema';
 import { Merchant, MerchantSchema } from '../users/schemas/merchant.schema';
 import { OfferPromotion, OfferPromotionSchema } from '../offers/schemas/offer-promotion.schema';
+import { User, UserSchema } from '../users/schemas/user.schema';
+import { Notification, NotificationSchema } from '../users/schemas/notification.schema';
 import { SecurityAdminController } from './security-admin.controller';
 
 @Module({
@@ -15,6 +17,8 @@ import { SecurityAdminController } from './security-admin.controller';
       { name: MerchantModerationAttempt.name, schema: MerchantModerationAttemptSchema },
       { name: Merchant.name, schema: MerchantSchema },
       { name: OfferPromotion.name, schema: OfferPromotionSchema },
+      { name: User.name, schema: UserSchema },
+      { name: Notification.name, schema: NotificationSchema },
     ]),
   ],
   controllers: [SecurityAdminController],

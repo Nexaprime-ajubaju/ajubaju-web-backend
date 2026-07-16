@@ -110,8 +110,10 @@ export class BannersService implements OnModuleInit {
     return `golo:banners:admin:${status || 'all'}`;
   }
 
-  private activeBannersCacheKey(limit: number): string {
-    return `golo:banners:active:${limit}`;
+  private activeBannersCacheKey(limit: number, city?: string, location?: { lat: number; lng: number; radius: number }): string {
+    const cityStr = city ? `:city:${city.toLowerCase().replace(/[^a-z0-9]/g, '')}` : '';
+    const locStr = location ? `:loc:${location.lat.toFixed(2)},${location.lng.toFixed(2)},${location.radius}` : '';
+    return `golo:banners:active:${limit}${cityStr}${locStr}`;
   }
 
   private parseCalendarDate(dateStr: string): Date | null {
@@ -651,8 +653,12 @@ export class BannersService implements OnModuleInit {
     return request;
   }
 
-  async getActiveHomepageBanners(limit = 5): Promise<BannerPromotion[]> {
-    const cacheKey = this.activeBannersCacheKey(limit);
+  async getActiveHomepageBanners(
+    limit = 5,
+    city?: string,
+    location?: { lat: number; lng: number; radius: number }
+  ): Promise<BannerPromotion[]> {
+    const cacheKey = this.activeBannersCacheKey(limit, city, location);
     const cached = await this.redisService.get<BannerPromotion[]>(cacheKey);
     if (cached) {
       return cached;
@@ -662,16 +668,34 @@ export class BannersService implements OnModuleInit {
 
     const now = new Date();
 
-    const rows = await this.bannerPromotionModel
-      .find({
-        promotionType: BannerPromotionType.BANNER,
-        status: {
-          $in: [BannerPromotionStatus.APPROVED, BannerPromotionStatus.ACTIVE],
+    const query: any = {
+      promotionType: BannerPromotionType.BANNER,
+      status: {
+        $in: [BannerPromotionStatus.APPROVED, BannerPromotionStatus.ACTIVE],
+      },
+      isHomepageVisible: true,
+      startDate: { $lte: now },
+      endDate: { $gte: now },
+    };
+
+    if (city) {
+      query.targetCities = city;
+    }
+    
+    if (location && location.lat && location.lng && location.radius) {
+      query.targetLocations = {
+        $near: {
+          $geometry: {
+            type: 'Point',
+            coordinates: [location.lng, location.lat],
+          },
+          $maxDistance: location.radius,
         },
-        isHomepageVisible: true,
-        startDate: { $lte: now },
-        endDate: { $gte: now },
-      })
+      };
+    }
+
+    const rows = await this.bannerPromotionModel
+      .find(query)
       .sort({
         status: 1,
         paidAt: -1,

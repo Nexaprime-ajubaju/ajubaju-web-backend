@@ -465,8 +465,13 @@ export class UsersController {
   @Get('admin/users')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
-  async adminGetAllUsers() {
-    return { success: true, data: await this.usersService.adminGetAllUsers() };
+  async adminGetAllUsers(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string
+  ) {
+    const pageNum = parseInt(page) || 1;
+    const limitNum = parseInt(limit) || 10;
+    return { success: true, data: await this.usersService.adminGetAllUsers(pageNum, limitNum) };
   }
 
   @Delete('admin/users/:id')

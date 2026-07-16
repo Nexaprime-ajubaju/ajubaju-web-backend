@@ -77,7 +77,7 @@ export class MerchantProductsService implements OnModuleInit {
     return 'In Stock';
   }
 
-  private async moderateVideo(videoUrl: string): Promise<void> {
+  private async moderateVideo(videoUrl: string, merchantId: string): Promise<void> {
     if (!videoUrl) return;
 
     try {
@@ -98,7 +98,7 @@ export class MerchantProductsService implements OnModuleInit {
           const frames = [frame0, frame30, frame70];
 
           for (const frame of frames) {
-            const isSafe = await this.moderationService.isImageSafe(frame);
+            const isSafe = await this.moderationService.isImageSafe(frame, merchantId);
             if (!isSafe) {
               throw new BadRequestException('The uploaded video contains inappropriate content and cannot be published.');
             }
@@ -117,7 +117,7 @@ export class MerchantProductsService implements OnModuleInit {
   async create(merchantId: string, dto: CreateMerchantProductDto) {
     if (dto.images && dto.images.length > 0 && this.moderationService) {
       for (const imageUrl of dto.images) {
-        const isSafe = await this.moderationService.isImageSafe(imageUrl);
+        const isSafe = await this.moderationService.isImageSafe(imageUrl, merchantId);
         if (!isSafe) {
           throw new BadRequestException('One or more images contain inappropriate content and cannot be uploaded.');
         }
@@ -150,7 +150,7 @@ export class MerchantProductsService implements OnModuleInit {
       };
 
       if (dto.videoUrl) {
-        await this.moderateVideo(dto.videoUrl);
+        await this.moderateVideo(dto.videoUrl, merchantId);
       }
 
       const product = await this.transactionService.execute(async (session) => {
@@ -485,7 +485,7 @@ export class MerchantProductsService implements OnModuleInit {
 
       if (sanitizedImages.length > 0) {
         for (const imageUrl of sanitizedImages) {
-          const isSafe = await this.moderationService.isImageSafe(imageUrl);
+          const isSafe = await this.moderationService.isImageSafe(imageUrl, merchantId);
           if (!isSafe) {
             throw new BadRequestException('One or more images contain inappropriate content and cannot be uploaded.');
           }
@@ -498,7 +498,7 @@ export class MerchantProductsService implements OnModuleInit {
     await this.transactionService.execute(async (session) => {
       if (dto.videoUrl !== undefined) {
         if (dto.videoUrl !== null && dto.videoUrl !== product.videoUrl) {
-          await this.moderateVideo(dto.videoUrl);
+          await this.moderateVideo(dto.videoUrl, merchantId);
         }
         product.videoUrl = dto.videoUrl;
       }
