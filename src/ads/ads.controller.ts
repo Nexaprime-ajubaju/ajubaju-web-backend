@@ -1596,4 +1596,49 @@ export class AdsController {
       };
     }
   }
+
+  // ==================== ADMIN BULK ACTIONS ====================
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  @Post('admin/bulk/status')
+  async bulkUpdateStatus(
+    @Body() body: { adIds: string[]; status: string; adminNotes?: string },
+    @CurrentUser() user: any,
+  ) {
+    if (!body.adIds || !body.adIds.length) {
+      return { success: false, message: 'adIds array is required' };
+    }
+    try {
+      const result = await this.adsService.bulkUpdateStatus(
+        body.adIds,
+        body.status,
+        body.adminNotes,
+        user.id,
+      );
+      return { success: true, message: `Successfully updated ${result.count} ads`, data: result };
+    } catch (error: any) {
+      this.logger.error(`Error bulk updating ads: ${error.message}`);
+      return { success: false, message: 'Failed to bulk update ads', error: error.message };
+    }
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  @Post('admin/bulk/delete')
+  async bulkDeleteAds(
+    @Body() body: { adIds: string[] },
+    @CurrentUser() user: any,
+  ) {
+    if (!body.adIds || !body.adIds.length) {
+      return { success: false, message: 'adIds array is required' };
+    }
+    try {
+      const result = await this.adsService.bulkDeleteAds(body.adIds);
+      return { success: true, message: `Successfully deleted ${result.count} ads`, data: result };
+    } catch (error: any) {
+      this.logger.error(`Error bulk deleting ads: ${error.message}`);
+      return { success: false, message: 'Failed to bulk delete ads', error: error.message };
+    }
+  }
 }

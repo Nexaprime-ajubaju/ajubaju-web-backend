@@ -109,6 +109,8 @@ export class ModerationService {
           `Image ${imageUrl} rejected! Adult: ${detections.adult}, Violence: ${detections.violence}, Racy: ${detections.racy}`
         );
         if (imageHash) await this.redisService.set(`golo:moderation:cache:${imageHash}`, false, 7 * 24 * 3600);
+        
+        await this.deleteFromCloudinary(imageUrl);
         return false;
       }
 
@@ -123,6 +125,28 @@ export class ModerationService {
       // but you could also choose to return true if you don't want to block users when Google API is down.
       // For strict moderation, return false.
       throw new BadRequestException('Image moderation failed. Please try a different image or try again later.');
+    }
+  }
+
+  private async deleteFromCloudinary(imageUrl: string) {
+    try {
+      if (!imageUrl || !imageUrl.includes('cloudinary.com')) return;
+      
+      // Extract public_id from Cloudinary URL
+      const matches = imageUrl.match(/\/upload\/(?:v\d+\/)?([^\.]+)/);
+      if (matches && matches[1]) {
+        const publicId = matches[1];
+        this.logger.log(`Deleting rejected image from Cloudinary: ${publicId}`);
+        const cloudinary = require('cloudinary').v2;
+        cloudinary.config({
+          cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+          api_key: process.env.CLOUDINARY_API_KEY,
+          api_secret: process.env.CLOUDINARY_API_SECRET,
+        });
+        await cloudinary.uploader.destroy(publicId);
+      }
+    } catch (error) {
+      this.logger.error(`Failed to delete image from Cloudinary: ${error.message}`, error.stack);
     }
   }
 }

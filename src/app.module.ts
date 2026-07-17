@@ -40,6 +40,7 @@ import { v4 as uuidv4 } from 'uuid';
 
 import { FeatureStoreModule } from './feature-store/feature-store.module';
 import { TransactionModule } from './common/services/transaction.module';
+import { CategoriesModule } from './categories/categories.module';
 
 const logger = new Logger('MongoDB');
 
@@ -185,6 +186,7 @@ const logger = new Logger('MongoDB');
     RecommendationEngineModule,
     ModerationModule,
     SecurityModule,
+    CategoriesModule,
   ],
   controllers: [AppController],
   providers: [
