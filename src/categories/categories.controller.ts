@@ -1,67 +1,39 @@
-import { Controller, Get, Post, Body, Put, Param, Delete, HttpCode, HttpStatus } from '@nestjs/common';
+import { Controller, Get, Post, Body, Put, Param, Delete, UseGuards } from '@nestjs/common';
 import { CategoriesService } from './categories.service';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
+import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { RolesGuard } from '../common/guards/roles.guard';
+import { Roles } from '../common/decorators/roles.decorator';
+import { UserRole } from '../users/schemas/user.schema';
 
-@Controller('categories')
+@Controller('admin/categories')
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles(UserRole.ADMIN, UserRole.MERCHANT)
 export class CategoriesController {
   constructor(private readonly categoriesService: CategoriesService) {}
 
   @Post()
-  @HttpCode(HttpStatus.CREATED)
   async create(@Body() createCategoryDto: CreateCategoryDto) {
-    const category = await this.categoriesService.create(createCategoryDto);
-    return {
-      success: true,
-      message: 'Category created successfully',
-      data: category,
-    };
+    const data = await this.categoriesService.create(createCategoryDto);
+    return { success: true, data };
   }
 
   @Get()
   async findAll() {
-    const categories = await this.categoriesService.findAll();
-    return {
-      success: true,
-      data: categories,
-    };
-  }
-
-  // Unified endpoint to match the old stats format for easy frontend migration
-  @Get('stats')
-  async getStats() {
-    const stats = await this.categoriesService.getStats();
-    return {
-      success: true,
-      data: stats,
-    };
-  }
-
-  @Get(':id')
-  async findOne(@Param('id') id: string) {
-    const category = await this.categoriesService.findOne(id);
-    return {
-      success: true,
-      data: category,
-    };
+    const data = await this.categoriesService.findAll();
+    return { success: true, data };
   }
 
   @Put(':id')
   async update(@Param('id') id: string, @Body() updateCategoryDto: UpdateCategoryDto) {
-    const category = await this.categoriesService.update(id, updateCategoryDto);
-    return {
-      success: true,
-      message: 'Category updated successfully',
-      data: category,
-    };
+    const data = await this.categoriesService.update(id, updateCategoryDto);
+    return { success: true, data };
   }
 
   @Delete(':id')
   async remove(@Param('id') id: string) {
     await this.categoriesService.remove(id);
-    return {
-      success: true,
-      message: 'Category deleted successfully',
-    };
+    return { success: true };
   }
 }

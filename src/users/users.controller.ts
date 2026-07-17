@@ -135,51 +135,6 @@ export class UsersController {
     return { success: true, data: user };
   }
 
-  // ==================== ADMIN BULK ACTIONS ====================
-  @Post('admin/bulk/ban')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN)
-  async bulkBan(
-    @Body('userIds') userIds: string[],
-    @Body('reason') reason: string,
-    @Body('duration') duration: number,
-    @CurrentUser() admin: any,
-  ) {
-    if (!userIds || userIds.length === 0) throw new BadRequestException('userIds array is required');
-    const results = await Promise.all(
-      userIds.map(id => this.usersService.banUser(id, reason || 'Bulk suspend', admin.id, admin.email, duration || 30).catch(e => null))
-    );
-    return { success: true, message: `Successfully suspended ${results.filter(Boolean).length} users` };
-  }
-
-  @Post('admin/bulk/unban')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN)
-  async bulkUnban(
-    @Body('userIds') userIds: string[],
-    @CurrentUser() admin: any,
-  ) {
-    if (!userIds || userIds.length === 0) throw new BadRequestException('userIds array is required');
-    const results = await Promise.all(
-      userIds.map(id => this.usersService.unbanUser(id, admin.id, admin.email).catch(e => null))
-    );
-    return { success: true, message: `Successfully unsuspended ${results.filter(Boolean).length} users` };
-  }
-
-  @Post('admin/bulk/delete')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN)
-  async bulkDelete(
-    @Body('userIds') userIds: string[],
-    @CurrentUser() admin: any,
-  ) {
-    if (!userIds || userIds.length === 0) throw new BadRequestException('userIds array is required');
-    const results = await Promise.all(
-      userIds.map(id => this.usersService.adminDeleteUser(id, admin.id, admin.email).catch(e => null))
-    );
-    return { success: true, message: `Successfully deleted ${results.filter(Boolean).length} users` };
-  }
-
   // ==================== PUBLIC ROUTES ====================
   @Post('register')
   async register(@Body() dto: RegisterDto, @Ip() ip: string, @Req() req: any) {

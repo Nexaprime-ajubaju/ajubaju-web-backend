@@ -164,6 +164,7 @@ const logger = new Logger('MongoDB');
     KafkaModule,
     OutboxModule,
     AdsModule,
+    CategoriesModule,
     UsersModule,
     MerchantsModule,
     PaymentsModule,
@@ -186,7 +187,6 @@ const logger = new Logger('MongoDB');
     RecommendationEngineModule,
     ModerationModule,
     SecurityModule,
-    CategoriesModule,
   ],
   controllers: [AppController],
   providers: [

@@ -2529,35 +2529,6 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
   }
 
   /* ============================================================
-     ADMIN BULK HELPERS
-  ============================================================ */
-
-  async bulkUpdateStatus(adIds: string[], status: string, adminNotes?: string, adminId?: string): Promise<{ success: boolean; count: number }> {
-    try {
-      const result = await this.adModel.updateMany(
-        { adId: { $in: adIds } },
-        { $set: { status, adminNotes: adminNotes || 'Bulk action' } }
-      ).exec();
-      this.logger.log(`Bulk updated ${result.modifiedCount} ads to ${status}`);
-      return { success: true, count: result.modifiedCount };
-    } catch (e) {
-      this.logger.error(`Error bulk updating status: ${e.message}`);
-      throw e;
-    }
-  }
-
-  async bulkDeleteAds(adIds: string[]): Promise<{ success: boolean; count: number }> {
-    try {
-      const result = await this.adModel.deleteMany({ adId: { $in: adIds } }).exec();
-      this.logger.log(`Bulk deleted ${result.deletedCount} ads`);
-      return { success: true, count: result.deletedCount };
-    } catch (e) {
-      this.logger.error(`Error bulk deleting ads: ${e.message}`);
-      throw e;
-    }
-  }
-
-  /* ============================================================
      ADMIN COUNT HELPERS (used by UsersService.adminGetStats)
   ============================================================ */
 

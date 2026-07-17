@@ -158,3 +158,4 @@ async function bootstrap() {
   logger.log(`HTTP mode enabled. Server is running on port ${port}`);
 }
 bootstrap().catch((err) => console.error('--> BOOTSTRAP FAILED', err));
+

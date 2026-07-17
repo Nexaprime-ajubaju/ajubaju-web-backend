@@ -11,17 +11,23 @@ export class Category {
   @Prop({ required: true, unique: true })
   slug: string;
 
-  @Prop({ default: 'None (Root Category)' })
+  @Prop({ default: '-' })
   parent: string;
 
-  @Prop({ default: 'Active' })
+  @Prop({ default: 'Active', enum: ['Active', 'Hidden'] })
   status: string;
 
-  @Prop({ default: false })
-  featured: boolean;
-  
-  @Prop({ default: 0 })
-  listings: number; // Placeholder for static listing count
+  @Prop()
+  description: string;
+
+  @Prop()
+  metaTitle: string;
+
+  @Prop()
+  metaDescription: string;
+
+  @Prop()
+  icon: string;
 }
 
 export const CategorySchema = SchemaFactory.createForClass(Category);
