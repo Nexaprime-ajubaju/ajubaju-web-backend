@@ -17,6 +17,7 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 dotenv.config();
 
 const vercelOriginPattern = /^https:\/\/[a-z0-9-]+\.vercel\.app$/i;
+const renderOriginPattern = /^https:\/\/[a-z0-9-]+\.onrender\.com$/i;
 
 const parseBoolean = (value?: string): boolean => {
   if (!value) return false;
@@ -28,7 +29,7 @@ const isAllowedOrigin = (origin: string, allowedOrigins: string[]): boolean => {
     return true;
   }
 
-  return vercelOriginPattern.test(origin);
+  return vercelOriginPattern.test(origin) || renderOriginPattern.test(origin);
 };
 
 const validationPipe = new ValidationPipe({

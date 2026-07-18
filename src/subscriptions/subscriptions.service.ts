@@ -60,8 +60,9 @@ export class SubscriptionsService {
     return plan;
   }
 
-  async getAllPublicPlans() {
-    const plans = await this.subscriptionPlanModel.find({ isActive: true }).sort({ price: 1 }).lean().exec();
+  async getAllPublicPlans(isAdmin = false) {
+    const query = isAdmin ? {} : { isActive: true };
+    const plans = await this.subscriptionPlanModel.find(query).sort({ price: 1 }).lean().exec();
     
     return plans.map(plan => {
       const displayFeatures = [];
@@ -119,9 +120,38 @@ export class SubscriptionsService {
         price: plan.price || 0,
         description: plan.description || "Start scaling your business",
         isPopular: plan.name.toLowerCase().includes('pro'),
+        isActive: plan.isActive !== false,
         displayFeatures
       };
     });
+  }
+
+  async getPlanById(id: string) {
+    const plans = await this.subscriptionPlanModel.find().exec();
+    const plan = plans.find(p => p._id.toString() === id || p.name.toLowerCase().replace(/\s+/g, '-') === id || p.name === id);
+    if (!plan) throw new NotFoundException('Plan not found');
+    return plan;
+  }
+
+  async updatePlan(id: string, data: any) {
+    const plans = await this.subscriptionPlanModel.find().exec();
+    const plan = plans.find(p => p._id.toString() === id || p.name.toLowerCase().replace(/\s+/g, '-') === id || p.name === id);
+    
+    if (!plan) throw new NotFoundException('Plan not found');
+    
+    if (data.features) {
+      plan.features = data.features;
+      plan.markModified('features');
+    }
+    if (data.price !== undefined) {
+      plan.price = data.price;
+    }
+    if (data.isActive !== undefined) {
+      plan.isActive = data.isActive;
+    }
+    
+    await plan.save();
+    return plan;
   }
 
   async calculateInitialTrialDates() {

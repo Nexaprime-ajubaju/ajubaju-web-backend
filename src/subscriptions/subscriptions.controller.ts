@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Req, UseGuards, BadRequestException } from '@nestjs/common';
+import { Controller, Get, Post, Put, Body, Req, UseGuards, BadRequestException } from '@nestjs/common';
 import { SubscriptionsService } from './subscriptions.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 
@@ -7,8 +7,21 @@ export class SubscriptionsController {
   constructor(private readonly subscriptionsService: SubscriptionsService) {}
 
   @Get('plans')
-  async getPublicPlans() {
-    return this.subscriptionsService.getAllPublicPlans();
+  async getPublicPlans(@Req() req: any) {
+    const isAdmin = req.query.admin === 'true';
+    return this.subscriptionsService.getAllPublicPlans(isAdmin);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('plans/:id')
+  async getPlanById(@Req() req: any) {
+    return this.subscriptionsService.getPlanById(req.params.id);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Put('plans/:id')
+  async updatePlan(@Req() req: any, @Body() body: any) {
+    return this.subscriptionsService.updatePlan(req.params.id, body);
   }
 
   @UseGuards(JwtAuthGuard)
