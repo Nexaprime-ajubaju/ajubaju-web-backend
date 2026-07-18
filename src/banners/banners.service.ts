@@ -517,6 +517,12 @@ export class BannersService implements OnModuleInit {
       request.description = payload.description.trim();
     }
     if (payload.imageUrl !== undefined) {
+      if (this.moderationService && payload.imageUrl && payload.imageUrl !== request.imageUrl) {
+        const isSafe = await this.moderationService.isImageSafe(payload.imageUrl);
+        if (!isSafe) {
+          throw new BadRequestException('Image contains inappropriate content and cannot be uploaded.');
+        }
+      }
       request.imageUrl = payload.imageUrl;
     }
     if (payload.recommendedSize !== undefined) {
