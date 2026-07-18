@@ -6,6 +6,7 @@ import { MerchantBannerCredits, MerchantBannerCreditsSchema } from './schemas/me
 import { Merchant, MerchantSchema } from '../users/schemas/merchant.schema';
 import { SubscriptionsService } from './subscriptions.service';
 import { SubscriptionsController } from './subscriptions.controller';
+import { MerchantSubscriptionsController } from './merchant-subscriptions.controller';
 import { SubscriptionSeed } from './subscription.seed';
 
 @Global()
@@ -19,7 +20,7 @@ import { SubscriptionSeed } from './subscription.seed';
     ]),
   ],
   providers: [SubscriptionsService, SubscriptionSeed],
-  controllers: [SubscriptionsController],
+  controllers: [SubscriptionsController, MerchantSubscriptionsController],
   exports: [SubscriptionsService],
 })
 export class SubscriptionsModule {}

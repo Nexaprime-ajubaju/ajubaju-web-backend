@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { SubscriptionPlan, SubscriptionPlanDocument } from './schemas/subscription-plan.schema';
@@ -154,6 +154,86 @@ export class SubscriptionsService {
     return plan;
   }
 
+  async createPlan(data: any) {
+    // Generate default features if not provided
+    const defaultFeatures = {
+      inventory: { maxProducts: 50 },
+      offers: { maxActive: 5, maxDurationDays: 15 },
+      analytics: { basic: true, advanced: false, ageGender: false },
+      support: { level: 'email' },
+      promotions: { bannersPerMonth: 0, priorityPlacement: false },
+      loyalty: { enabled: false, customRewards: false },
+      locations: { max: 1 },
+      search: { sponsoredRank: 0 },
+      website: { enabled: true }
+    };
+    
+    const newPlan = new this.subscriptionPlanModel({
+      name: data.name,
+      description: data.description || 'New subscription plan',
+      price: data.price || 0,
+      isActive: data.isActive !== false,
+      isSystem: false,
+      features: data.features || defaultFeatures
+    });
+    
+    await newPlan.save();
+    return newPlan;
+  }
+
+  async getAnalytics() {
+    // Get all plans
+    const plansCount = await this.subscriptionPlanModel.countDocuments();
+    
+    // Get all merchants
+    const merchants = await this.merchantModel.find().exec();
+    
+    const activeMerchantsByPlan: Record<string, number> = {};
+    let paid = 0;
+    let trials = 0;
+    let expired = 0;
+    
+    for (const merchant of merchants) {
+      let status = merchant.subscription?.status;
+      let planId = merchant.subscription?.planId;
+
+      if (!merchant.subscription || !planId || planId.toLowerCase() === 'free tier') {
+        status = 'ACTIVE';
+        planId = 'Free Tier';
+      }
+
+      if (status === 'TRIAL' && merchant.subscription?.trialEndsAt) {
+        if (moment().isAfter(moment(merchant.subscription.trialEndsAt))) {
+          status = 'ACTIVE';
+          planId = 'Free Tier';
+        } else {
+          trials++;
+        }
+      } else if (status === 'EXPIRED') {
+        expired++;
+      }
+
+      if (status === 'ACTIVE' && planId) {
+        activeMerchantsByPlan[planId] = (activeMerchantsByPlan[planId] || 0) + 1;
+        
+        if (planId !== 'Free Tier' && planId.toLowerCase() !== 'free tier') {
+          paid++;
+        }
+      }
+    }
+    
+    return {
+      plans: plansCount,
+      trials,
+      paid,
+      expired,
+      upgrades: 0,
+      downgrades: 0,
+      revenue: 0,
+      activeMerchantsByPlan
+    };
+  }
+
   async calculateInitialTrialDates() {
     const trialStartDate = new Date();
     const trialEndDate = moment(trialStartDate).add(50, 'days').toDate();
@@ -284,5 +364,89 @@ export class SubscriptionsService {
 
     await merchant.save();
     return { success: true, plan: planName, expiresAt };
+  }
+
+  async deletePlan(id: string) {
+    const plans = await this.subscriptionPlanModel.find().exec();
+    const plan = plans.find(p => p._id.toString() === id || p.name.toLowerCase().replace(/\s+/g, '-') === id || p.name === id);
+    if (!plan) throw new NotFoundException('Plan not found');
+    
+    // Check if it's a system plan
+    if (plan.isSystem) {
+      throw new BadRequestException('Cannot delete system plans (e.g. Free Tier)');
+    }
+    
+    await this.subscriptionPlanModel.deleteOne({ _id: plan._id });
+    return { success: true };
+  }
+
+  async getMerchantsByPlan(planName: string) {
+    // Note: The param could be id format e.g. "free-tier"
+    // So resolve to true plan name first
+    const plans = await this.subscriptionPlanModel.find().exec();
+    const plan = plans.find(p => p.name.toLowerCase().replace(/\s+/g, '-') === planName || p.name === planName);
+    const resolvedPlanName = plan ? plan.name : planName;
+
+    const merchants = await this.merchantModel.find({ 'subscription.planId': resolvedPlanName })
+      .populate({ path: 'userId', select: 'firstName lastName email phoneNumber' })
+      .exec();
+
+    return merchants.map(m => ({
+      _id: m._id,
+      merchantId: m.userId, // Send back userId as merchantId for admin panel
+      businessName: (m as any).storeName, // Store name used as business name
+      status: m.subscription?.status,
+      trialEndsAt: m.subscription?.trialEndsAt,
+      startedAt: m.subscription?.startedAt,
+      expiresAt: m.subscription?.expiresAt,
+    }));
+  }
+
+  async getMerchantSubscription(merchantId: string) {
+    const merchant = await this.merchantModel.findOne({ userId: merchantId }).exec();
+    if (!merchant) throw new NotFoundException('Merchant not found');
+    
+    // We already have getPlanDetails(merchant)
+    return this.getPlanDetails(merchant as any);
+  }
+
+  async assignMerchantSubscription(merchantId: string, data: any) {
+    const merchant = await this.merchantModel.findOne({ userId: merchantId }).exec();
+    if (!merchant) throw new NotFoundException('Merchant not found');
+
+    const plan = await this.subscriptionPlanModel.findOne({ name: data.planId }).exec();
+    if (!plan) throw new NotFoundException('Plan not found');
+
+    const startedAt = data.startedAt ? new Date(data.startedAt) : new Date();
+    const expiresAt = data.expiresAt ? new Date(data.expiresAt) : moment(startedAt).add(1, data.billingCycle === 'yearly' ? 'year' : 'month').toDate();
+
+    merchant.subscription = {
+      planId: plan.name,
+      status: data.status || 'ACTIVE',
+      startedAt,
+      expiresAt,
+      trialEndsAt: data.trialEndsAt ? new Date(data.trialEndsAt) : (merchant.subscription?.trialEndsAt || null),
+      billingCycle: data.billingCycle || 'monthly',
+      autoRenew: data.autoRenew !== false,
+      assignedBy: 'admin',
+      assignedAt: new Date()
+    };
+
+    await merchant.save();
+
+    // Log history
+    await this.historyModel.create({
+      merchantId,
+      action: 'ADMIN_UPDATE',
+      planId: plan.name,
+      performedBy: 'admin',
+      details: data
+    });
+
+    return { success: true };
+  }
+
+  async getMerchantSubscriptionHistory(merchantId: string) {
+    return this.historyModel.find({ merchantId }).sort({ createdAt: -1 }).exec();
   }
 }

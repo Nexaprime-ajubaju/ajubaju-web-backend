@@ -7,11 +7,13 @@ import {
   SystemSettings,
   SystemSettingsSchema,
 } from './schemas/system-settings.schema';
+import { Merchant, MerchantSchema } from '../users/schemas/merchant.schema';
 
 @Module({
   imports: [
     MongooseModule.forFeature([
       { name: SystemSettings.name, schema: SystemSettingsSchema },
+      { name: Merchant.name, schema: MerchantSchema },
     ]),
   ],
   controllers: [SystemSettingsController],
