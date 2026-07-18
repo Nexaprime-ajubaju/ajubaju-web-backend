@@ -8,7 +8,9 @@ export class Property {
   @Prop({ enum: ['Rent', 'Sell'] })
   listingType?: string;
 
-  @Prop({ enum: ['Apartment', 'House', 'Villa', 'Commercial', 'Land', 'Office'] })
+  @Prop({
+    enum: ['Apartment', 'House', 'Villa', 'Commercial', 'Land', 'Office'],
+  })
   propertyType?: string;
 
   @Prop()

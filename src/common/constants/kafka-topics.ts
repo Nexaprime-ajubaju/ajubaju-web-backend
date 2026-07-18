@@ -8,7 +8,7 @@ export const KAFKA_TOPICS = {
   AD_GET_BY_USER: 'ad.get.by.user',
   AD_SEARCH: 'ad.search',
   AD_GET_NEARBY: 'ad.get.nearby',
-  
+
   // Ad Events (Responses/Notifications)
   AD_CREATED: 'ad.created',
   AD_UPDATED: 'ad.updated',
@@ -31,14 +31,13 @@ export const KAFKA_TOPICS = {
   OFFER_PROMOTION_REVIEWED: 'offer.promotion.reviewed',
   OFFER_PROMOTION_PAID: 'offer.promotion.paid',
   OFFER_PROMOTION_DELETED: 'offer.promotion.deleted',
-  
+
   // Responses
   AD_RESPONSE: 'ad.response',
   AD_ERROR: 'ad.error',
-  
+
   // Dead Letter Queue
   AD_DLQ: 'ad.dlq',
-
 
   // User Events
   USER_REGISTERED: 'user.registered',
@@ -46,7 +45,7 @@ export const KAFKA_TOPICS = {
   USER_LOGGED_OUT: 'user.logged.out',
   USER_UPDATED: 'user.updated',
   USER_DELETED: 'user.deleted',
-  
+
   // Ad-User integration
   USER_ADS_FETCHED: 'user.ads.fetched',
   USER_ADS_CREATED: 'user.ads.created',
@@ -135,5 +134,4 @@ export const KAFKA_TOPICS = {
   // Merchant Dashboard Commands/Events
   MERCHANT_DASHBOARD_SUMMARY: 'merchant.dashboard.summary',
   MERCHANT_DASHBOARD_SUMMARY_GENERATED: 'merchant.dashboard.summary.generated',
-
 };

@@ -2,7 +2,15 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { Model } from 'mongoose';
 import { getModelToken } from '@nestjs/mongoose';
-import { BannerPromotion, BannerPromotionType, BannerPromotionStatus, BannerPaymentStatus } from './banners/schemas/banner-promotion.schema';
+import {
+  BannerPromotion,
+  BannerPromotionType,
+} from './banners/schemas/banner-promotion.schema';
+import {
+  OfferPromotion,
+  OfferPromotionStatus,
+  OfferPaymentStatus,
+} from './offers/schemas/offer-promotion.schema';
 import { Merchant } from './users/schemas/merchant.schema';
 import { User, UserRole } from './users/schemas/user.schema';
 import * as bcrypt from 'bcrypt';
@@ -10,19 +18,31 @@ import { v4 as uuidv4 } from 'uuid';
 
 async function seedTestData() {
   const app = await NestFactory.createApplicationContext(AppModule);
-  
-  const bannerModel = app.get(getModelToken(BannerPromotion.name)) as Model<BannerPromotion>;
-  const merchantModel = app.get(getModelToken(Merchant.name)) as Model<Merchant>;
-  const userModel = app.get(getModelToken(User.name)) as Model<any>;
-  
+
+  const bannerModel = app.get(getModelToken(BannerPromotion.name));
+  const offerModel = app.get(getModelToken(OfferPromotion.name));
+  const merchantModel = app.get(getModelToken(Merchant.name));
+  const userModel = app.get(getModelToken(User.name));
+
   // Clear existing test data
   await bannerModel.deleteMany({});
   await merchantModel.deleteMany({});
-  await userModel.deleteMany({ email: { $in: ['pizza@example.com', 'fashion@example.com', 'tech@example.com', 'cafe@example.com', 'salon@example.com', 'testuser@example.com'] } });
-  
+  await userModel.deleteMany({
+    email: {
+      $in: [
+        'pizza@example.com',
+        'fashion@example.com',
+        'tech@example.com',
+        'cafe@example.com',
+        'salon@example.com',
+        'testuser@example.com',
+      ],
+    },
+  });
+
   // Create test users (merchants and regular user)
   const hashedPassword = await bcrypt.hash('password123', 10);
-  
+
   const testUsers = [
     {
       email: 'pizza@example.com',
@@ -88,7 +108,7 @@ async function seedTestData() {
 
   const createdUsers = await userModel.insertMany(testUsers);
   console.log(`✅ Created ${testUsers.length} test users`);
-  
+
   // Create test merchants with store locations
   const testMerchants = [
     {
@@ -97,7 +117,8 @@ async function seedTestData() {
       storeEmail: 'pizza@example.com',
       storeCategory: 'Food & Dining',
       storeSubCategory: 'Pizzas',
-      storeLocation: 'Shop 12, Ground Floor, Oberoi Mall, Goregaon West, Mumbai',
+      storeLocation:
+        'Shop 12, Ground Floor, Oberoi Mall, Goregaon West, Mumbai',
       storeLocationLatitude: 19.1646,
       storeLocationLongitude: 72.8494,
       profilePhoto: '',
@@ -150,7 +171,7 @@ async function seedTestData() {
 
   await merchantModel.insertMany(testMerchants);
   console.log(`�� Created ${testMerchants.length} merchants`);
-  
+
   // Create test offers
   const testOffers = [
     {
@@ -158,11 +179,12 @@ async function seedTestData() {
       merchantId: createdUsers[0]._id.toString(),
       merchantName: 'Pizza Palace',
       merchantEmail: 'pizza@example.com',
-      bannerTitle: '50% OFF on All Pizzas',
-      bannerCategory: 'Special',
+      title: '50% OFF on All Pizzas',
+      category: 'Special',
       description: 'Get 50% discount on all pizza orders this weekend!',
-      promotionType: BannerPromotionType.OFFER,
-      imageUrl: 'https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=800',
+
+      imageUrl:
+        'https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=800',
       selectedDates: [
         new Date('2026-04-22'),
         new Date('2026-04-23'),
@@ -187,7 +209,8 @@ async function seedTestData() {
         {
           productId: 'prod-1',
           productName: 'Margherita Pizza',
-          imageUrl: 'https://images.unsplash.com/photo-1604382355076-af4b0eb60143?w=400',
+          imageUrl:
+            'https://images.unsplash.com/photo-1604382355076-af4b0eb60143?w=400',
           originalPrice: 599,
           offerPrice: 299,
           stockQuantity: 50,
@@ -195,14 +218,15 @@ async function seedTestData() {
         {
           productId: 'prod-2',
           productName: 'Pepperoni Pizza',
-          imageUrl: 'https://images.unsplash.com/photo-1628840042765-521c1f5a8a30?w=400',
+          imageUrl:
+            'https://images.unsplash.com/photo-1628840042765-521c1f5a8a30?w=400',
           originalPrice: 699,
           offerPrice: 349,
           stockQuantity: 30,
         },
       ],
-      status: BannerPromotionStatus.ACTIVE,
-      paymentStatus: BannerPaymentStatus.PAID,
+      status: OfferPromotionStatus.ACTIVE,
+      paymentStatus: OfferPaymentStatus.PAID,
       isHomepageVisible: true,
       paidAt: new Date(),
     },
@@ -211,11 +235,12 @@ async function seedTestData() {
       merchantId: createdUsers[1]._id.toString(),
       merchantName: 'Fashion Hub',
       merchantEmail: 'fashion@example.com',
-      bannerTitle: 'Flat 30% OFF on Clothing',
-      bannerCategory: 'Festival',
+      title: 'Flat 30% OFF on Clothing',
+      category: 'Festival',
       description: 'Massive sale on all clothing items!',
-      promotionType: BannerPromotionType.OFFER,
-      imageUrl: 'https://images.unsplash.com/photo-1489987707025-afc232f7ea0f?w=800',
+
+      imageUrl:
+        'https://images.unsplash.com/photo-1489987707025-afc232f7ea0f?w=800',
       selectedDates: [
         new Date('2026-04-22'),
         new Date('2026-04-23'),
@@ -238,7 +263,8 @@ async function seedTestData() {
         {
           productId: 'prod-3',
           productName: "Men's T-Shirt",
-          imageUrl: 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=400',
+          imageUrl:
+            'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=400',
           originalPrice: 799,
           offerPrice: 559,
           stockQuantity: 100,
@@ -246,14 +272,15 @@ async function seedTestData() {
         {
           productId: 'prod-4',
           productName: "Women's Kurti",
-          imageUrl: 'https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?w=400',
+          imageUrl:
+            'https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?w=400',
           originalPrice: 999,
           offerPrice: 699,
           stockQuantity: 75,
         },
       ],
-      status: BannerPromotionStatus.ACTIVE,
-      paymentStatus: BannerPaymentStatus.PAID,
+      status: OfferPromotionStatus.ACTIVE,
+      paymentStatus: OfferPaymentStatus.PAID,
       isHomepageVisible: true,
       paidAt: new Date(),
     },
@@ -262,15 +289,13 @@ async function seedTestData() {
       merchantId: createdUsers[2]._id.toString(),
       merchantName: 'Tech World',
       merchantEmail: 'tech@example.com',
-      bannerTitle: 'Buy 1 Get 1 Free on Accessories',
-      bannerCategory: 'BOGO',
+      title: 'Buy 1 Get 1 Free on Accessories',
+      category: 'BOGO',
       description: 'Amazing BOGO deals on phone cases and accessories!',
-      promotionType: BannerPromotionType.OFFER,
-      imageUrl: 'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=800',
-      selectedDates: [
-        new Date('2026-04-22'),
-        new Date('2026-04-23'),
-      ],
+
+      imageUrl:
+        'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=800',
+      selectedDates: [new Date('2026-04-22'), new Date('2026-04-23')],
       startDate: new Date('2026-04-22'),
       endDate: new Date('2026-04-26'),
       selectedDays: 2,
@@ -288,14 +313,15 @@ async function seedTestData() {
         {
           productId: 'prod-5',
           productName: 'iPhone Case',
-          imageUrl: 'https://images.unsplash.com/photo-1556656793-08538906a9f8?w=400',
+          imageUrl:
+            'https://images.unsplash.com/photo-1556656793-08538906a9f8?w=400',
           originalPrice: 299,
           offerPrice: 149,
           stockQuantity: 200,
         },
       ],
-      status: BannerPromotionStatus.ACTIVE,
-      paymentStatus: BannerPaymentStatus.PAID,
+      status: OfferPromotionStatus.ACTIVE,
+      paymentStatus: OfferPaymentStatus.PAID,
       isHomepageVisible: true,
       paidAt: new Date(),
     },
@@ -304,11 +330,12 @@ async function seedTestData() {
       merchantId: createdUsers[3]._id.toString(),
       merchantName: 'Cafe Delight',
       merchantEmail: 'cafe@example.com',
-      bannerTitle: '20% Cashback on All Orders',
-      bannerCategory: 'Cashback',
+      title: '20% Cashback on All Orders',
+      category: 'Cashback',
       description: 'Get 20% cashback on every order above Rs 200!',
-      promotionType: BannerPromotionType.OFFER,
-      imageUrl: 'https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=800',
+
+      imageUrl:
+        'https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=800',
       selectedDates: [
         new Date('2026-04-22'),
         new Date('2026-04-23'),
@@ -332,7 +359,8 @@ async function seedTestData() {
         {
           productId: 'prod-6',
           productName: 'Cold Coffee',
-          imageUrl: 'https://images.unsplash.com/photo-1461023058943-07fcbe16d735?w=400',
+          imageUrl:
+            'https://images.unsplash.com/photo-1461023058943-07fcbe16d735?w=400',
           originalPrice: 149,
           offerPrice: 119,
           stockQuantity: 500,
@@ -340,14 +368,15 @@ async function seedTestData() {
         {
           productId: 'prod-7',
           productName: 'Muffin Combo',
-          imageUrl: 'https://images.unsplash.com/photo-1604457843812-2c5c79a3b98a?w=400',
+          imageUrl:
+            'https://images.unsplash.com/photo-1604457843812-2c5c79a3b98a?w=400',
           originalPrice: 199,
           offerPrice: 149,
           stockQuantity: 300,
         },
       ],
-      status: BannerPromotionStatus.ACTIVE,
-      paymentStatus: BannerPaymentStatus.PAID,
+      status: OfferPromotionStatus.ACTIVE,
+      paymentStatus: OfferPaymentStatus.PAID,
       isHomepageVisible: true,
       paidAt: new Date(),
     },
@@ -356,11 +385,12 @@ async function seedTestData() {
       merchantId: createdUsers[4]._id.toString(),
       merchantName: 'Salon Elegance',
       merchantEmail: 'salon@example.com',
-      bannerTitle: 'Hair Spa Combo - Rs 499 only',
-      bannerCategory: 'Combo',
+      title: 'Hair Spa Combo - Rs 499 only',
+      category: 'Combo',
       description: 'Get hair wash, spa, and styling for just Rs 499!',
-      promotionType: BannerPromotionType.OFFER,
-      imageUrl: 'https://images.unsplash.com/photo-1560066984-138dadb4c035?w=800',
+
+      imageUrl:
+        'https://images.unsplash.com/photo-1560066984-138dadb4c035?w=800',
       selectedDates: [
         new Date('2026-04-22'),
         new Date('2026-04-23'),
@@ -387,25 +417,27 @@ async function seedTestData() {
         {
           productId: 'prod-8',
           productName: 'Basic Hair Spa',
-          imageUrl: 'https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?w=400',
+          imageUrl:
+            'https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?w=400',
           originalPrice: 899,
           offerPrice: 499,
           stockQuantity: 50,
         },
       ],
-      status: BannerPromotionStatus.ACTIVE,
-      paymentStatus: BannerPaymentStatus.PAID,
+      status: OfferPromotionStatus.ACTIVE,
+      paymentStatus: OfferPaymentStatus.PAID,
       isHomepageVisible: true,
       paidAt: new Date(),
     },
   ];
 
-  await bannerModel.insertMany(testOffers);
-  
+  await offerModel.deleteMany({});
+  await offerModel.insertMany(testOffers);
+
   console.log('✅ Test data seeded successfully!');
   console.log(`   Created ${testMerchants.length} merchants with locations`);
   console.log(`   Created ${testOffers.length} offers`);
-  
+
   await app.close();
   process.exit(0);
 }

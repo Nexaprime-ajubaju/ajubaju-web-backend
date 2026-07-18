@@ -6,7 +6,9 @@ import { MerchantDashboardService } from './merchant-dashboard.service';
 @Controller('merchant-dashboard')
 @UseGuards(JwtAuthGuard)
 export class MerchantDashboardController {
-  constructor(private readonly merchantDashboardService: MerchantDashboardService) {}
+  constructor(
+    private readonly merchantDashboardService: MerchantDashboardService,
+  ) {}
 
   private getMerchantId(user: any) {
     return user?.id || user?._id;
@@ -20,37 +22,52 @@ export class MerchantDashboardController {
 
   @Get('analytics/device-breakdown')
   async getMerchantDeviceBreakdown(@CurrentUser() user: any) {
-    return this.merchantDashboardService.getMerchantDeviceBreakdown(this.getMerchantId(user));
+    return this.merchantDashboardService.getMerchantDeviceBreakdown(
+      this.getMerchantId(user),
+    );
   }
 
   @Get('analytics/top-regions')
   async getMerchantTopRegions(@CurrentUser() user: any) {
-    return this.merchantDashboardService.getMerchantTopRegions(this.getMerchantId(user));
+    return this.merchantDashboardService.getMerchantTopRegions(
+      this.getMerchantId(user),
+    );
   }
 
   @Get('analytics/top-products')
   async getMerchantTopProducts(@CurrentUser() user: any) {
-    return this.merchantDashboardService.getMerchantTopProducts(this.getMerchantId(user));
+    return this.merchantDashboardService.getMerchantTopProducts(
+      this.getMerchantId(user),
+    );
   }
 
   @Get('analytics/events')
   async getMerchantEvents(@CurrentUser() user: any) {
-    return this.merchantDashboardService.getMerchantEventStats(this.getMerchantId(user));
+    return this.merchantDashboardService.getMerchantEventStats(
+      this.getMerchantId(user),
+    );
   }
 
   @Get('analytics/trend')
   async getMerchantTrend(@CurrentUser() user: any) {
-    return this.merchantDashboardService.getMerchantTrend(this.getMerchantId(user));
+    return this.merchantDashboardService.getMerchantTrend(
+      this.getMerchantId(user),
+    );
   }
 
   @Get('analytics/realtime')
   async getMerchantRealtimeAnalytics(@CurrentUser() user: any) {
-    return this.merchantDashboardService.getRealtimeAnalytics(this.getMerchantId(user));
+    return this.merchantDashboardService.getRealtimeAnalytics(
+      this.getMerchantId(user),
+    );
   }
 
   @Get('loyalty-leaderboard')
   async getLoyaltyLeaderboard(@CurrentUser() user: any) {
-    const leaderboard = await this.merchantDashboardService.getMerchantLoyaltyLeaderboard(this.getMerchantId(user));
+    const leaderboard =
+      await this.merchantDashboardService.getMerchantLoyaltyLeaderboard(
+        this.getMerchantId(user),
+      );
     return leaderboard;
   }
 }

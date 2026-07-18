@@ -28,6 +28,7 @@ import {
   SubmitBannerPromotionDto,
 } from './dto/submit-banner-promotion.dto';
 import { UpdateBannerPromotionDto } from './dto/update-banner-promotion.dto';
+import { TransactionService } from '../common/services/transaction.service';
 
 @Injectable()
 export class BannersService implements OnModuleInit {
@@ -48,6 +49,7 @@ export class BannersService implements OnModuleInit {
     @InjectModel(Merchant.name)
     private readonly merchantModel: Model<MerchantDocument>,
     private readonly redisService: RedisService,
+    private readonly transactionService: TransactionService,
     private readonly moderationService: ModerationService,
     @Optional() private readonly kafkaService?: KafkaService,
   ) {}
@@ -108,6 +110,12 @@ export class BannersService implements OnModuleInit {
     return `golo:banners:admin:${status || 'all'}`;
   }
 
+  private activeBannersCacheKey(limit: number, city?: string, location?: { lat: number; lng: number; radius: number }): string {
+    const cityStr = city ? `:city:${city.toLowerCase().replace(/[^a-z0-9]/g, '')}` : '';
+    const locStr = location ? `:loc:${location.lat.toFixed(2)},${location.lng.toFixed(2)},${location.radius}` : '';
+    return `golo:banners:active:${limit}${cityStr}${locStr}`;
+  }
+
   private parseCalendarDate(dateStr: string): Date | null {
     const trimmed = String(dateStr || '').trim();
     if (!trimmed) {
@@ -154,7 +162,9 @@ export class BannersService implements OnModuleInit {
     await this.redisService.deleteByPattern('golo:banners:active:*');
     await this.redisService.deleteByPattern('golo:banners:admin:*');
     if (merchantId) {
-      await this.redisService.deleteByPattern(`golo:banners:merchant:${merchantId}:*`);
+      await this.redisService.deleteByPattern(
+        `golo:banners:merchant:${merchantId}:*`,
+      );
     }
   }
 
@@ -262,7 +272,9 @@ export class BannersService implements OnModuleInit {
       );
     }
 
-    const normalizedDates = this.normalizeDateStrings(payload.selectedDates || []);
+    const normalizedDates = this.normalizeDateStrings(
+      payload.selectedDates || [],
+    );
 
     if (!normalizedDates.length) {
       throw new BadRequestException(
@@ -283,63 +295,77 @@ export class BannersService implements OnModuleInit {
 
     const selectedDays = normalizedDates.length;
     const dailyRate = Number(payload.dailyRate ?? 240);
-    const platformFee = Number(payload.platformFee ?? (selectedDays > 0 ? 49 : 0));
+    const platformFee = Number(
+      payload.platformFee ?? (selectedDays > 0 ? 49 : 0),
+    );
     const computedTotal = dailyRate * selectedDays + platformFee;
-    const selectedProducts = (payload.selectedProducts || []).map((product) => ({
-      productId: String(product.productId),
-      productName: String(product.productName),
-      imageUrl: product.imageUrl || '',
-      originalPrice: Number(product.originalPrice || 0),
-      offerPrice: Number(product.offerPrice || 0),
-      stockQuantity: Number(product.stockQuantity || 0),
-    }));
+    const selectedProducts = (payload.selectedProducts || []).map(
+      (product) => ({
+        productId: String(product.productId),
+        productName: String(product.productName),
+        imageUrl: product.imageUrl || '',
+        originalPrice: Number(product.originalPrice || 0),
+        offerPrice: Number(product.offerPrice || 0),
+        stockQuantity: Number(product.stockQuantity || 0),
+      }),
+    );
 
     const promotionType =
       payload.promotionType === PromotionTypeDto.OFFER
         ? BannerPromotionType.OFFER
         : BannerPromotionType.BANNER;
 
-    if (payload.imageUrl) {
+    if (payload.imageUrl && this.moderationService) {
       const isSafe = await this.moderationService.isImageSafe(payload.imageUrl);
       if (!isSafe) {
         throw new BadRequestException('One or more images contain inappropriate content and cannot be uploaded.');
       }
     }
 
-    const request = await this.bannerPromotionModel.create({
-      requestId: uuidv4(),
-      merchantId,
-      merchantName: merchant.name || 'Merchant',
-      merchantEmail: merchant.email || '-',
-      bannerTitle: payload.bannerTitle?.trim(),
-      bannerCategory: payload.bannerCategory?.trim(),
-      description: payload.description?.trim() || '',
-      promotionType,
-      imageUrl: payload.imageUrl,
-      recommendedSize: payload.recommendedSize || '1920 x 520 px',
-      targetCities: payload.targetCities || [],
-      targetLocations: (payload.targetLocations || []).map(loc => ({
-        type: 'Point',
-        coordinates: [loc.lng, loc.lat],
-      })),
-      selectedDates: normalizedDates,
-      startDate,
-      endDate,
-      selectedDays,
-      dailyRate,
-      platformFee,
-      totalPrice: Number(payload.totalPrice || computedTotal),
-      loyaltyRewardEnabled: Boolean(payload.loyaltyRewardEnabled),
-      loyaltyStarsToOffer: Number(payload.loyaltyStarsToOffer || 0),
-      loyaltyStarsPerPurchase: Number(payload.loyaltyStarsPerPurchase || 1),
-      loyaltyScorePerStar: Number(payload.loyaltyScorePerStar || 10),
-      promotionExpiryText: payload.promotionExpiryText || '',
-      termsAndConditions: payload.termsAndConditions || '',
-      exampleUsage: payload.exampleUsage || '',
-      selectedProducts,
-      status: BannerPromotionStatus.APPROVED,
-      paymentStatus: BannerPaymentStatus.PENDING,
-      isHomepageVisible: false,
+    const request = await this.transactionService.execute(async (session) => {
+      const created = await this.bannerPromotionModel.create(
+        [
+          {
+            requestId: uuidv4(),
+            merchantId,
+            merchantName: merchant.name || 'Merchant',
+            merchantEmail: merchant.email || '-',
+            bannerTitle: payload.bannerTitle?.trim(),
+            bannerCategory: payload.bannerCategory?.trim(),
+            description: payload.description?.trim() || '',
+            promotionType,
+            imageUrl: payload.imageUrl,
+            recommendedSize: payload.recommendedSize || '1920 x 520 px',
+            targetCities: payload.targetCities || [],
+            targetLocations: (payload.targetLocations || []).map(loc => ({
+              type: 'Point',
+              coordinates: [loc.lng, loc.lat],
+            })),
+            selectedDates: normalizedDates,
+            startDate,
+            endDate,
+            selectedDays,
+            dailyRate,
+            platformFee,
+            totalPrice: Number(payload.totalPrice || computedTotal),
+            loyaltyRewardEnabled: Boolean(payload.loyaltyRewardEnabled),
+            loyaltyStarsToOffer: Number(payload.loyaltyStarsToOffer || 0),
+            loyaltyStarsPerPurchase: Number(
+              payload.loyaltyStarsPerPurchase || 1,
+            ),
+            loyaltyScorePerStar: Number(payload.loyaltyScorePerStar || 10),
+            promotionExpiryText: payload.promotionExpiryText || '',
+            termsAndConditions: payload.termsAndConditions || '',
+            exampleUsage: payload.exampleUsage || '',
+            selectedProducts,
+            status: BannerPromotionStatus.APPROVED,
+            paymentStatus: BannerPaymentStatus.PENDING,
+            isHomepageVisible: false,
+          },
+        ],
+        { session },
+      );
+      return created[0];
     });
 
     if (this.kafkaService) {
@@ -357,8 +383,13 @@ export class BannersService implements OnModuleInit {
     return request;
   }
 
-  async listMerchantBannerPromotions(merchantId: string): Promise<BannerPromotion[]> {
-    return this.listMerchantPromotionsByType(merchantId, BannerPromotionType.BANNER);
+  async listMerchantBannerPromotions(
+    merchantId: string,
+  ): Promise<BannerPromotion[]> {
+    return this.listMerchantPromotionsByType(
+      merchantId,
+      BannerPromotionType.BANNER,
+    );
   }
 
   async listMerchantPromotionsByType(
@@ -373,7 +404,11 @@ export class BannersService implements OnModuleInit {
 
     await this.expireBannerPromotions();
     // Support both merchant userId and legacy merchant profile _id for visibility across devices
-    const merchantProfile = await this.merchantModel.findOne({ userId: merchantId }).select('_id').lean().exec();
+    const merchantProfile = await this.merchantModel
+      .findOne({ userId: merchantId })
+      .select('_id')
+      .lean()
+      .exec();
     const profileId = merchantProfile?._id ? String(merchantProfile._id) : null;
 
     const query: any = profileId
@@ -390,7 +425,9 @@ export class BannersService implements OnModuleInit {
     return rows;
   }
 
-  async listBannerPromotionsForAdmin(status?: string): Promise<BannerPromotion[]> {
+  async listBannerPromotionsForAdmin(
+    status?: string,
+  ): Promise<BannerPromotion[]> {
     const cacheKey = this.adminListCacheKey(status);
     const cached = await this.redisService.get<BannerPromotion[]>(cacheKey);
     if (cached) {
@@ -420,28 +457,37 @@ export class BannersService implements OnModuleInit {
     adminId: string,
     adminNotes?: string,
   ): Promise<BannerPromotion> {
-    const request = await this.bannerPromotionModel.findOne({ requestId }).exec();
+    const request = await this.bannerPromotionModel
+      .findOne({ requestId })
+      .exec();
     if (!request) {
       throw new NotFoundException('Banner promotion request not found');
     }
 
     if (request.status !== BannerPromotionStatus.UNDER_REVIEW) {
-      throw new BadRequestException('Only under review requests can be moderated');
+      throw new BadRequestException(
+        'Only under review requests can be moderated',
+      );
     }
 
-    request.reviewedBy = adminId;
-    request.reviewedAt = new Date();
-    request.adminNotes = adminNotes || '';
+    const updatedRequest = await this.transactionService.execute(
+      async (session) => {
+        request.reviewedBy = adminId;
+        request.reviewedAt = new Date();
+        request.adminNotes = adminNotes || '';
 
-    if (decision === 'approve') {
-      request.status = BannerPromotionStatus.APPROVED;
-      request.isHomepageVisible = true;
-    } else {
-      request.status = BannerPromotionStatus.REJECTED;
-      request.isHomepageVisible = false;
-    }
+        if (decision === 'approve') {
+          request.status = BannerPromotionStatus.APPROVED;
+          request.isHomepageVisible = true;
+        } else {
+          request.status = BannerPromotionStatus.REJECTED;
+          request.isHomepageVisible = false;
+        }
 
-    await request.save();
+        await request.save({ session });
+        return request;
+      },
+    );
 
     if (this.kafkaService) {
       await this.kafkaService.emit(KAFKA_TOPICS.BANNER_PROMOTION_REVIEWED, {
@@ -451,9 +497,9 @@ export class BannersService implements OnModuleInit {
       });
     }
 
-    await this.invalidateBannerCache(request.merchantId);
+    await this.invalidateBannerCache(updatedRequest.merchantId);
 
-    return request;
+    return updatedRequest;
   }
 
   async markBannerPromotionAsPaid(
@@ -469,7 +515,9 @@ export class BannersService implements OnModuleInit {
     }
 
     if (request.status !== BannerPromotionStatus.APPROVED) {
-      throw new BadRequestException('Only approved requests can be paid and activated');
+      throw new BadRequestException(
+        'Only approved requests can be paid and activated',
+      );
     }
 
     request.paymentStatus = BannerPaymentStatus.PAID;
@@ -538,7 +586,9 @@ export class BannersService implements OnModuleInit {
     }
 
     if (payload.loyaltyStarsPerPurchase !== undefined) {
-      request.loyaltyStarsPerPurchase = Number(payload.loyaltyStarsPerPurchase || 1);
+      request.loyaltyStarsPerPurchase = Number(
+        payload.loyaltyStarsPerPurchase || 1,
+      );
     }
 
     if (payload.loyaltyScorePerStar !== undefined) {
@@ -596,7 +646,9 @@ export class BannersService implements OnModuleInit {
 
     if (payload.action === 'resume') {
       if (request.paymentStatus !== BannerPaymentStatus.PAID) {
-        throw new BadRequestException('Only paid banner requests can be resumed');
+        throw new BadRequestException(
+          'Only paid banner requests can be resumed',
+        );
       }
       request.isHomepageVisible = true;
       request.status = BannerPromotionStatus.ACTIVE;
@@ -607,13 +659,12 @@ export class BannersService implements OnModuleInit {
     return request;
   }
 
-  private activeBannersCacheKey(limit: number, city?: string, fullLocation?: string): string {
-    const locHash = fullLocation ? Buffer.from(fullLocation).toString('base64').substring(0, 10) : '';
-    return `golo:banners:active:homepage:${limit}:${city || 'all'}:${locHash}`;
-  }
-
-  async getActiveHomepageBanners(limit = 5, city?: string, fullLocation?: string): Promise<BannerPromotion[]> {
-    const cacheKey = this.activeBannersCacheKey(limit, city, fullLocation);
+  async getActiveHomepageBanners(
+    limit = 5,
+    city?: string,
+    location?: { lat: number; lng: number; radius: number }
+  ): Promise<BannerPromotion[]> {
+    const cacheKey = this.activeBannersCacheKey(limit, city, location);
     const cached = await this.redisService.get<BannerPromotion[]>(cacheKey);
     if (cached) {
       return cached;
@@ -633,23 +684,20 @@ export class BannersService implements OnModuleInit {
       endDate: { $gte: now },
     };
 
-    if (fullLocation) {
-      const parts = fullLocation
-        .split(',')
-        .map(s => s.trim())
-        .filter(s => s.length > 0);
-      
-      if (city && !parts.includes(city)) {
-        parts.push(city);
-      }
-
-      // Find banners targeting ANY of the hierarchical location parts (e.g., city, district, state)
-      query.targetCities = {
-        $in: parts.map(p => new RegExp(`^${p}$`, 'i')),
+    if (city) {
+      query.targetCities = city;
+    }
+    
+    if (location && location.lat && location.lng && location.radius) {
+      query.targetLocations = {
+        $near: {
+          $geometry: {
+            type: 'Point',
+            coordinates: [location.lng, location.lat],
+          },
+          $maxDistance: location.radius,
+        },
       };
-    } else if (city) {
-      const cityRegex = new RegExp(`^${city}$`, 'i');
-      query.targetCities = cityRegex;
     }
 
     const rows = await this.bannerPromotionModel
@@ -664,7 +712,7 @@ export class BannersService implements OnModuleInit {
       .exec();
 
     await this.redisService.set(cacheKey, rows, 60);
-    return rows as unknown as BannerPromotion[];
+    return rows;
   }
 
   async deleteBannerPromotion(requestId: string): Promise<BannerPromotion> {
@@ -697,17 +745,13 @@ export class BannersService implements OnModuleInit {
     expectedType: BannerPromotionType = BannerPromotionType.BANNER,
   ): Promise<BannerPromotion> {
     const bannerPromotion = await this.bannerPromotionModel
-      .findOneAndUpdate(
-        { requestId, merchantId, promotionType: expectedType },
-        { status: BannerPromotionStatus.DELETED },
-        { new: true }
-      )
+      .findOne({ requestId, merchantId, promotionType: expectedType })
       .exec();
-      
     if (!bannerPromotion) {
       throw new NotFoundException('Banner promotion request not found');
     }
 
+    await this.bannerPromotionModel.deleteOne({ requestId, merchantId }).exec();
     await this.invalidateBannerCache(merchantId);
     return bannerPromotion;
   }

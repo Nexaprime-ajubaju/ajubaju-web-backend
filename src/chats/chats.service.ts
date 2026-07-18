@@ -6,7 +6,10 @@ import {
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
-import { Conversation, ConversationDocument } from './schemas/conversation.schema';
+import {
+  Conversation,
+  ConversationDocument,
+} from './schemas/conversation.schema';
 import { Message, MessageDocument } from './schemas/message.schema';
 import { StartConversationDto } from './dto/start-conversation.dto';
 import { SendMessageDto } from './dto/send-message.dto';
@@ -19,7 +22,8 @@ export class ChatsService {
   private readonly logger = new Logger(ChatsService.name);
 
   constructor(
-    @InjectModel(Conversation.name) private conversationModel: Model<ConversationDocument>,
+    @InjectModel(Conversation.name)
+    private conversationModel: Model<ConversationDocument>,
     @InjectModel(Message.name) private messageModel: Model<MessageDocument>,
     @InjectModel(Ad.name) private adModel: Model<AdDocument>,
     @InjectModel(User.name) private userModel: Model<UserDocument>,
@@ -56,7 +60,9 @@ export class ChatsService {
     }
 
     if (String(currentUserId) === String(sellerId)) {
-      throw new BadRequestException('You cannot chat with yourself on your own ad');
+      throw new BadRequestException(
+        'You cannot chat with yourself on your own ad',
+      );
     }
 
     const participantKey = this.getParticipantKey(currentUserId, sellerId);
@@ -90,7 +96,9 @@ export class ChatsService {
       .limit(100)
       .exec();
 
-    const adIds = [...new Set(conversations.map((c) => c.adId).filter(Boolean))];
+    const adIds = [
+      ...new Set(conversations.map((c) => c.adId).filter(Boolean)),
+    ];
     const ads = adIds.length
       ? await this.adModel.find({ adId: { $in: adIds } }).exec()
       : [];
@@ -99,7 +107,9 @@ export class ChatsService {
 
     const otherUserIds = new Set<string>();
     conversations.forEach((conversation) => {
-      const otherUserId = conversation.participants.find((id) => id !== String(userId));
+      const otherUserId = conversation.participants.find(
+        (id) => id !== String(userId),
+      );
       if (otherUserId) otherUserIds.add(otherUserId);
     });
 
@@ -109,7 +119,9 @@ export class ChatsService {
     const userMap = new Map(users.map((u) => [String(u._id), u]));
 
     return conversations.map((conversation) => {
-      const otherUserId = conversation.participants.find((id) => id !== String(userId));
+      const otherUserId = conversation.participants.find(
+        (id) => id !== String(userId),
+      );
       const otherUser = otherUserId ? userMap.get(otherUserId) : null;
       const ad = adMap.get(conversation.adId) || null;
 
@@ -136,8 +148,13 @@ export class ChatsService {
             }
           : null,
         lastMessageText: conversation.lastMessageText || '',
-        lastMessageAdId: conversation.lastMessageAdId || conversation.adId || null,
-        lastMessageAdTitle: conversation.lastMessageAdTitle || conversation.adTitle || ad?.title || null,
+        lastMessageAdId:
+          conversation.lastMessageAdId || conversation.adId || null,
+        lastMessageAdTitle:
+          conversation.lastMessageAdTitle ||
+          conversation.adTitle ||
+          ad?.title ||
+          null,
         lastMessageAt: conversation.lastMessageAt,
         messagesCount: conversation.messagesCount || 0,
         createdAt: conversation.createdAt,
@@ -146,8 +163,15 @@ export class ChatsService {
     });
   }
 
-  async listMessages(userId: string, conversationId: string, query: ListMessagesDto) {
-    const conversation = await this.getConversationForUser(userId, conversationId);
+  async listMessages(
+    userId: string,
+    conversationId: string,
+    query: ListMessagesDto,
+  ) {
+    const conversation = await this.getConversationForUser(
+      userId,
+      conversationId,
+    );
 
     const page = query.page || 1;
     const limit = query.limit || 50;
@@ -160,41 +184,43 @@ export class ChatsService {
         .skip(skip)
         .limit(limit)
         .exec(),
-      this.messageModel.countDocuments({ conversationId: this.toConversationId(conversation._id) }),
+      this.messageModel.countDocuments({
+        conversationId: this.toConversationId(conversation._id),
+      }),
     ]);
 
     const senderIds = [...new Set(messages.map((message) => message.senderId))];
     const senders = senderIds.length
       ? await this.userModel.find({ _id: { $in: senderIds } }).exec()
       : [];
-    const senderMap = new Map(senders.map((sender) => [String(sender._id), sender]));
+    const senderMap = new Map(
+      senders.map((sender) => [String(sender._id), sender]),
+    );
 
     return {
       conversationId: this.toConversationId(conversation._id),
-      items: messages
-        .reverse()
-        .map((message) => ({
-          id: this.toConversationId(message._id),
-          conversationId: message.conversationId,
-          adId: message.adId,
-          adTitle: message.adTitle || null,
-          adImage: message.adImage || null,
-          adPrice: message.adPrice ?? null,
-          adLocation: message.adLocation || null,
-          senderId: message.senderId,
-          sender: senderMap.get(message.senderId)
-            ? {
-                id: message.senderId,
-                name: senderMap.get(message.senderId)?.name,
-                avatar: senderMap.get(message.senderId)?.profile?.avatar || null,
-              }
-            : null,
-          text: message.text,
-          attachments: message.attachments || [],
-          readBy: message.readBy || [],
-          createdAt: message.createdAt,
-          updatedAt: message.updatedAt,
-        })),
+      items: messages.reverse().map((message) => ({
+        id: this.toConversationId(message._id),
+        conversationId: message.conversationId,
+        adId: message.adId,
+        adTitle: message.adTitle || null,
+        adImage: message.adImage || null,
+        adPrice: message.adPrice ?? null,
+        adLocation: message.adLocation || null,
+        senderId: message.senderId,
+        sender: senderMap.get(message.senderId)
+          ? {
+              id: message.senderId,
+              name: senderMap.get(message.senderId)?.name,
+              avatar: senderMap.get(message.senderId)?.profile?.avatar || null,
+            }
+          : null,
+        text: message.text,
+        attachments: message.attachments || [],
+        readBy: message.readBy || [],
+        createdAt: message.createdAt,
+        updatedAt: message.updatedAt,
+      })),
       pagination: {
         page,
         limit,
@@ -204,18 +230,30 @@ export class ChatsService {
     };
   }
 
-  async sendMessage(userId: string, conversationId: string, dto: SendMessageDto) {
-    const conversation = await this.getConversationForUser(userId, conversationId);
+  async sendMessage(
+    userId: string,
+    conversationId: string,
+    dto: SendMessageDto,
+  ) {
+    const conversation = await this.getConversationForUser(
+      userId,
+      conversationId,
+    );
 
     const text = dto.text?.trim();
     const attachments = Array.isArray(dto.attachments)
       ? dto.attachments
-          .filter((attachment) => attachment?.url && attachment?.name && attachment?.mimeType)
+          .filter(
+            (attachment) =>
+              attachment?.url && attachment?.name && attachment?.mimeType,
+          )
           .map((attachment) => ({
             name: attachment.name,
             mimeType: attachment.mimeType,
             url: attachment.url,
-            type: attachment.type || (attachment.mimeType.startsWith('image/') ? 'image' : 'file'),
+            type:
+              attachment.type ||
+              (attachment.mimeType.startsWith('image/') ? 'image' : 'file'),
             size: attachment.size,
           }))
       : [];
@@ -225,8 +263,12 @@ export class ChatsService {
     }
 
     const adContextId = dto.adId || conversation.adId;
-    const adContext = adContextId ? await this.findAdByAnyId(adContextId) : null;
-    const resolvedAdId = adContext ? adContext.adId || this.toConversationId(adContext._id) : conversation.adId;
+    const adContext = adContextId
+      ? await this.findAdByAnyId(adContextId)
+      : null;
+    const resolvedAdId = adContext
+      ? adContext.adId || this.toConversationId(adContext._id)
+      : conversation.adId;
     const resolvedAdTitle = adContext?.title || conversation.adTitle || null;
 
     const message = await this.messageModel.create({
@@ -244,7 +286,8 @@ export class ChatsService {
 
     conversation.adId = resolvedAdId;
     conversation.adTitle = resolvedAdTitle;
-    conversation.lastMessageText = text || (attachments.length ? '📎 Attachment' : '');
+    conversation.lastMessageText =
+      text || (attachments.length ? '📎 Attachment' : '');
     conversation.lastMessageAdId = resolvedAdId;
     conversation.lastMessageAdTitle = resolvedAdTitle;
     conversation.lastMessageAt = new Date();
@@ -279,7 +322,10 @@ export class ChatsService {
   }
 
   async markConversationAsRead(userId: string, conversationId: string) {
-    const conversation = await this.getConversationForUser(userId, conversationId);
+    const conversation = await this.getConversationForUser(
+      userId,
+      conversationId,
+    );
 
     const unreadMessages = await this.messageModel
       .find({
@@ -315,8 +361,12 @@ export class ChatsService {
   }
 
   async getConversationPresenceForUser(userId: string, conversationId: string) {
-    const conversation = await this.getConversationForUser(userId, conversationId);
-    const otherUserId = conversation.participants.find((id) => id !== String(userId)) || null;
+    const conversation = await this.getConversationForUser(
+      userId,
+      conversationId,
+    );
+    const otherUserId =
+      conversation.participants.find((id) => id !== String(userId)) || null;
     return {
       conversation,
       otherUserId,
@@ -325,7 +375,9 @@ export class ChatsService {
   }
 
   async getConversationForUser(userId: string, conversationId: string) {
-    const conversation = await this.conversationModel.findById(conversationId).exec();
+    const conversation = await this.conversationModel
+      .findById(conversationId)
+      .exec();
 
     if (!conversation) {
       throw new NotFoundException('Conversation not found');
@@ -339,10 +391,15 @@ export class ChatsService {
   }
 
   async deleteConversation(userId: string, conversationId: string) {
-    const conversation = await this.getConversationForUser(userId, conversationId);
+    const conversation = await this.getConversationForUser(
+      userId,
+      conversationId,
+    );
 
     await Promise.all([
-      this.messageModel.deleteMany({ conversationId: this.toConversationId(conversation._id) }).exec(),
+      this.messageModel
+        .deleteMany({ conversationId: this.toConversationId(conversation._id) })
+        .exec(),
       this.conversationModel.deleteOne({ _id: conversation._id }).exec(),
     ]);
 
@@ -354,10 +411,14 @@ export class ChatsService {
     currentUserId: string,
     adPrefetched?: AdDocument | null,
   ) {
-    const otherUserId = conversation.participants.find((id) => id !== String(currentUserId));
+    const otherUserId = conversation.participants.find(
+      (id) => id !== String(currentUserId),
+    );
     const [otherUser, ad] = await Promise.all([
       otherUserId ? this.userModel.findById(otherUserId).exec() : null,
-      adPrefetched ? Promise.resolve(adPrefetched) : this.adModel.findOne({ adId: conversation.adId }).exec(),
+      adPrefetched
+        ? Promise.resolve(adPrefetched)
+        : this.adModel.findOne({ adId: conversation.adId }).exec(),
     ]);
 
     return {
@@ -383,8 +444,13 @@ export class ChatsService {
           }
         : null,
       lastMessageText: conversation.lastMessageText || '',
-      lastMessageAdId: conversation.lastMessageAdId || conversation.adId || null,
-      lastMessageAdTitle: conversation.lastMessageAdTitle || conversation.adTitle || ad?.title || null,
+      lastMessageAdId:
+        conversation.lastMessageAdId || conversation.adId || null,
+      lastMessageAdTitle:
+        conversation.lastMessageAdTitle ||
+        conversation.adTitle ||
+        ad?.title ||
+        null,
       lastMessageAt: conversation.lastMessageAt,
       messagesCount: conversation.messagesCount || 0,
       createdAt: conversation.createdAt,

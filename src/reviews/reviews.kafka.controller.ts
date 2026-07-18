@@ -1,5 +1,10 @@
 import { Controller, Logger, Optional } from '@nestjs/common';
-import { Ctx, KafkaContext, MessagePattern, Payload } from '@nestjs/microservices';
+import {
+  Ctx,
+  KafkaContext,
+  MessagePattern,
+  Payload,
+} from '@nestjs/microservices';
 import { KAFKA_TOPICS } from '../common/constants/kafka-topics';
 import { KafkaService } from '../kafka/kafka.service';
 import { ReviewStatus } from './schemas/review.schema';
@@ -44,7 +49,10 @@ export class ReviewsKafkaController {
   }
 
   @MessagePattern(KAFKA_TOPICS.REVIEW_GET_MERCHANT)
-  async handleGetMerchantReviews(@Payload() message: any, @Ctx() context: KafkaContext) {
+  async handleGetMerchantReviews(
+    @Payload() message: any,
+    @Ctx() context: KafkaContext,
+  ) {
     const value = this.getValue(message);
     const correlationId = this.getCorrelationId(message);
 
@@ -64,12 +72,17 @@ export class ReviewsKafkaController {
   }
 
   @MessagePattern(KAFKA_TOPICS.REVIEW_GET_STATS)
-  async handleGetMerchantStats(@Payload() message: any, @Ctx() context: KafkaContext) {
+  async handleGetMerchantStats(
+    @Payload() message: any,
+    @Ctx() context: KafkaContext,
+  ) {
     const value = this.getValue(message);
     const correlationId = this.getCorrelationId(message);
 
     try {
-      const result = await this.reviewsService.getMerchantReviewStats(value.merchantId);
+      const result = await this.reviewsService.getMerchantReviewStats(
+        value.merchantId,
+      );
       return this.success(result, correlationId);
     } catch (error) {
       this.logger.error(`Failed REVIEW_GET_STATS: ${error.message}`);
@@ -78,7 +91,10 @@ export class ReviewsKafkaController {
   }
 
   @MessagePattern(KAFKA_TOPICS.REVIEW_UPDATE_STATUS)
-  async handleUpdateReviewStatus(@Payload() message: any, @Ctx() context: KafkaContext) {
+  async handleUpdateReviewStatus(
+    @Payload() message: any,
+    @Ctx() context: KafkaContext,
+  ) {
     const value = this.getValue(message);
     const correlationId = this.getCorrelationId(message);
 

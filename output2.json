@@ -1,0 +1,2972 @@
+[
+  {
+    "key": "nearby_you",
+    "title": "Nearby You",
+    "strategy": "trending",
+    "products": [
+      {
+        "_id": "6a44ba8c29dc97e990fb6882",
+        "merchantId": "6a44ba8c29dc97e990fb6862",
+        "merchantName": "Pizza Palace",
+        "merchantEmail": "pizza@example.com",
+        "title": "50% OFF on All Pizzas",
+        "category": "Special",
+        "businessCategory": "",
+        "businessSubCategory": "",
+        "promoTag": "",
+        "description": "Get 50% discount on all pizza orders this weekend!",
+        "imageUrl": "https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=800",
+        "startDate": "2026-04-22T00:00:00.000Z",
+        "endDate": "2026-04-30T00:00:00.000Z",
+        "selectedProducts": [
+          {
+            "productId": "6a43d14bebd83d7043ffa2f8",
+            "productName": "Samsung 55\" 4K Smart TV",
+            "imageUrl": "https://via.placeholder.com/300",
+            "originalPrice": 599,
+            "offerPrice": 299,
+            "stockQuantity": 50,
+            "_id": "6a44ba8c29dc97e990fb6883"
+          },
+          {
+            "productId": "6a43d14bebd83d7043ffa2f9",
+            "productName": "Sony WH-1000XM5 Headphones",
+            "imageUrl": "https://via.placeholder.com/300",
+            "originalPrice": 699,
+            "offerPrice": 349,
+            "stockQuantity": 30,
+            "_id": "6a44ba8c29dc97e990fb6884"
+          }
+        ],
+        "status": "active",
+        "createdAt": "2026-07-01T06:58:20.560Z",
+        "id": "6a44ba8c29dc97e990fb6882",
+        "type": "offer",
+        "badge": null,
+        "recommendationExplainability": {
+          "finalScore": 0.2,
+          "components": {
+            "affinity": 0,
+            "distance": 1,
+            "popularity": 0,
+            "freshness": 0,
+            "ctr": 0,
+            "conversion": 0,
+            "merchant_quality": 0,
+            "inventory": 0,
+            "price_value": 0
+          },
+          "policyAdjustments": [
+            "diversity_level_3"
+          ],
+          "reasons": []
+        }
+      },
+      {
+        "_id": "6a44ba8c29dc97e990fb6885",
+        "merchantId": "6a44ba8c29dc97e990fb6863",
+        "merchantName": "Fashion Hub",
+        "merchantEmail": "fashion@example.com",
+        "title": "Flat 30% OFF on Clothing",
+        "category": "Festival",
+        "businessCategory": "",
+        "businessSubCategory": "",
+        "promoTag": "",
+        "description": "Massive sale on all clothing items!",
+        "imageUrl": "https://images.unsplash.com/photo-1489987707025-afc232f7ea0f?w=800",
+        "startDate": "2026-04-22T00:00:00.000Z",
+        "endDate": "2026-04-28T00:00:00.000Z",
+        "selectedProducts": [
+          {
+            "productId": "6a43d14bebd83d7043ffa2fa",
+            "productName": "LG 8kg Front Load Washing Machine",
+            "imageUrl": "https://via.placeholder.com/300",
+            "originalPrice": 799,
+            "offerPrice": 559,
+            "stockQuantity": 100,
+            "_id": "6a44ba8c29dc97e990fb6886"
+          },
+          {
+            "productId": "6a43d14bebd83d7043ffa2fb",
+            "productName": "Dyson V12 Cordless Vacuum",
+            "imageUrl": "https://via.placeholder.com/300",
+            "originalPrice": 999,
+            "offerPrice": 699,
+            "stockQuantity": 75,
+            "_id": "6a44ba8c29dc97e990fb6887"
+          }
+        ],
+        "status": "active",
+        "createdAt": "2026-07-01T06:58:20.561Z",
+        "id": "6a44ba8c29dc97e990fb6885",
+        "type": "offer",
+        "badge": null,
+        "recommendationExplainability": {
+          "finalScore": 0.2,
+          "components": {
+            "affinity": 0,
+            "distance": 1,
+            "popularity": 0,
+            "freshness": 0,
+            "ctr": 0,
+            "conversion": 0,
+            "merchant_quality": 0,
+            "inventory": 0,
+            "price_value": 0
+          },
+          "policyAdjustments": [
+            "diversity_level_3"
+          ],
+          "reasons": []
+        }
+      },
+      {
+        "_id": "6a44ba8c29dc97e990fb6888",
+        "merchantId": "6a44ba8c29dc97e990fb6864",
+        "merchantName": "Tech World",
+        "merchantEmail": "tech@example.com",
+        "title": "Buy 1 Get 1 Free on Accessories",
+        "category": "BOGO",
+        "businessCategory": "",
+        "businessSubCategory": "",
+        "promoTag": "",
+        "description": "Amazing BOGO deals on phone cases and accessories!",
+        "imageUrl": "https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=800",
+        "startDate": "2026-04-22T00:00:00.000Z",
+        "endDate": "2026-04-26T00:00:00.000Z",
+        "selectedProducts": [
+          {
+            "productId": "6a43d14bebd83d7043ffa2fc",
+            "productName": "Apple iPad Air M2",
+            "imageUrl": "https://via.placeholder.com/300",
+            "originalPrice": 299,
+            "offerPrice": 149,
+            "stockQuantity": 200,
+            "_id": "6a44ba8c29dc97e990fb6889"
+          }
+        ],
+        "status": "active",
+        "createdAt": "2026-07-01T06:58:20.561Z",
+        "id": "6a44ba8c29dc97e990fb6888",
+        "type": "offer",
+        "badge": null,
+        "recommendationExplainability": {
+          "finalScore": 0.2,
+          "components": {
+            "affinity": 0,
+            "distance": 1,
+            "popularity": 0,
+            "freshness": 0,
+            "ctr": 0,
+            "conversion": 0,
+            "merchant_quality": 0,
+            "inventory": 0,
+            "price_value": 0
+          },
+          "policyAdjustments": [
+            "diversity_level_3"
+          ],
+          "reasons": []
+        }
+      },
+      {
+        "_id": "6a44ba8c29dc97e990fb688a",
+        "merchantId": "6a44ba8c29dc97e990fb6865",
+        "merchantName": "Cafe Delight",
+        "merchantEmail": "cafe@example.com",
+        "title": "20% Cashback on All Orders",
+        "category": "Cashback",
+        "businessCategory": "",
+        "businessSubCategory": "",
+        "promoTag": "",
+        "description": "Get 20% cashback on every order above Rs 200!",
+        "imageUrl": "https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=800",
+        "startDate": "2026-04-22T00:00:00.000Z",
+        "endDate": "2026-04-29T00:00:00.000Z",
+        "selectedProducts": [
+          {
+            "productId": "6a43d14bebd83d7043ffa2fd",
+            "productName": "Bose SoundLink Flex Speaker",
+            "imageUrl": "https://via.placeholder.com/300",
+            "originalPrice": 149,
+            "offerPrice": 119,
+            "stockQuantity": 500,
+            "_id": "6a44ba8c29dc97e990fb688b"
+          },
+          {
+            "productId": "6a43d14bebd83d7043ffa2fe",
+            "productName": "Philips Air Fryer HD9270",
+            "imageUrl": "https://via.placeholder.com/300",
+            "originalPrice": 199,
+            "offerPrice": 149,
+            "stockQuantity": 300,
+            "_id": "6a44ba8c29dc97e990fb688c"
+          }
+        ],
+        "status": "active",
+        "createdAt": "2026-07-01T06:58:20.561Z",
+        "id": "6a44ba8c29dc97e990fb688a",
+        "type": "offer",
+        "badge": null,
+        "recommendationExplainability": {
+          "finalScore": 0.2,
+          "components": {
+            "affinity": 0,
+            "distance": 1,
+            "popularity": 0,
+            "freshness": 0,
+            "ctr": 0,
+            "conversion": 0,
+            "merchant_quality": 0,
+            "inventory": 0,
+            "price_value": 0
+          },
+          "policyAdjustments": [
+            "diversity_level_3"
+          ],
+          "reasons": []
+        }
+      },
+      {
+        "_id": "6a44ba8c29dc97e990fb688d",
+        "merchantId": "6a44ba8c29dc97e990fb6866",
+        "merchantName": "Salon Elegance",
+        "merchantEmail": "salon@example.com",
+        "title": "Hair Spa Combo - Rs 499 only",
+        "category": "Combo",
+        "businessCategory": "",
+        "businessSubCategory": "",
+        "promoTag": "",
+        "description": "Get hair wash, spa, and styling for just Rs 499!",
+        "imageUrl": "https://images.unsplash.com/photo-1560066984-138dadb4c035?w=800",
+        "startDate": "2026-04-22T00:00:00.000Z",
+        "endDate": "2026-05-05T00:00:00.000Z",
+        "selectedProducts": [
+          {
+            "productId": "6a43d14bebd83d7043ffa2ff",
+            "productName": "Canon EOS R50 Mirrorless Camera",
+            "imageUrl": "https://via.placeholder.com/300",
+            "originalPrice": 899,
+            "offerPrice": 499,
+            "stockQuantity": 50,
+            "_id": "6a44ba8c29dc97e990fb688e"
+          }
+        ],
+        "status": "active",
+        "createdAt": "2026-07-01T06:58:20.561Z",
+        "id": "6a44ba8c29dc97e990fb688d",
+        "type": "offer",
+        "badge": null,
+        "recommendationExplainability": {
+          "finalScore": 0.2,
+          "components": {
+            "affinity": 0,
+            "distance": 1,
+            "popularity": 0,
+            "freshness": 0,
+            "ctr": 0,
+            "conversion": 0,
+            "merchant_quality": 0,
+            "inventory": 0,
+            "price_value": 0
+          },
+          "policyAdjustments": [
+            "diversity_level_3"
+          ],
+          "reasons": []
+        }
+      }
+    ],
+    "metadata": {
+      "generatedAt": "2026-07-07T10:56:34.256Z",
+      "cacheHit": false,
+      "strategyVersion": "1.0",
+      "experimentVariant": "default",
+      "totalProducts": 5,
+      "requestId": "req_1783421794041_guyltqe",
+      "confidence": 0.78,
+      "reason": "popular_products",
+      "source": "online",
+      "fallbackUsed": true,
+      "retrievedCandidates": 5,
+      "returnedProducts": 5,
+      "executionTime": 208,
+      "requestedStrategy": "nearby",
+      "resolvedStrategy": "trending",
+      "sectionKey": "nearby_you"
+    }
+  },
+  {
+    "key": "trending_near_you",
+    "title": "Trending Near You",
+    "strategy": "trending",
+    "products": [
+      {
+        "_id": "6a44ba8c29dc97e990fb6882",
+        "merchantId": "6a44ba8c29dc97e990fb6862",
+        "merchantName": "Pizza Palace",
+        "merchantEmail": "pizza@example.com",
+        "title": "50% OFF on All Pizzas",
+        "category": "Special",
+        "businessCategory": "",
+        "businessSubCategory": "",
+        "promoTag": "",
+        "description": "Get 50% discount on all pizza orders this weekend!",
+        "imageUrl": "https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=800",
+        "startDate": "2026-04-22T00:00:00.000Z",
+        "endDate": "2026-04-30T00:00:00.000Z",
+        "selectedProducts": [
+          {
+            "productId": "6a43d14bebd83d7043ffa2f8",
+            "productName": "Samsung 55\" 4K Smart TV",
+            "imageUrl": "https://via.placeholder.com/300",
+            "originalPrice": 599,
+            "offerPrice": 299,
+            "stockQuantity": 50,
+            "_id": "6a44ba8c29dc97e990fb6883"
+          },
+          {
+            "productId": "6a43d14bebd83d7043ffa2f9",
+            "productName": "Sony WH-1000XM5 Headphones",
+            "imageUrl": "https://via.placeholder.com/300",
+            "originalPrice": 699,
+            "offerPrice": 349,
+            "stockQuantity": 30,
+            "_id": "6a44ba8c29dc97e990fb6884"
+          }
+        ],
+        "status": "active",
+        "createdAt": "2026-07-01T06:58:20.560Z",
+        "id": "6a44ba8c29dc97e990fb6882",
+        "type": "offer",
+        "badge": null,
+        "recommendationExplainability": {
+          "finalScore": 0.2,
+          "components": {
+            "affinity": 0,
+            "distance": 1,
+            "popularity": 0,
+            "freshness": 0,
+            "ctr": 0,
+            "conversion": 0,
+            "merchant_quality": 0,
+            "inventory": 0,
+            "price_value": 0
+          },
+          "policyAdjustments": [
+            "diversity_level_3"
+          ],
+          "reasons": []
+        }
+      },
+      {
+        "_id": "6a44ba8c29dc97e990fb6885",
+        "merchantId": "6a44ba8c29dc97e990fb6863",
+        "merchantName": "Fashion Hub",
+        "merchantEmail": "fashion@example.com",
+        "title": "Flat 30% OFF on Clothing",
+        "category": "Festival",
+        "businessCategory": "",
+        "businessSubCategory": "",
+        "promoTag": "",
+        "description": "Massive sale on all clothing items!",
+        "imageUrl": "https://images.unsplash.com/photo-1489987707025-afc232f7ea0f?w=800",
+        "startDate": "2026-04-22T00:00:00.000Z",
+        "endDate": "2026-04-28T00:00:00.000Z",
+        "selectedProducts": [
+          {
+            "productId": "6a43d14bebd83d7043ffa2fa",
+            "productName": "LG 8kg Front Load Washing Machine",
+            "imageUrl": "https://via.placeholder.com/300",
+            "originalPrice": 799,
+            "offerPrice": 559,
+            "stockQuantity": 100,
+            "_id": "6a44ba8c29dc97e990fb6886"
+          },
+          {
+            "productId": "6a43d14bebd83d7043ffa2fb",
+            "productName": "Dyson V12 Cordless Vacuum",
+            "imageUrl": "https://via.placeholder.com/300",
+            "originalPrice": 999,
+            "offerPrice": 699,
+            "stockQuantity": 75,
+            "_id": "6a44ba8c29dc97e990fb6887"
+          }
+        ],
+        "status": "active",
+        "createdAt": "2026-07-01T06:58:20.561Z",
+        "id": "6a44ba8c29dc97e990fb6885",
+        "type": "offer",
+        "badge": null,
+        "recommendationExplainability": {
+          "finalScore": 0.2,
+          "components": {
+            "affinity": 0,
+            "distance": 1,
+            "popularity": 0,
+            "freshness": 0,
+            "ctr": 0,
+            "conversion": 0,
+            "merchant_quality": 0,
+            "inventory": 0,
+            "price_value": 0
+          },
+          "policyAdjustments": [
+            "diversity_level_3"
+          ],
+          "reasons": []
+        }
+      },
+      {
+        "_id": "6a44ba8c29dc97e990fb6888",
+        "merchantId": "6a44ba8c29dc97e990fb6864",
+        "merchantName": "Tech World",
+        "merchantEmail": "tech@example.com",
+        "title": "Buy 1 Get 1 Free on Accessories",
+        "category": "BOGO",
+        "businessCategory": "",
+        "businessSubCategory": "",
+        "promoTag": "",
+        "description": "Amazing BOGO deals on phone cases and accessories!",
+        "imageUrl": "https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=800",
+        "startDate": "2026-04-22T00:00:00.000Z",
+        "endDate": "2026-04-26T00:00:00.000Z",
+        "selectedProducts": [
+          {
+            "productId": "6a43d14bebd83d7043ffa2fc",
+            "productName": "Apple iPad Air M2",
+            "imageUrl": "https://via.placeholder.com/300",
+            "originalPrice": 299,
+            "offerPrice": 149,
+            "stockQuantity": 200,
+            "_id": "6a44ba8c29dc97e990fb6889"
+          }
+        ],
+        "status": "active",
+        "createdAt": "2026-07-01T06:58:20.561Z",
+        "id": "6a44ba8c29dc97e990fb6888",
+        "type": "offer",
+        "badge": null,
+        "recommendationExplainability": {
+          "finalScore": 0.2,
+          "components": {
+            "affinity": 0,
+            "distance": 1,
+            "popularity": 0,
+            "freshness": 0,
+            "ctr": 0,
+            "conversion": 0,
+            "merchant_quality": 0,
+            "inventory": 0,
+            "price_value": 0
+          },
+          "policyAdjustments": [
+            "diversity_level_3"
+          ],
+          "reasons": []
+        }
+      },
+      {
+        "_id": "6a44ba8c29dc97e990fb688a",
+        "merchantId": "6a44ba8c29dc97e990fb6865",
+        "merchantName": "Cafe Delight",
+        "merchantEmail": "cafe@example.com",
+        "title": "20% Cashback on All Orders",
+        "category": "Cashback",
+        "businessCategory": "",
+        "businessSubCategory": "",
+        "promoTag": "",
+        "description": "Get 20% cashback on every order above Rs 200!",
+        "imageUrl": "https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=800",
+        "startDate": "2026-04-22T00:00:00.000Z",
+        "endDate": "2026-04-29T00:00:00.000Z",
+        "selectedProducts": [
+          {
+            "productId": "6a43d14bebd83d7043ffa2fd",
+            "productName": "Bose SoundLink Flex Speaker",
+            "imageUrl": "https://via.placeholder.com/300",
+            "originalPrice": 149,
+            "offerPrice": 119,
+            "stockQuantity": 500,
+            "_id": "6a44ba8c29dc97e990fb688b"
+          },
+          {
+            "productId": "6a43d14bebd83d7043ffa2fe",
+            "productName": "Philips Air Fryer HD9270",
+            "imageUrl": "https://via.placeholder.com/300",
+            "originalPrice": 199,
+            "offerPrice": 149,
+            "stockQuantity": 300,
+            "_id": "6a44ba8c29dc97e990fb688c"
+          }
+        ],
+        "status": "active",
+        "createdAt": "2026-07-01T06:58:20.561Z",
+        "id": "6a44ba8c29dc97e990fb688a",
+        "type": "offer",
+        "badge": null,
+        "recommendationExplainability": {
+          "finalScore": 0.2,
+          "components": {
+            "affinity": 0,
+            "distance": 1,
+            "popularity": 0,
+            "freshness": 0,
+            "ctr": 0,
+            "conversion": 0,
+            "merchant_quality": 0,
+            "inventory": 0,
+            "price_value": 0
+          },
+          "policyAdjustments": [
+            "diversity_level_3"
+          ],
+          "reasons": []
+        }
+      },
+      {
+        "_id": "6a44ba8c29dc97e990fb688d",
+        "merchantId": "6a44ba8c29dc97e990fb6866",
+        "merchantName": "Salon Elegance",
+        "merchantEmail": "salon@example.com",
+        "title": "Hair Spa Combo - Rs 499 only",
+        "category": "Combo",
+        "businessCategory": "",
+        "businessSubCategory": "",
+        "promoTag": "",
+        "description": "Get hair wash, spa, and styling for just Rs 499!",
+        "imageUrl": "https://images.unsplash.com/photo-1560066984-138dadb4c035?w=800",
+        "startDate": "2026-04-22T00:00:00.000Z",
+        "endDate": "2026-05-05T00:00:00.000Z",
+        "selectedProducts": [
+          {
+            "productId": "6a43d14bebd83d7043ffa2ff",
+            "productName": "Canon EOS R50 Mirrorless Camera",
+            "imageUrl": "https://via.placeholder.com/300",
+            "originalPrice": 899,
+            "offerPrice": 499,
+            "stockQuantity": 50,
+            "_id": "6a44ba8c29dc97e990fb688e"
+          }
+        ],
+        "status": "active",
+        "createdAt": "2026-07-01T06:58:20.561Z",
+        "id": "6a44ba8c29dc97e990fb688d",
+        "type": "offer",
+        "badge": null,
+        "recommendationExplainability": {
+          "finalScore": 0.2,
+          "components": {
+            "affinity": 0,
+            "distance": 1,
+            "popularity": 0,
+            "freshness": 0,
+            "ctr": 0,
+            "conversion": 0,
+            "merchant_quality": 0,
+            "inventory": 0,
+            "price_value": 0
+          },
+          "policyAdjustments": [
+            "diversity_level_3"
+          ],
+          "reasons": []
+        }
+      }
+    ],
+    "metadata": {
+      "generatedAt": "2026-07-07T10:56:34.202Z",
+      "cacheHit": false,
+      "strategyVersion": "1.0",
+      "experimentVariant": "default",
+      "totalProducts": 5,
+      "requestId": "req_1783421794041_guyltqe",
+      "confidence": 0.78,
+      "reason": "popular_products",
+      "source": "online",
+      "fallbackUsed": true,
+      "retrievedCandidates": 5,
+      "returnedProducts": 5,
+      "executionTime": 159,
+      "requestedStrategy": "trending",
+      "resolvedStrategy": "trending",
+      "sectionKey": "trending_near_you"
+    }
+  },
+  {
+    "key": "recently_viewed",
+    "title": "Recently Viewed",
+    "strategy": "trending",
+    "products": [
+      {
+        "_id": "6a44ba8c29dc97e990fb6882",
+        "merchantId": "6a44ba8c29dc97e990fb6862",
+        "merchantName": "Pizza Palace",
+        "merchantEmail": "pizza@example.com",
+        "title": "50% OFF on All Pizzas",
+        "category": "Special",
+        "businessCategory": "",
+        "businessSubCategory": "",
+        "promoTag": "",
+        "description": "Get 50% discount on all pizza orders this weekend!",
+        "imageUrl": "https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=800",
+        "startDate": "2026-04-22T00:00:00.000Z",
+        "endDate": "2026-04-30T00:00:00.000Z",
+        "selectedProducts": [
+          {
+            "productId": "6a43d14bebd83d7043ffa2f8",
+            "productName": "Samsung 55\" 4K Smart TV",
+            "imageUrl": "https://via.placeholder.com/300",
+            "originalPrice": 599,
+            "offerPrice": 299,
+            "stockQuantity": 50,
+            "_id": "6a44ba8c29dc97e990fb6883"
+          },
+          {
+            "productId": "6a43d14bebd83d7043ffa2f9",
+            "productName": "Sony WH-1000XM5 Headphones",
+            "imageUrl": "https://via.placeholder.com/300",
+            "originalPrice": 699,
+            "offerPrice": 349,
+            "stockQuantity": 30,
+            "_id": "6a44ba8c29dc97e990fb6884"
+          }
+        ],
+        "status": "active",
+        "createdAt": "2026-07-01T06:58:20.560Z",
+        "id": "6a44ba8c29dc97e990fb6882",
+        "type": "offer",
+        "badge": null,
+        "recommendationExplainability": {
+          "finalScore": 0.2,
+          "components": {
+            "affinity": 0,
+            "distance": 1,
+            "popularity": 0,
+            "freshness": 0,
+            "ctr": 0,
+            "conversion": 0,
+            "merchant_quality": 0,
+            "inventory": 0,
+            "price_value": 0
+          },
+          "policyAdjustments": [
+            "diversity_level_3"
+          ],
+          "reasons": []
+        }
+      },
+      {
+        "_id": "6a44ba8c29dc97e990fb6885",
+        "merchantId": "6a44ba8c29dc97e990fb6863",
+        "merchantName": "Fashion Hub",
+        "merchantEmail": "fashion@example.com",
+        "title": "Flat 30% OFF on Clothing",
+        "category": "Festival",
+        "businessCategory": "",
+        "businessSubCategory": "",
+        "promoTag": "",
+        "description": "Massive sale on all clothing items!",
+        "imageUrl": "https://images.unsplash.com/photo-1489987707025-afc232f7ea0f?w=800",
+        "startDate": "2026-04-22T00:00:00.000Z",
+        "endDate": "2026-04-28T00:00:00.000Z",
+        "selectedProducts": [
+          {
+            "productId": "6a43d14bebd83d7043ffa2fa",
+            "productName": "LG 8kg Front Load Washing Machine",
+            "imageUrl": "https://via.placeholder.com/300",
+            "originalPrice": 799,
+            "offerPrice": 559,
+            "stockQuantity": 100,
+            "_id": "6a44ba8c29dc97e990fb6886"
+          },
+          {
+            "productId": "6a43d14bebd83d7043ffa2fb",
+            "productName": "Dyson V12 Cordless Vacuum",
+            "imageUrl": "https://via.placeholder.com/300",
+            "originalPrice": 999,
+            "offerPrice": 699,
+            "stockQuantity": 75,
+            "_id": "6a44ba8c29dc97e990fb6887"
+          }
+        ],
+        "status": "active",
+        "createdAt": "2026-07-01T06:58:20.561Z",
+        "id": "6a44ba8c29dc97e990fb6885",
+        "type": "offer",
+        "badge": null,
+        "recommendationExplainability": {
+          "finalScore": 0.2,
+          "components": {
+            "affinity": 0,
+            "distance": 1,
+            "popularity": 0,
+            "freshness": 0,
+            "ctr": 0,
+            "conversion": 0,
+            "merchant_quality": 0,
+            "inventory": 0,
+            "price_value": 0
+          },
+          "policyAdjustments": [
+            "diversity_level_3"
+          ],
+          "reasons": []
+        }
+      },
+      {
+        "_id": "6a44ba8c29dc97e990fb6888",
+        "merchantId": "6a44ba8c29dc97e990fb6864",
+        "merchantName": "Tech World",
+        "merchantEmail": "tech@example.com",
+        "title": "Buy 1 Get 1 Free on Accessories",
+        "category": "BOGO",
+        "businessCategory": "",
+        "businessSubCategory": "",
+        "promoTag": "",
+        "description": "Amazing BOGO deals on phone cases and accessories!",
+        "imageUrl": "https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=800",
+        "startDate": "2026-04-22T00:00:00.000Z",
+        "endDate": "2026-04-26T00:00:00.000Z",
+        "selectedProducts": [
+          {
+            "productId": "6a43d14bebd83d7043ffa2fc",
+            "productName": "Apple iPad Air M2",
+            "imageUrl": "https://via.placeholder.com/300",
+            "originalPrice": 299,
+            "offerPrice": 149,
+            "stockQuantity": 200,
+            "_id": "6a44ba8c29dc97e990fb6889"
+          }
+        ],
+        "status": "active",
+        "createdAt": "2026-07-01T06:58:20.561Z",
+        "id": "6a44ba8c29dc97e990fb6888",
+        "type": "offer",
+        "badge": null,
+        "recommendationExplainability": {
+          "finalScore": 0.2,
+          "components": {
+            "affinity": 0,
+            "distance": 1,
+            "popularity": 0,
+            "freshness": 0,
+            "ctr": 0,
+            "conversion": 0,
+            "merchant_quality": 0,
+            "inventory": 0,
+            "price_value": 0
+          },
+          "policyAdjustments": [
+            "diversity_level_3"
+          ],
+          "reasons": []
+        }
+      },
+      {
+        "_id": "6a44ba8c29dc97e990fb688a",
+        "merchantId": "6a44ba8c29dc97e990fb6865",
+        "merchantName": "Cafe Delight",
+        "merchantEmail": "cafe@example.com",
+        "title": "20% Cashback on All Orders",
+        "category": "Cashback",
+        "businessCategory": "",
+        "businessSubCategory": "",
+        "promoTag": "",
+        "description": "Get 20% cashback on every order above Rs 200!",
+        "imageUrl": "https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=800",
+        "startDate": "2026-04-22T00:00:00.000Z",
+        "endDate": "2026-04-29T00:00:00.000Z",
+        "selectedProducts": [
+          {
+            "productId": "6a43d14bebd83d7043ffa2fd",
+            "productName": "Bose SoundLink Flex Speaker",
+            "imageUrl": "https://via.placeholder.com/300",
+            "originalPrice": 149,
+            "offerPrice": 119,
+            "stockQuantity": 500,
+            "_id": "6a44ba8c29dc97e990fb688b"
+          },
+          {
+            "productId": "6a43d14bebd83d7043ffa2fe",
+            "productName": "Philips Air Fryer HD9270",
+            "imageUrl": "https://via.placeholder.com/300",
+            "originalPrice": 199,
+            "offerPrice": 149,
+            "stockQuantity": 300,
+            "_id": "6a44ba8c29dc97e990fb688c"
+          }
+        ],
+        "status": "active",
+        "createdAt": "2026-07-01T06:58:20.561Z",
+        "id": "6a44ba8c29dc97e990fb688a",
+        "type": "offer",
+        "badge": null,
+        "recommendationExplainability": {
+          "finalScore": 0.2,
+          "components": {
+            "affinity": 0,
+            "distance": 1,
+            "popularity": 0,
+            "freshness": 0,
+            "ctr": 0,
+            "conversion": 0,
+            "merchant_quality": 0,
+            "inventory": 0,
+            "price_value": 0
+          },
+          "policyAdjustments": [
+            "diversity_level_3"
+          ],
+          "reasons": []
+        }
+      },
+      {
+        "_id": "6a44ba8c29dc97e990fb688d",
+        "merchantId": "6a44ba8c29dc97e990fb6866",
+        "merchantName": "Salon Elegance",
+        "merchantEmail": "salon@example.com",
+        "title": "Hair Spa Combo - Rs 499 only",
+        "category": "Combo",
+        "businessCategory": "",
+        "businessSubCategory": "",
+        "promoTag": "",
+        "description": "Get hair wash, spa, and styling for just Rs 499!",
+        "imageUrl": "https://images.unsplash.com/photo-1560066984-138dadb4c035?w=800",
+        "startDate": "2026-04-22T00:00:00.000Z",
+        "endDate": "2026-05-05T00:00:00.000Z",
+        "selectedProducts": [
+          {
+            "productId": "6a43d14bebd83d7043ffa2ff",
+            "productName": "Canon EOS R50 Mirrorless Camera",
+            "imageUrl": "https://via.placeholder.com/300",
+            "originalPrice": 899,
+            "offerPrice": 499,
+            "stockQuantity": 50,
+            "_id": "6a44ba8c29dc97e990fb688e"
+          }
+        ],
+        "status": "active",
+        "createdAt": "2026-07-01T06:58:20.561Z",
+        "id": "6a44ba8c29dc97e990fb688d",
+        "type": "offer",
+        "badge": null,
+        "recommendationExplainability": {
+          "finalScore": 0.2,
+          "components": {
+            "affinity": 0,
+            "distance": 1,
+            "popularity": 0,
+            "freshness": 0,
+            "ctr": 0,
+            "conversion": 0,
+            "merchant_quality": 0,
+            "inventory": 0,
+            "price_value": 0
+          },
+          "policyAdjustments": [
+            "diversity_level_3"
+          ],
+          "reasons": []
+        }
+      }
+    ],
+    "metadata": {
+      "generatedAt": "2026-07-07T10:56:34.224Z",
+      "cacheHit": false,
+      "strategyVersion": "1.0",
+      "experimentVariant": "default",
+      "totalProducts": 5,
+      "requestId": "req_1783421794041_guyltqe",
+      "confidence": 0.78,
+      "reason": "popular_products",
+      "source": "online",
+      "fallbackUsed": true,
+      "retrievedCandidates": 5,
+      "returnedProducts": 5,
+      "executionTime": 177,
+      "requestedStrategy": "recently_viewed",
+      "resolvedStrategy": "trending",
+      "sectionKey": "recently_viewed"
+    }
+  },
+  {
+    "key": "continue_shopping",
+    "title": "Continue Shopping",
+    "strategy": "trending",
+    "products": [
+      {
+        "_id": "6a44ba8c29dc97e990fb6882",
+        "merchantId": "6a44ba8c29dc97e990fb6862",
+        "merchantName": "Pizza Palace",
+        "merchantEmail": "pizza@example.com",
+        "title": "50% OFF on All Pizzas",
+        "category": "Special",
+        "businessCategory": "",
+        "businessSubCategory": "",
+        "promoTag": "",
+        "description": "Get 50% discount on all pizza orders this weekend!",
+        "imageUrl": "https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=800",
+        "startDate": "2026-04-22T00:00:00.000Z",
+        "endDate": "2026-04-30T00:00:00.000Z",
+        "selectedProducts": [
+          {
+            "productId": "6a43d14bebd83d7043ffa2f8",
+            "productName": "Samsung 55\" 4K Smart TV",
+            "imageUrl": "https://via.placeholder.com/300",
+            "originalPrice": 599,
+            "offerPrice": 299,
+            "stockQuantity": 50,
+            "_id": "6a44ba8c29dc97e990fb6883"
+          },
+          {
+            "productId": "6a43d14bebd83d7043ffa2f9",
+            "productName": "Sony WH-1000XM5 Headphones",
+            "imageUrl": "https://via.placeholder.com/300",
+            "originalPrice": 699,
+            "offerPrice": 349,
+            "stockQuantity": 30,
+            "_id": "6a44ba8c29dc97e990fb6884"
+          }
+        ],
+        "status": "active",
+        "createdAt": "2026-07-01T06:58:20.560Z",
+        "id": "6a44ba8c29dc97e990fb6882",
+        "type": "offer",
+        "badge": null,
+        "recommendationExplainability": {
+          "finalScore": 0.2,
+          "components": {
+            "affinity": 0,
+            "distance": 1,
+            "popularity": 0,
+            "freshness": 0,
+            "ctr": 0,
+            "conversion": 0,
+            "merchant_quality": 0,
+            "inventory": 0,
+            "price_value": 0
+          },
+          "policyAdjustments": [
+            "diversity_level_3"
+          ],
+          "reasons": []
+        }
+      },
+      {
+        "_id": "6a44ba8c29dc97e990fb6885",
+        "merchantId": "6a44ba8c29dc97e990fb6863",
+        "merchantName": "Fashion Hub",
+        "merchantEmail": "fashion@example.com",
+        "title": "Flat 30% OFF on Clothing",
+        "category": "Festival",
+        "businessCategory": "",
+        "businessSubCategory": "",
+        "promoTag": "",
+        "description": "Massive sale on all clothing items!",
+        "imageUrl": "https://images.unsplash.com/photo-1489987707025-afc232f7ea0f?w=800",
+        "startDate": "2026-04-22T00:00:00.000Z",
+        "endDate": "2026-04-28T00:00:00.000Z",
+        "selectedProducts": [
+          {
+            "productId": "6a43d14bebd83d7043ffa2fa",
+            "productName": "LG 8kg Front Load Washing Machine",
+            "imageUrl": "https://via.placeholder.com/300",
+            "originalPrice": 799,
+            "offerPrice": 559,
+            "stockQuantity": 100,
+            "_id": "6a44ba8c29dc97e990fb6886"
+          },
+          {
+            "productId": "6a43d14bebd83d7043ffa2fb",
+            "productName": "Dyson V12 Cordless Vacuum",
+            "imageUrl": "https://via.placeholder.com/300",
+            "originalPrice": 999,
+            "offerPrice": 699,
+            "stockQuantity": 75,
+            "_id": "6a44ba8c29dc97e990fb6887"
+          }
+        ],
+        "status": "active",
+        "createdAt": "2026-07-01T06:58:20.561Z",
+        "id": "6a44ba8c29dc97e990fb6885",
+        "type": "offer",
+        "badge": null,
+        "recommendationExplainability": {
+          "finalScore": 0.2,
+          "components": {
+            "affinity": 0,
+            "distance": 1,
+            "popularity": 0,
+            "freshness": 0,
+            "ctr": 0,
+            "conversion": 0,
+            "merchant_quality": 0,
+            "inventory": 0,
+            "price_value": 0
+          },
+          "policyAdjustments": [
+            "diversity_level_3"
+          ],
+          "reasons": []
+        }
+      },
+      {
+        "_id": "6a44ba8c29dc97e990fb6888",
+        "merchantId": "6a44ba8c29dc97e990fb6864",
+        "merchantName": "Tech World",
+        "merchantEmail": "tech@example.com",
+        "title": "Buy 1 Get 1 Free on Accessories",
+        "category": "BOGO",
+        "businessCategory": "",
+        "businessSubCategory": "",
+        "promoTag": "",
+        "description": "Amazing BOGO deals on phone cases and accessories!",
+        "imageUrl": "https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=800",
+        "startDate": "2026-04-22T00:00:00.000Z",
+        "endDate": "2026-04-26T00:00:00.000Z",
+        "selectedProducts": [
+          {
+            "productId": "6a43d14bebd83d7043ffa2fc",
+            "productName": "Apple iPad Air M2",
+            "imageUrl": "https://via.placeholder.com/300",
+            "originalPrice": 299,
+            "offerPrice": 149,
+            "stockQuantity": 200,
+            "_id": "6a44ba8c29dc97e990fb6889"
+          }
+        ],
+        "status": "active",
+        "createdAt": "2026-07-01T06:58:20.561Z",
+        "id": "6a44ba8c29dc97e990fb6888",
+        "type": "offer",
+        "badge": null,
+        "recommendationExplainability": {
+          "finalScore": 0.2,
+          "components": {
+            "affinity": 0,
+            "distance": 1,
+            "popularity": 0,
+            "freshness": 0,
+            "ctr": 0,
+            "conversion": 0,
+            "merchant_quality": 0,
+            "inventory": 0,
+            "price_value": 0
+          },
+          "policyAdjustments": [
+            "diversity_level_3"
+          ],
+          "reasons": []
+        }
+      },
+      {
+        "_id": "6a44ba8c29dc97e990fb688a",
+        "merchantId": "6a44ba8c29dc97e990fb6865",
+        "merchantName": "Cafe Delight",
+        "merchantEmail": "cafe@example.com",
+        "title": "20% Cashback on All Orders",
+        "category": "Cashback",
+        "businessCategory": "",
+        "businessSubCategory": "",
+        "promoTag": "",
+        "description": "Get 20% cashback on every order above Rs 200!",
+        "imageUrl": "https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=800",
+        "startDate": "2026-04-22T00:00:00.000Z",
+        "endDate": "2026-04-29T00:00:00.000Z",
+        "selectedProducts": [
+          {
+            "productId": "6a43d14bebd83d7043ffa2fd",
+            "productName": "Bose SoundLink Flex Speaker",
+            "imageUrl": "https://via.placeholder.com/300",
+            "originalPrice": 149,
+            "offerPrice": 119,
+            "stockQuantity": 500,
+            "_id": "6a44ba8c29dc97e990fb688b"
+          },
+          {
+            "productId": "6a43d14bebd83d7043ffa2fe",
+            "productName": "Philips Air Fryer HD9270",
+            "imageUrl": "https://via.placeholder.com/300",
+            "originalPrice": 199,
+            "offerPrice": 149,
+            "stockQuantity": 300,
+            "_id": "6a44ba8c29dc97e990fb688c"
+          }
+        ],
+        "status": "active",
+        "createdAt": "2026-07-01T06:58:20.561Z",
+        "id": "6a44ba8c29dc97e990fb688a",
+        "type": "offer",
+        "badge": null,
+        "recommendationExplainability": {
+          "finalScore": 0.2,
+          "components": {
+            "affinity": 0,
+            "distance": 1,
+            "popularity": 0,
+            "freshness": 0,
+            "ctr": 0,
+            "conversion": 0,
+            "merchant_quality": 0,
+            "inventory": 0,
+            "price_value": 0
+          },
+          "policyAdjustments": [
+            "diversity_level_3"
+          ],
+          "reasons": []
+        }
+      },
+      {
+        "_id": "6a44ba8c29dc97e990fb688d",
+        "merchantId": "6a44ba8c29dc97e990fb6866",
+        "merchantName": "Salon Elegance",
+        "merchantEmail": "salon@example.com",
+        "title": "Hair Spa Combo - Rs 499 only",
+        "category": "Combo",
+        "businessCategory": "",
+        "businessSubCategory": "",
+        "promoTag": "",
+        "description": "Get hair wash, spa, and styling for just Rs 499!",
+        "imageUrl": "https://images.unsplash.com/photo-1560066984-138dadb4c035?w=800",
+        "startDate": "2026-04-22T00:00:00.000Z",
+        "endDate": "2026-05-05T00:00:00.000Z",
+        "selectedProducts": [
+          {
+            "productId": "6a43d14bebd83d7043ffa2ff",
+            "productName": "Canon EOS R50 Mirrorless Camera",
+            "imageUrl": "https://via.placeholder.com/300",
+            "originalPrice": 899,
+            "offerPrice": 499,
+            "stockQuantity": 50,
+            "_id": "6a44ba8c29dc97e990fb688e"
+          }
+        ],
+        "status": "active",
+        "createdAt": "2026-07-01T06:58:20.561Z",
+        "id": "6a44ba8c29dc97e990fb688d",
+        "type": "offer",
+        "badge": null,
+        "recommendationExplainability": {
+          "finalScore": 0.2,
+          "components": {
+            "affinity": 0,
+            "distance": 1,
+            "popularity": 0,
+            "freshness": 0,
+            "ctr": 0,
+            "conversion": 0,
+            "merchant_quality": 0,
+            "inventory": 0,
+            "price_value": 0
+          },
+          "policyAdjustments": [
+            "diversity_level_3"
+          ],
+          "reasons": []
+        }
+      }
+    ],
+    "metadata": {
+      "generatedAt": "2026-07-07T10:56:34.300Z",
+      "cacheHit": false,
+      "strategyVersion": "1.0",
+      "experimentVariant": "default",
+      "totalProducts": 5,
+      "requestId": "req_1783421794041_guyltqe",
+      "confidence": 0.78,
+      "reason": "popular_products",
+      "source": "online",
+      "fallbackUsed": true,
+      "retrievedCandidates": 5,
+      "returnedProducts": 5,
+      "executionTime": 130,
+      "requestedStrategy": "continue_shopping",
+      "resolvedStrategy": "trending",
+      "sectionKey": "continue_shopping"
+    }
+  },
+  {
+    "key": "based_on_your_interests",
+    "title": "Based on Your Interests",
+    "strategy": "trending",
+    "products": [
+      {
+        "_id": "6a44ba8c29dc97e990fb6882",
+        "merchantId": "6a44ba8c29dc97e990fb6862",
+        "merchantName": "Pizza Palace",
+        "merchantEmail": "pizza@example.com",
+        "title": "50% OFF on All Pizzas",
+        "category": "Special",
+        "businessCategory": "",
+        "businessSubCategory": "",
+        "promoTag": "",
+        "description": "Get 50% discount on all pizza orders this weekend!",
+        "imageUrl": "https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=800",
+        "startDate": "2026-04-22T00:00:00.000Z",
+        "endDate": "2026-04-30T00:00:00.000Z",
+        "selectedProducts": [
+          {
+            "productId": "6a43d14bebd83d7043ffa2f8",
+            "productName": "Samsung 55\" 4K Smart TV",
+            "imageUrl": "https://via.placeholder.com/300",
+            "originalPrice": 599,
+            "offerPrice": 299,
+            "stockQuantity": 50,
+            "_id": "6a44ba8c29dc97e990fb6883"
+          },
+          {
+            "productId": "6a43d14bebd83d7043ffa2f9",
+            "productName": "Sony WH-1000XM5 Headphones",
+            "imageUrl": "https://via.placeholder.com/300",
+            "originalPrice": 699,
+            "offerPrice": 349,
+            "stockQuantity": 30,
+            "_id": "6a44ba8c29dc97e990fb6884"
+          }
+        ],
+        "status": "active",
+        "createdAt": "2026-07-01T06:58:20.560Z",
+        "id": "6a44ba8c29dc97e990fb6882",
+        "type": "offer",
+        "badge": null,
+        "recommendationExplainability": {
+          "finalScore": 0.2,
+          "components": {
+            "affinity": 0,
+            "distance": 1,
+            "popularity": 0,
+            "freshness": 0,
+            "ctr": 0,
+            "conversion": 0,
+            "merchant_quality": 0,
+            "inventory": 0,
+            "price_value": 0
+          },
+          "policyAdjustments": [
+            "diversity_level_3"
+          ],
+          "reasons": []
+        }
+      },
+      {
+        "_id": "6a44ba8c29dc97e990fb6885",
+        "merchantId": "6a44ba8c29dc97e990fb6863",
+        "merchantName": "Fashion Hub",
+        "merchantEmail": "fashion@example.com",
+        "title": "Flat 30% OFF on Clothing",
+        "category": "Festival",
+        "businessCategory": "",
+        "businessSubCategory": "",
+        "promoTag": "",
+        "description": "Massive sale on all clothing items!",
+        "imageUrl": "https://images.unsplash.com/photo-1489987707025-afc232f7ea0f?w=800",
+        "startDate": "2026-04-22T00:00:00.000Z",
+        "endDate": "2026-04-28T00:00:00.000Z",
+        "selectedProducts": [
+          {
+            "productId": "6a43d14bebd83d7043ffa2fa",
+            "productName": "LG 8kg Front Load Washing Machine",
+            "imageUrl": "https://via.placeholder.com/300",
+            "originalPrice": 799,
+            "offerPrice": 559,
+            "stockQuantity": 100,
+            "_id": "6a44ba8c29dc97e990fb6886"
+          },
+          {
+            "productId": "6a43d14bebd83d7043ffa2fb",
+            "productName": "Dyson V12 Cordless Vacuum",
+            "imageUrl": "https://via.placeholder.com/300",
+            "originalPrice": 999,
+            "offerPrice": 699,
+            "stockQuantity": 75,
+            "_id": "6a44ba8c29dc97e990fb6887"
+          }
+        ],
+        "status": "active",
+        "createdAt": "2026-07-01T06:58:20.561Z",
+        "id": "6a44ba8c29dc97e990fb6885",
+        "type": "offer",
+        "badge": null,
+        "recommendationExplainability": {
+          "finalScore": 0.2,
+          "components": {
+            "affinity": 0,
+            "distance": 1,
+            "popularity": 0,
+            "freshness": 0,
+            "ctr": 0,
+            "conversion": 0,
+            "merchant_quality": 0,
+            "inventory": 0,
+            "price_value": 0
+          },
+          "policyAdjustments": [
+            "diversity_level_3"
+          ],
+          "reasons": []
+        }
+      },
+      {
+        "_id": "6a44ba8c29dc97e990fb6888",
+        "merchantId": "6a44ba8c29dc97e990fb6864",
+        "merchantName": "Tech World",
+        "merchantEmail": "tech@example.com",
+        "title": "Buy 1 Get 1 Free on Accessories",
+        "category": "BOGO",
+        "businessCategory": "",
+        "businessSubCategory": "",
+        "promoTag": "",
+        "description": "Amazing BOGO deals on phone cases and accessories!",
+        "imageUrl": "https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=800",
+        "startDate": "2026-04-22T00:00:00.000Z",
+        "endDate": "2026-04-26T00:00:00.000Z",
+        "selectedProducts": [
+          {
+            "productId": "6a43d14bebd83d7043ffa2fc",
+            "productName": "Apple iPad Air M2",
+            "imageUrl": "https://via.placeholder.com/300",
+            "originalPrice": 299,
+            "offerPrice": 149,
+            "stockQuantity": 200,
+            "_id": "6a44ba8c29dc97e990fb6889"
+          }
+        ],
+        "status": "active",
+        "createdAt": "2026-07-01T06:58:20.561Z",
+        "id": "6a44ba8c29dc97e990fb6888",
+        "type": "offer",
+        "badge": null,
+        "recommendationExplainability": {
+          "finalScore": 0.2,
+          "components": {
+            "affinity": 0,
+            "distance": 1,
+            "popularity": 0,
+            "freshness": 0,
+            "ctr": 0,
+            "conversion": 0,
+            "merchant_quality": 0,
+            "inventory": 0,
+            "price_value": 0
+          },
+          "policyAdjustments": [
+            "diversity_level_3"
+          ],
+          "reasons": []
+        }
+      },
+      {
+        "_id": "6a44ba8c29dc97e990fb688a",
+        "merchantId": "6a44ba8c29dc97e990fb6865",
+        "merchantName": "Cafe Delight",
+        "merchantEmail": "cafe@example.com",
+        "title": "20% Cashback on All Orders",
+        "category": "Cashback",
+        "businessCategory": "",
+        "businessSubCategory": "",
+        "promoTag": "",
+        "description": "Get 20% cashback on every order above Rs 200!",
+        "imageUrl": "https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=800",
+        "startDate": "2026-04-22T00:00:00.000Z",
+        "endDate": "2026-04-29T00:00:00.000Z",
+        "selectedProducts": [
+          {
+            "productId": "6a43d14bebd83d7043ffa2fd",
+            "productName": "Bose SoundLink Flex Speaker",
+            "imageUrl": "https://via.placeholder.com/300",
+            "originalPrice": 149,
+            "offerPrice": 119,
+            "stockQuantity": 500,
+            "_id": "6a44ba8c29dc97e990fb688b"
+          },
+          {
+            "productId": "6a43d14bebd83d7043ffa2fe",
+            "productName": "Philips Air Fryer HD9270",
+            "imageUrl": "https://via.placeholder.com/300",
+            "originalPrice": 199,
+            "offerPrice": 149,
+            "stockQuantity": 300,
+            "_id": "6a44ba8c29dc97e990fb688c"
+          }
+        ],
+        "status": "active",
+        "createdAt": "2026-07-01T06:58:20.561Z",
+        "id": "6a44ba8c29dc97e990fb688a",
+        "type": "offer",
+        "badge": null,
+        "recommendationExplainability": {
+          "finalScore": 0.2,
+          "components": {
+            "affinity": 0,
+            "distance": 1,
+            "popularity": 0,
+            "freshness": 0,
+            "ctr": 0,
+            "conversion": 0,
+            "merchant_quality": 0,
+            "inventory": 0,
+            "price_value": 0
+          },
+          "policyAdjustments": [
+            "diversity_level_3"
+          ],
+          "reasons": []
+        }
+      },
+      {
+        "_id": "6a44ba8c29dc97e990fb688d",
+        "merchantId": "6a44ba8c29dc97e990fb6866",
+        "merchantName": "Salon Elegance",
+        "merchantEmail": "salon@example.com",
+        "title": "Hair Spa Combo - Rs 499 only",
+        "category": "Combo",
+        "businessCategory": "",
+        "businessSubCategory": "",
+        "promoTag": "",
+        "description": "Get hair wash, spa, and styling for just Rs 499!",
+        "imageUrl": "https://images.unsplash.com/photo-1560066984-138dadb4c035?w=800",
+        "startDate": "2026-04-22T00:00:00.000Z",
+        "endDate": "2026-05-05T00:00:00.000Z",
+        "selectedProducts": [
+          {
+            "productId": "6a43d14bebd83d7043ffa2ff",
+            "productName": "Canon EOS R50 Mirrorless Camera",
+            "imageUrl": "https://via.placeholder.com/300",
+            "originalPrice": 899,
+            "offerPrice": 499,
+            "stockQuantity": 50,
+            "_id": "6a44ba8c29dc97e990fb688e"
+          }
+        ],
+        "status": "active",
+        "createdAt": "2026-07-01T06:58:20.561Z",
+        "id": "6a44ba8c29dc97e990fb688d",
+        "type": "offer",
+        "badge": null,
+        "recommendationExplainability": {
+          "finalScore": 0.2,
+          "components": {
+            "affinity": 0,
+            "distance": 1,
+            "popularity": 0,
+            "freshness": 0,
+            "ctr": 0,
+            "conversion": 0,
+            "merchant_quality": 0,
+            "inventory": 0,
+            "price_value": 0
+          },
+          "policyAdjustments": [
+            "diversity_level_3"
+          ],
+          "reasons": []
+        }
+      }
+    ],
+    "metadata": {
+      "generatedAt": "2026-07-07T10:56:34.212Z",
+      "cacheHit": false,
+      "strategyVersion": "1.0",
+      "experimentVariant": "default",
+      "totalProducts": 5,
+      "requestId": "req_1783421794041_guyltqe",
+      "confidence": 0.78,
+      "reason": "popular_products",
+      "source": "online",
+      "fallbackUsed": true,
+      "retrievedCandidates": 5,
+      "returnedProducts": 5,
+      "executionTime": 164,
+      "requestedStrategy": "interest",
+      "resolvedStrategy": "trending",
+      "sectionKey": "based_on_your_interests"
+    }
+  },
+  {
+    "key": "flash_deals",
+    "title": "Flash Deals",
+    "strategy": "flash_deals",
+    "products": [
+      {
+        "_id": "6a44ba8c29dc97e990fb6882",
+        "merchantId": "6a44ba8c29dc97e990fb6862",
+        "merchantName": "Pizza Palace",
+        "merchantEmail": "pizza@example.com",
+        "title": "50% OFF on All Pizzas",
+        "category": "Special",
+        "businessCategory": "",
+        "businessSubCategory": "",
+        "promoTag": "",
+        "description": "Get 50% discount on all pizza orders this weekend!",
+        "imageUrl": "https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=800",
+        "startDate": "2026-04-22T00:00:00.000Z",
+        "endDate": "2026-04-30T00:00:00.000Z",
+        "selectedProducts": [
+          {
+            "productId": "6a43d14bebd83d7043ffa2f8",
+            "productName": "Samsung 55\" 4K Smart TV",
+            "imageUrl": "https://via.placeholder.com/300",
+            "originalPrice": 599,
+            "offerPrice": 299,
+            "stockQuantity": 50,
+            "_id": "6a44ba8c29dc97e990fb6883"
+          },
+          {
+            "productId": "6a43d14bebd83d7043ffa2f9",
+            "productName": "Sony WH-1000XM5 Headphones",
+            "imageUrl": "https://via.placeholder.com/300",
+            "originalPrice": 699,
+            "offerPrice": 349,
+            "stockQuantity": 30,
+            "_id": "6a44ba8c29dc97e990fb6884"
+          }
+        ],
+        "status": "active",
+        "createdAt": "2026-07-01T06:58:20.560Z",
+        "id": "6a44ba8c29dc97e990fb6882",
+        "type": "offer",
+        "badge": null,
+        "recommendationExplainability": {
+          "finalScore": 0,
+          "components": {
+            "affinity": 0,
+            "distance": 1,
+            "popularity": 0,
+            "freshness": 0,
+            "ctr": 0,
+            "conversion": 0,
+            "merchant_quality": 0,
+            "inventory": 0,
+            "price_value": 0
+          },
+          "policyAdjustments": [
+            "diversity_level_3"
+          ],
+          "reasons": []
+        }
+      },
+      {
+        "_id": "6a44ba8c29dc97e990fb6885",
+        "merchantId": "6a44ba8c29dc97e990fb6863",
+        "merchantName": "Fashion Hub",
+        "merchantEmail": "fashion@example.com",
+        "title": "Flat 30% OFF on Clothing",
+        "category": "Festival",
+        "businessCategory": "",
+        "businessSubCategory": "",
+        "promoTag": "",
+        "description": "Massive sale on all clothing items!",
+        "imageUrl": "https://images.unsplash.com/photo-1489987707025-afc232f7ea0f?w=800",
+        "startDate": "2026-04-22T00:00:00.000Z",
+        "endDate": "2026-04-28T00:00:00.000Z",
+        "selectedProducts": [
+          {
+            "productId": "6a43d14bebd83d7043ffa2fa",
+            "productName": "LG 8kg Front Load Washing Machine",
+            "imageUrl": "https://via.placeholder.com/300",
+            "originalPrice": 799,
+            "offerPrice": 559,
+            "stockQuantity": 100,
+            "_id": "6a44ba8c29dc97e990fb6886"
+          },
+          {
+            "productId": "6a43d14bebd83d7043ffa2fb",
+            "productName": "Dyson V12 Cordless Vacuum",
+            "imageUrl": "https://via.placeholder.com/300",
+            "originalPrice": 999,
+            "offerPrice": 699,
+            "stockQuantity": 75,
+            "_id": "6a44ba8c29dc97e990fb6887"
+          }
+        ],
+        "status": "active",
+        "createdAt": "2026-07-01T06:58:20.561Z",
+        "id": "6a44ba8c29dc97e990fb6885",
+        "type": "offer",
+        "badge": null,
+        "recommendationExplainability": {
+          "finalScore": 0,
+          "components": {
+            "affinity": 0,
+            "distance": 1,
+            "popularity": 0,
+            "freshness": 0,
+            "ctr": 0,
+            "conversion": 0,
+            "merchant_quality": 0,
+            "inventory": 0,
+            "price_value": 0
+          },
+          "policyAdjustments": [
+            "diversity_level_3"
+          ],
+          "reasons": []
+        }
+      },
+      {
+        "_id": "6a44ba8c29dc97e990fb6888",
+        "merchantId": "6a44ba8c29dc97e990fb6864",
+        "merchantName": "Tech World",
+        "merchantEmail": "tech@example.com",
+        "title": "Buy 1 Get 1 Free on Accessories",
+        "category": "BOGO",
+        "businessCategory": "",
+        "businessSubCategory": "",
+        "promoTag": "",
+        "description": "Amazing BOGO deals on phone cases and accessories!",
+        "imageUrl": "https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=800",
+        "startDate": "2026-04-22T00:00:00.000Z",
+        "endDate": "2026-04-26T00:00:00.000Z",
+        "selectedProducts": [
+          {
+            "productId": "6a43d14bebd83d7043ffa2fc",
+            "productName": "Apple iPad Air M2",
+            "imageUrl": "https://via.placeholder.com/300",
+            "originalPrice": 299,
+            "offerPrice": 149,
+            "stockQuantity": 200,
+            "_id": "6a44ba8c29dc97e990fb6889"
+          }
+        ],
+        "status": "active",
+        "createdAt": "2026-07-01T06:58:20.561Z",
+        "id": "6a44ba8c29dc97e990fb6888",
+        "type": "offer",
+        "badge": null,
+        "recommendationExplainability": {
+          "finalScore": 0,
+          "components": {
+            "affinity": 0,
+            "distance": 1,
+            "popularity": 0,
+            "freshness": 0,
+            "ctr": 0,
+            "conversion": 0,
+            "merchant_quality": 0,
+            "inventory": 0,
+            "price_value": 0
+          },
+          "policyAdjustments": [
+            "diversity_level_3"
+          ],
+          "reasons": []
+        }
+      },
+      {
+        "_id": "6a44ba8c29dc97e990fb688a",
+        "merchantId": "6a44ba8c29dc97e990fb6865",
+        "merchantName": "Cafe Delight",
+        "merchantEmail": "cafe@example.com",
+        "title": "20% Cashback on All Orders",
+        "category": "Cashback",
+        "businessCategory": "",
+        "businessSubCategory": "",
+        "promoTag": "",
+        "description": "Get 20% cashback on every order above Rs 200!",
+        "imageUrl": "https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=800",
+        "startDate": "2026-04-22T00:00:00.000Z",
+        "endDate": "2026-04-29T00:00:00.000Z",
+        "selectedProducts": [
+          {
+            "productId": "6a43d14bebd83d7043ffa2fd",
+            "productName": "Bose SoundLink Flex Speaker",
+            "imageUrl": "https://via.placeholder.com/300",
+            "originalPrice": 149,
+            "offerPrice": 119,
+            "stockQuantity": 500,
+            "_id": "6a44ba8c29dc97e990fb688b"
+          },
+          {
+            "productId": "6a43d14bebd83d7043ffa2fe",
+            "productName": "Philips Air Fryer HD9270",
+            "imageUrl": "https://via.placeholder.com/300",
+            "originalPrice": 199,
+            "offerPrice": 149,
+            "stockQuantity": 300,
+            "_id": "6a44ba8c29dc97e990fb688c"
+          }
+        ],
+        "status": "active",
+        "createdAt": "2026-07-01T06:58:20.561Z",
+        "id": "6a44ba8c29dc97e990fb688a",
+        "type": "offer",
+        "badge": null,
+        "recommendationExplainability": {
+          "finalScore": 0,
+          "components": {
+            "affinity": 0,
+            "distance": 1,
+            "popularity": 0,
+            "freshness": 0,
+            "ctr": 0,
+            "conversion": 0,
+            "merchant_quality": 0,
+            "inventory": 0,
+            "price_value": 0
+          },
+          "policyAdjustments": [
+            "diversity_level_3"
+          ],
+          "reasons": []
+        }
+      },
+      {
+        "_id": "6a44ba8c29dc97e990fb688d",
+        "merchantId": "6a44ba8c29dc97e990fb6866",
+        "merchantName": "Salon Elegance",
+        "merchantEmail": "salon@example.com",
+        "title": "Hair Spa Combo - Rs 499 only",
+        "category": "Combo",
+        "businessCategory": "",
+        "businessSubCategory": "",
+        "promoTag": "",
+        "description": "Get hair wash, spa, and styling for just Rs 499!",
+        "imageUrl": "https://images.unsplash.com/photo-1560066984-138dadb4c035?w=800",
+        "startDate": "2026-04-22T00:00:00.000Z",
+        "endDate": "2026-05-05T00:00:00.000Z",
+        "selectedProducts": [
+          {
+            "productId": "6a43d14bebd83d7043ffa2ff",
+            "productName": "Canon EOS R50 Mirrorless Camera",
+            "imageUrl": "https://via.placeholder.com/300",
+            "originalPrice": 899,
+            "offerPrice": 499,
+            "stockQuantity": 50,
+            "_id": "6a44ba8c29dc97e990fb688e"
+          }
+        ],
+        "status": "active",
+        "createdAt": "2026-07-01T06:58:20.561Z",
+        "id": "6a44ba8c29dc97e990fb688d",
+        "type": "offer",
+        "badge": null,
+        "recommendationExplainability": {
+          "finalScore": 0,
+          "components": {
+            "affinity": 0,
+            "distance": 1,
+            "popularity": 0,
+            "freshness": 0,
+            "ctr": 0,
+            "conversion": 0,
+            "merchant_quality": 0,
+            "inventory": 0,
+            "price_value": 0
+          },
+          "policyAdjustments": [
+            "diversity_level_3"
+          ],
+          "reasons": []
+        }
+      }
+    ],
+    "metadata": {
+      "generatedAt": "2026-07-07T10:56:34.122Z",
+      "cacheHit": false,
+      "strategyVersion": "1.0",
+      "experimentVariant": "default",
+      "totalProducts": 5,
+      "requestId": "req_1783421794041_guyltqe",
+      "confidence": 0.95,
+      "reason": "active_discounts",
+      "source": "online",
+      "fallbackUsed": false,
+      "retrievedCandidates": 5,
+      "returnedProducts": 5,
+      "executionTime": 77,
+      "requestedStrategy": "flash_deals",
+      "resolvedStrategy": "flash_deals",
+      "sectionKey": "flash_deals"
+    }
+  },
+  {
+    "key": "best_sellers",
+    "title": "Best Sellers",
+    "strategy": "best_selling",
+    "products": [
+      {
+        "_id": "6a44ba8c29dc97e990fb6882",
+        "merchantId": "6a44ba8c29dc97e990fb6862",
+        "merchantName": "Pizza Palace",
+        "merchantEmail": "pizza@example.com",
+        "title": "50% OFF on All Pizzas",
+        "category": "Special",
+        "businessCategory": "",
+        "businessSubCategory": "",
+        "promoTag": "",
+        "description": "Get 50% discount on all pizza orders this weekend!",
+        "imageUrl": "https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=800",
+        "startDate": "2026-04-22T00:00:00.000Z",
+        "endDate": "2026-04-30T00:00:00.000Z",
+        "selectedProducts": [
+          {
+            "productId": "6a43d14bebd83d7043ffa2f8",
+            "productName": "Samsung 55\" 4K Smart TV",
+            "imageUrl": "https://via.placeholder.com/300",
+            "originalPrice": 599,
+            "offerPrice": 299,
+            "stockQuantity": 50,
+            "_id": "6a44ba8c29dc97e990fb6883"
+          },
+          {
+            "productId": "6a43d14bebd83d7043ffa2f9",
+            "productName": "Sony WH-1000XM5 Headphones",
+            "imageUrl": "https://via.placeholder.com/300",
+            "originalPrice": 699,
+            "offerPrice": 349,
+            "stockQuantity": 30,
+            "_id": "6a44ba8c29dc97e990fb6884"
+          }
+        ],
+        "status": "active",
+        "createdAt": "2026-07-01T06:58:20.560Z",
+        "id": "6a44ba8c29dc97e990fb6882",
+        "type": "offer",
+        "badge": null,
+        "recommendationExplainability": {
+          "finalScore": 0.3,
+          "components": {
+            "affinity": 0,
+            "distance": 1,
+            "popularity": 0,
+            "freshness": 0,
+            "ctr": 0,
+            "conversion": 0,
+            "merchant_quality": 0,
+            "inventory": 0,
+            "price_value": 0
+          },
+          "policyAdjustments": [
+            "diversity_level_3"
+          ],
+          "reasons": []
+        }
+      },
+      {
+        "_id": "6a44ba8c29dc97e990fb6885",
+        "merchantId": "6a44ba8c29dc97e990fb6863",
+        "merchantName": "Fashion Hub",
+        "merchantEmail": "fashion@example.com",
+        "title": "Flat 30% OFF on Clothing",
+        "category": "Festival",
+        "businessCategory": "",
+        "businessSubCategory": "",
+        "promoTag": "",
+        "description": "Massive sale on all clothing items!",
+        "imageUrl": "https://images.unsplash.com/photo-1489987707025-afc232f7ea0f?w=800",
+        "startDate": "2026-04-22T00:00:00.000Z",
+        "endDate": "2026-04-28T00:00:00.000Z",
+        "selectedProducts": [
+          {
+            "productId": "6a43d14bebd83d7043ffa2fa",
+            "productName": "LG 8kg Front Load Washing Machine",
+            "imageUrl": "https://via.placeholder.com/300",
+            "originalPrice": 799,
+            "offerPrice": 559,
+            "stockQuantity": 100,
+            "_id": "6a44ba8c29dc97e990fb6886"
+          },
+          {
+            "productId": "6a43d14bebd83d7043ffa2fb",
+            "productName": "Dyson V12 Cordless Vacuum",
+            "imageUrl": "https://via.placeholder.com/300",
+            "originalPrice": 999,
+            "offerPrice": 699,
+            "stockQuantity": 75,
+            "_id": "6a44ba8c29dc97e990fb6887"
+          }
+        ],
+        "status": "active",
+        "createdAt": "2026-07-01T06:58:20.561Z",
+        "id": "6a44ba8c29dc97e990fb6885",
+        "type": "offer",
+        "badge": null,
+        "recommendationExplainability": {
+          "finalScore": 0.3,
+          "components": {
+            "affinity": 0,
+            "distance": 1,
+            "popularity": 0,
+            "freshness": 0,
+            "ctr": 0,
+            "conversion": 0,
+            "merchant_quality": 0,
+            "inventory": 0,
+            "price_value": 0
+          },
+          "policyAdjustments": [
+            "diversity_level_3"
+          ],
+          "reasons": []
+        }
+      },
+      {
+        "_id": "6a44ba8c29dc97e990fb6888",
+        "merchantId": "6a44ba8c29dc97e990fb6864",
+        "merchantName": "Tech World",
+        "merchantEmail": "tech@example.com",
+        "title": "Buy 1 Get 1 Free on Accessories",
+        "category": "BOGO",
+        "businessCategory": "",
+        "businessSubCategory": "",
+        "promoTag": "",
+        "description": "Amazing BOGO deals on phone cases and accessories!",
+        "imageUrl": "https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=800",
+        "startDate": "2026-04-22T00:00:00.000Z",
+        "endDate": "2026-04-26T00:00:00.000Z",
+        "selectedProducts": [
+          {
+            "productId": "6a43d14bebd83d7043ffa2fc",
+            "productName": "Apple iPad Air M2",
+            "imageUrl": "https://via.placeholder.com/300",
+            "originalPrice": 299,
+            "offerPrice": 149,
+            "stockQuantity": 200,
+            "_id": "6a44ba8c29dc97e990fb6889"
+          }
+        ],
+        "status": "active",
+        "createdAt": "2026-07-01T06:58:20.561Z",
+        "id": "6a44ba8c29dc97e990fb6888",
+        "type": "offer",
+        "badge": null,
+        "recommendationExplainability": {
+          "finalScore": 0.3,
+          "components": {
+            "affinity": 0,
+            "distance": 1,
+            "popularity": 0,
+            "freshness": 0,
+            "ctr": 0,
+            "conversion": 0,
+            "merchant_quality": 0,
+            "inventory": 0,
+            "price_value": 0
+          },
+          "policyAdjustments": [
+            "diversity_level_3"
+          ],
+          "reasons": []
+        }
+      },
+      {
+        "_id": "6a44ba8c29dc97e990fb688a",
+        "merchantId": "6a44ba8c29dc97e990fb6865",
+        "merchantName": "Cafe Delight",
+        "merchantEmail": "cafe@example.com",
+        "title": "20% Cashback on All Orders",
+        "category": "Cashback",
+        "businessCategory": "",
+        "businessSubCategory": "",
+        "promoTag": "",
+        "description": "Get 20% cashback on every order above Rs 200!",
+        "imageUrl": "https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=800",
+        "startDate": "2026-04-22T00:00:00.000Z",
+        "endDate": "2026-04-29T00:00:00.000Z",
+        "selectedProducts": [
+          {
+            "productId": "6a43d14bebd83d7043ffa2fd",
+            "productName": "Bose SoundLink Flex Speaker",
+            "imageUrl": "https://via.placeholder.com/300",
+            "originalPrice": 149,
+            "offerPrice": 119,
+            "stockQuantity": 500,
+            "_id": "6a44ba8c29dc97e990fb688b"
+          },
+          {
+            "productId": "6a43d14bebd83d7043ffa2fe",
+            "productName": "Philips Air Fryer HD9270",
+            "imageUrl": "https://via.placeholder.com/300",
+            "originalPrice": 199,
+            "offerPrice": 149,
+            "stockQuantity": 300,
+            "_id": "6a44ba8c29dc97e990fb688c"
+          }
+        ],
+        "status": "active",
+        "createdAt": "2026-07-01T06:58:20.561Z",
+        "id": "6a44ba8c29dc97e990fb688a",
+        "type": "offer",
+        "badge": null,
+        "recommendationExplainability": {
+          "finalScore": 0.3,
+          "components": {
+            "affinity": 0,
+            "distance": 1,
+            "popularity": 0,
+            "freshness": 0,
+            "ctr": 0,
+            "conversion": 0,
+            "merchant_quality": 0,
+            "inventory": 0,
+            "price_value": 0
+          },
+          "policyAdjustments": [
+            "diversity_level_3"
+          ],
+          "reasons": []
+        }
+      },
+      {
+        "_id": "6a44ba8c29dc97e990fb688d",
+        "merchantId": "6a44ba8c29dc97e990fb6866",
+        "merchantName": "Salon Elegance",
+        "merchantEmail": "salon@example.com",
+        "title": "Hair Spa Combo - Rs 499 only",
+        "category": "Combo",
+        "businessCategory": "",
+        "businessSubCategory": "",
+        "promoTag": "",
+        "description": "Get hair wash, spa, and styling for just Rs 499!",
+        "imageUrl": "https://images.unsplash.com/photo-1560066984-138dadb4c035?w=800",
+        "startDate": "2026-04-22T00:00:00.000Z",
+        "endDate": "2026-05-05T00:00:00.000Z",
+        "selectedProducts": [
+          {
+            "productId": "6a43d14bebd83d7043ffa2ff",
+            "productName": "Canon EOS R50 Mirrorless Camera",
+            "imageUrl": "https://via.placeholder.com/300",
+            "originalPrice": 899,
+            "offerPrice": 499,
+            "stockQuantity": 50,
+            "_id": "6a44ba8c29dc97e990fb688e"
+          }
+        ],
+        "status": "active",
+        "createdAt": "2026-07-01T06:58:20.561Z",
+        "id": "6a44ba8c29dc97e990fb688d",
+        "type": "offer",
+        "badge": null,
+        "recommendationExplainability": {
+          "finalScore": 0.3,
+          "components": {
+            "affinity": 0,
+            "distance": 1,
+            "popularity": 0,
+            "freshness": 0,
+            "ctr": 0,
+            "conversion": 0,
+            "merchant_quality": 0,
+            "inventory": 0,
+            "price_value": 0
+          },
+          "policyAdjustments": [
+            "diversity_level_3"
+          ],
+          "reasons": []
+        }
+      }
+    ],
+    "metadata": {
+      "generatedAt": "2026-07-07T10:56:34.222Z",
+      "cacheHit": false,
+      "strategyVersion": "1.0",
+      "experimentVariant": "default",
+      "totalProducts": 5,
+      "requestId": "req_1783421794041_guyltqe",
+      "confidence": 0.72,
+      "reason": "high_clicks",
+      "source": "online",
+      "fallbackUsed": true,
+      "retrievedCandidates": 5,
+      "returnedProducts": 5,
+      "executionTime": 170,
+      "requestedStrategy": "best_selling",
+      "resolvedStrategy": "best_selling",
+      "sectionKey": "best_sellers"
+    }
+  },
+  {
+    "key": "new_arrivals",
+    "title": "New Arrivals",
+    "strategy": "new_arrivals",
+    "products": [
+      {
+        "_id": "6a44ba8c29dc97e990fb6885",
+        "merchantId": "6a44ba8c29dc97e990fb6863",
+        "merchantName": "Fashion Hub",
+        "merchantEmail": "fashion@example.com",
+        "title": "Flat 30% OFF on Clothing",
+        "category": "Festival",
+        "businessCategory": "",
+        "businessSubCategory": "",
+        "promoTag": "",
+        "description": "Massive sale on all clothing items!",
+        "imageUrl": "https://images.unsplash.com/photo-1489987707025-afc232f7ea0f?w=800",
+        "startDate": "2026-04-22T00:00:00.000Z",
+        "endDate": "2026-04-28T00:00:00.000Z",
+        "selectedProducts": [
+          {
+            "productId": "6a43d14bebd83d7043ffa2fa",
+            "productName": "LG 8kg Front Load Washing Machine",
+            "imageUrl": "https://via.placeholder.com/300",
+            "originalPrice": 799,
+            "offerPrice": 559,
+            "stockQuantity": 100,
+            "_id": "6a44ba8c29dc97e990fb6886"
+          },
+          {
+            "productId": "6a43d14bebd83d7043ffa2fb",
+            "productName": "Dyson V12 Cordless Vacuum",
+            "imageUrl": "https://via.placeholder.com/300",
+            "originalPrice": 999,
+            "offerPrice": 699,
+            "stockQuantity": 75,
+            "_id": "6a44ba8c29dc97e990fb6887"
+          }
+        ],
+        "status": "active",
+        "createdAt": "2026-07-01T06:58:20.561Z",
+        "id": "6a44ba8c29dc97e990fb6885",
+        "type": "offer",
+        "badge": null,
+        "recommendationExplainability": {
+          "finalScore": 0,
+          "components": {
+            "affinity": 0,
+            "distance": 1,
+            "popularity": 0,
+            "freshness": 0,
+            "ctr": 0,
+            "conversion": 0,
+            "merchant_quality": 0,
+            "inventory": 0,
+            "price_value": 0
+          },
+          "policyAdjustments": [
+            "diversity_level_3"
+          ],
+          "reasons": []
+        }
+      },
+      {
+        "_id": "6a44ba8c29dc97e990fb6888",
+        "merchantId": "6a44ba8c29dc97e990fb6864",
+        "merchantName": "Tech World",
+        "merchantEmail": "tech@example.com",
+        "title": "Buy 1 Get 1 Free on Accessories",
+        "category": "BOGO",
+        "businessCategory": "",
+        "businessSubCategory": "",
+        "promoTag": "",
+        "description": "Amazing BOGO deals on phone cases and accessories!",
+        "imageUrl": "https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=800",
+        "startDate": "2026-04-22T00:00:00.000Z",
+        "endDate": "2026-04-26T00:00:00.000Z",
+        "selectedProducts": [
+          {
+            "productId": "6a43d14bebd83d7043ffa2fc",
+            "productName": "Apple iPad Air M2",
+            "imageUrl": "https://via.placeholder.com/300",
+            "originalPrice": 299,
+            "offerPrice": 149,
+            "stockQuantity": 200,
+            "_id": "6a44ba8c29dc97e990fb6889"
+          }
+        ],
+        "status": "active",
+        "createdAt": "2026-07-01T06:58:20.561Z",
+        "id": "6a44ba8c29dc97e990fb6888",
+        "type": "offer",
+        "badge": null,
+        "recommendationExplainability": {
+          "finalScore": 0,
+          "components": {
+            "affinity": 0,
+            "distance": 1,
+            "popularity": 0,
+            "freshness": 0,
+            "ctr": 0,
+            "conversion": 0,
+            "merchant_quality": 0,
+            "inventory": 0,
+            "price_value": 0
+          },
+          "policyAdjustments": [
+            "diversity_level_3"
+          ],
+          "reasons": []
+        }
+      },
+      {
+        "_id": "6a44ba8c29dc97e990fb688a",
+        "merchantId": "6a44ba8c29dc97e990fb6865",
+        "merchantName": "Cafe Delight",
+        "merchantEmail": "cafe@example.com",
+        "title": "20% Cashback on All Orders",
+        "category": "Cashback",
+        "businessCategory": "",
+        "businessSubCategory": "",
+        "promoTag": "",
+        "description": "Get 20% cashback on every order above Rs 200!",
+        "imageUrl": "https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=800",
+        "startDate": "2026-04-22T00:00:00.000Z",
+        "endDate": "2026-04-29T00:00:00.000Z",
+        "selectedProducts": [
+          {
+            "productId": "6a43d14bebd83d7043ffa2fd",
+            "productName": "Bose SoundLink Flex Speaker",
+            "imageUrl": "https://via.placeholder.com/300",
+            "originalPrice": 149,
+            "offerPrice": 119,
+            "stockQuantity": 500,
+            "_id": "6a44ba8c29dc97e990fb688b"
+          },
+          {
+            "productId": "6a43d14bebd83d7043ffa2fe",
+            "productName": "Philips Air Fryer HD9270",
+            "imageUrl": "https://via.placeholder.com/300",
+            "originalPrice": 199,
+            "offerPrice": 149,
+            "stockQuantity": 300,
+            "_id": "6a44ba8c29dc97e990fb688c"
+          }
+        ],
+        "status": "active",
+        "createdAt": "2026-07-01T06:58:20.561Z",
+        "id": "6a44ba8c29dc97e990fb688a",
+        "type": "offer",
+        "badge": null,
+        "recommendationExplainability": {
+          "finalScore": 0,
+          "components": {
+            "affinity": 0,
+            "distance": 1,
+            "popularity": 0,
+            "freshness": 0,
+            "ctr": 0,
+            "conversion": 0,
+            "merchant_quality": 0,
+            "inventory": 0,
+            "price_value": 0
+          },
+          "policyAdjustments": [
+            "diversity_level_3"
+          ],
+          "reasons": []
+        }
+      },
+      {
+        "_id": "6a44ba8c29dc97e990fb688d",
+        "merchantId": "6a44ba8c29dc97e990fb6866",
+        "merchantName": "Salon Elegance",
+        "merchantEmail": "salon@example.com",
+        "title": "Hair Spa Combo - Rs 499 only",
+        "category": "Combo",
+        "businessCategory": "",
+        "businessSubCategory": "",
+        "promoTag": "",
+        "description": "Get hair wash, spa, and styling for just Rs 499!",
+        "imageUrl": "https://images.unsplash.com/photo-1560066984-138dadb4c035?w=800",
+        "startDate": "2026-04-22T00:00:00.000Z",
+        "endDate": "2026-05-05T00:00:00.000Z",
+        "selectedProducts": [
+          {
+            "productId": "6a43d14bebd83d7043ffa2ff",
+            "productName": "Canon EOS R50 Mirrorless Camera",
+            "imageUrl": "https://via.placeholder.com/300",
+            "originalPrice": 899,
+            "offerPrice": 499,
+            "stockQuantity": 50,
+            "_id": "6a44ba8c29dc97e990fb688e"
+          }
+        ],
+        "status": "active",
+        "createdAt": "2026-07-01T06:58:20.561Z",
+        "id": "6a44ba8c29dc97e990fb688d",
+        "type": "offer",
+        "badge": null,
+        "recommendationExplainability": {
+          "finalScore": 0,
+          "components": {
+            "affinity": 0,
+            "distance": 1,
+            "popularity": 0,
+            "freshness": 0,
+            "ctr": 0,
+            "conversion": 0,
+            "merchant_quality": 0,
+            "inventory": 0,
+            "price_value": 0
+          },
+          "policyAdjustments": [
+            "diversity_level_3"
+          ],
+          "reasons": []
+        }
+      },
+      {
+        "_id": "6a44ba8c29dc97e990fb6882",
+        "merchantId": "6a44ba8c29dc97e990fb6862",
+        "merchantName": "Pizza Palace",
+        "merchantEmail": "pizza@example.com",
+        "title": "50% OFF on All Pizzas",
+        "category": "Special",
+        "businessCategory": "",
+        "businessSubCategory": "",
+        "promoTag": "",
+        "description": "Get 50% discount on all pizza orders this weekend!",
+        "imageUrl": "https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=800",
+        "startDate": "2026-04-22T00:00:00.000Z",
+        "endDate": "2026-04-30T00:00:00.000Z",
+        "selectedProducts": [
+          {
+            "productId": "6a43d14bebd83d7043ffa2f8",
+            "productName": "Samsung 55\" 4K Smart TV",
+            "imageUrl": "https://via.placeholder.com/300",
+            "originalPrice": 599,
+            "offerPrice": 299,
+            "stockQuantity": 50,
+            "_id": "6a44ba8c29dc97e990fb6883"
+          },
+          {
+            "productId": "6a43d14bebd83d7043ffa2f9",
+            "productName": "Sony WH-1000XM5 Headphones",
+            "imageUrl": "https://via.placeholder.com/300",
+            "originalPrice": 699,
+            "offerPrice": 349,
+            "stockQuantity": 30,
+            "_id": "6a44ba8c29dc97e990fb6884"
+          }
+        ],
+        "status": "active",
+        "createdAt": "2026-07-01T06:58:20.560Z",
+        "id": "6a44ba8c29dc97e990fb6882",
+        "type": "offer",
+        "badge": null,
+        "recommendationExplainability": {
+          "finalScore": 0,
+          "components": {
+            "affinity": 0,
+            "distance": 1,
+            "popularity": 0,
+            "freshness": 0,
+            "ctr": 0,
+            "conversion": 0,
+            "merchant_quality": 0,
+            "inventory": 0,
+            "price_value": 0
+          },
+          "policyAdjustments": [
+            "diversity_level_3"
+          ],
+          "reasons": []
+        }
+      }
+    ],
+    "metadata": {
+      "generatedAt": "2026-07-07T10:56:34.131Z",
+      "cacheHit": false,
+      "strategyVersion": "1.0",
+      "experimentVariant": "default",
+      "totalProducts": 5,
+      "requestId": "req_1783421794041_guyltqe",
+      "confidence": 0.95,
+      "reason": "last_7_days",
+      "source": "online",
+      "fallbackUsed": false,
+      "retrievedCandidates": 5,
+      "returnedProducts": 5,
+      "executionTime": 86,
+      "requestedStrategy": "new_arrivals",
+      "resolvedStrategy": "new_arrivals",
+      "sectionKey": "new_arrivals"
+    }
+  },
+  {
+    "key": "repeat_purchase",
+    "title": "Buy It Again",
+    "strategy": "trending",
+    "products": [
+      {
+        "_id": "6a44ba8c29dc97e990fb6882",
+        "merchantId": "6a44ba8c29dc97e990fb6862",
+        "merchantName": "Pizza Palace",
+        "merchantEmail": "pizza@example.com",
+        "title": "50% OFF on All Pizzas",
+        "category": "Special",
+        "businessCategory": "",
+        "businessSubCategory": "",
+        "promoTag": "",
+        "description": "Get 50% discount on all pizza orders this weekend!",
+        "imageUrl": "https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=800",
+        "startDate": "2026-04-22T00:00:00.000Z",
+        "endDate": "2026-04-30T00:00:00.000Z",
+        "selectedProducts": [
+          {
+            "productId": "6a43d14bebd83d7043ffa2f8",
+            "productName": "Samsung 55\" 4K Smart TV",
+            "imageUrl": "https://via.placeholder.com/300",
+            "originalPrice": 599,
+            "offerPrice": 299,
+            "stockQuantity": 50,
+            "_id": "6a44ba8c29dc97e990fb6883"
+          },
+          {
+            "productId": "6a43d14bebd83d7043ffa2f9",
+            "productName": "Sony WH-1000XM5 Headphones",
+            "imageUrl": "https://via.placeholder.com/300",
+            "originalPrice": 699,
+            "offerPrice": 349,
+            "stockQuantity": 30,
+            "_id": "6a44ba8c29dc97e990fb6884"
+          }
+        ],
+        "status": "active",
+        "createdAt": "2026-07-01T06:58:20.560Z",
+        "id": "6a44ba8c29dc97e990fb6882",
+        "type": "offer",
+        "badge": null,
+        "recommendationExplainability": {
+          "finalScore": 0.2,
+          "components": {
+            "affinity": 0,
+            "distance": 1,
+            "popularity": 0,
+            "freshness": 0,
+            "ctr": 0,
+            "conversion": 0,
+            "merchant_quality": 0,
+            "inventory": 0,
+            "price_value": 0
+          },
+          "policyAdjustments": [
+            "diversity_level_3"
+          ],
+          "reasons": []
+        }
+      },
+      {
+        "_id": "6a44ba8c29dc97e990fb6885",
+        "merchantId": "6a44ba8c29dc97e990fb6863",
+        "merchantName": "Fashion Hub",
+        "merchantEmail": "fashion@example.com",
+        "title": "Flat 30% OFF on Clothing",
+        "category": "Festival",
+        "businessCategory": "",
+        "businessSubCategory": "",
+        "promoTag": "",
+        "description": "Massive sale on all clothing items!",
+        "imageUrl": "https://images.unsplash.com/photo-1489987707025-afc232f7ea0f?w=800",
+        "startDate": "2026-04-22T00:00:00.000Z",
+        "endDate": "2026-04-28T00:00:00.000Z",
+        "selectedProducts": [
+          {
+            "productId": "6a43d14bebd83d7043ffa2fa",
+            "productName": "LG 8kg Front Load Washing Machine",
+            "imageUrl": "https://via.placeholder.com/300",
+            "originalPrice": 799,
+            "offerPrice": 559,
+            "stockQuantity": 100,
+            "_id": "6a44ba8c29dc97e990fb6886"
+          },
+          {
+            "productId": "6a43d14bebd83d7043ffa2fb",
+            "productName": "Dyson V12 Cordless Vacuum",
+            "imageUrl": "https://via.placeholder.com/300",
+            "originalPrice": 999,
+            "offerPrice": 699,
+            "stockQuantity": 75,
+            "_id": "6a44ba8c29dc97e990fb6887"
+          }
+        ],
+        "status": "active",
+        "createdAt": "2026-07-01T06:58:20.561Z",
+        "id": "6a44ba8c29dc97e990fb6885",
+        "type": "offer",
+        "badge": null,
+        "recommendationExplainability": {
+          "finalScore": 0.2,
+          "components": {
+            "affinity": 0,
+            "distance": 1,
+            "popularity": 0,
+            "freshness": 0,
+            "ctr": 0,
+            "conversion": 0,
+            "merchant_quality": 0,
+            "inventory": 0,
+            "price_value": 0
+          },
+          "policyAdjustments": [
+            "diversity_level_3"
+          ],
+          "reasons": []
+        }
+      },
+      {
+        "_id": "6a44ba8c29dc97e990fb6888",
+        "merchantId": "6a44ba8c29dc97e990fb6864",
+        "merchantName": "Tech World",
+        "merchantEmail": "tech@example.com",
+        "title": "Buy 1 Get 1 Free on Accessories",
+        "category": "BOGO",
+        "businessCategory": "",
+        "businessSubCategory": "",
+        "promoTag": "",
+        "description": "Amazing BOGO deals on phone cases and accessories!",
+        "imageUrl": "https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=800",
+        "startDate": "2026-04-22T00:00:00.000Z",
+        "endDate": "2026-04-26T00:00:00.000Z",
+        "selectedProducts": [
+          {
+            "productId": "6a43d14bebd83d7043ffa2fc",
+            "productName": "Apple iPad Air M2",
+            "imageUrl": "https://via.placeholder.com/300",
+            "originalPrice": 299,
+            "offerPrice": 149,
+            "stockQuantity": 200,
+            "_id": "6a44ba8c29dc97e990fb6889"
+          }
+        ],
+        "status": "active",
+        "createdAt": "2026-07-01T06:58:20.561Z",
+        "id": "6a44ba8c29dc97e990fb6888",
+        "type": "offer",
+        "badge": null,
+        "recommendationExplainability": {
+          "finalScore": 0.2,
+          "components": {
+            "affinity": 0,
+            "distance": 1,
+            "popularity": 0,
+            "freshness": 0,
+            "ctr": 0,
+            "conversion": 0,
+            "merchant_quality": 0,
+            "inventory": 0,
+            "price_value": 0
+          },
+          "policyAdjustments": [
+            "diversity_level_3"
+          ],
+          "reasons": []
+        }
+      },
+      {
+        "_id": "6a44ba8c29dc97e990fb688a",
+        "merchantId": "6a44ba8c29dc97e990fb6865",
+        "merchantName": "Cafe Delight",
+        "merchantEmail": "cafe@example.com",
+        "title": "20% Cashback on All Orders",
+        "category": "Cashback",
+        "businessCategory": "",
+        "businessSubCategory": "",
+        "promoTag": "",
+        "description": "Get 20% cashback on every order above Rs 200!",
+        "imageUrl": "https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=800",
+        "startDate": "2026-04-22T00:00:00.000Z",
+        "endDate": "2026-04-29T00:00:00.000Z",
+        "selectedProducts": [
+          {
+            "productId": "6a43d14bebd83d7043ffa2fd",
+            "productName": "Bose SoundLink Flex Speaker",
+            "imageUrl": "https://via.placeholder.com/300",
+            "originalPrice": 149,
+            "offerPrice": 119,
+            "stockQuantity": 500,
+            "_id": "6a44ba8c29dc97e990fb688b"
+          },
+          {
+            "productId": "6a43d14bebd83d7043ffa2fe",
+            "productName": "Philips Air Fryer HD9270",
+            "imageUrl": "https://via.placeholder.com/300",
+            "originalPrice": 199,
+            "offerPrice": 149,
+            "stockQuantity": 300,
+            "_id": "6a44ba8c29dc97e990fb688c"
+          }
+        ],
+        "status": "active",
+        "createdAt": "2026-07-01T06:58:20.561Z",
+        "id": "6a44ba8c29dc97e990fb688a",
+        "type": "offer",
+        "badge": null,
+        "recommendationExplainability": {
+          "finalScore": 0.2,
+          "components": {
+            "affinity": 0,
+            "distance": 1,
+            "popularity": 0,
+            "freshness": 0,
+            "ctr": 0,
+            "conversion": 0,
+            "merchant_quality": 0,
+            "inventory": 0,
+            "price_value": 0
+          },
+          "policyAdjustments": [
+            "diversity_level_3"
+          ],
+          "reasons": []
+        }
+      },
+      {
+        "_id": "6a44ba8c29dc97e990fb688d",
+        "merchantId": "6a44ba8c29dc97e990fb6866",
+        "merchantName": "Salon Elegance",
+        "merchantEmail": "salon@example.com",
+        "title": "Hair Spa Combo - Rs 499 only",
+        "category": "Combo",
+        "businessCategory": "",
+        "businessSubCategory": "",
+        "promoTag": "",
+        "description": "Get hair wash, spa, and styling for just Rs 499!",
+        "imageUrl": "https://images.unsplash.com/photo-1560066984-138dadb4c035?w=800",
+        "startDate": "2026-04-22T00:00:00.000Z",
+        "endDate": "2026-05-05T00:00:00.000Z",
+        "selectedProducts": [
+          {
+            "productId": "6a43d14bebd83d7043ffa2ff",
+            "productName": "Canon EOS R50 Mirrorless Camera",
+            "imageUrl": "https://via.placeholder.com/300",
+            "originalPrice": 899,
+            "offerPrice": 499,
+            "stockQuantity": 50,
+            "_id": "6a44ba8c29dc97e990fb688e"
+          }
+        ],
+        "status": "active",
+        "createdAt": "2026-07-01T06:58:20.561Z",
+        "id": "6a44ba8c29dc97e990fb688d",
+        "type": "offer",
+        "badge": null,
+        "recommendationExplainability": {
+          "finalScore": 0.2,
+          "components": {
+            "affinity": 0,
+            "distance": 1,
+            "popularity": 0,
+            "freshness": 0,
+            "ctr": 0,
+            "conversion": 0,
+            "merchant_quality": 0,
+            "inventory": 0,
+            "price_value": 0
+          },
+          "policyAdjustments": [
+            "diversity_level_3"
+          ],
+          "reasons": []
+        }
+      }
+    ],
+    "metadata": {
+      "generatedAt": "2026-07-07T10:56:34.513Z",
+      "cacheHit": false,
+      "strategyVersion": "1.0",
+      "experimentVariant": "default",
+      "totalProducts": 5,
+      "requestId": "req_1783421794041_guyltqe",
+      "confidence": 0.78,
+      "reason": "popular_products",
+      "source": "online",
+      "fallbackUsed": true,
+      "retrievedCandidates": 5,
+      "returnedProducts": 5,
+      "executionTime": 191,
+      "requestedStrategy": "repeat_purchase",
+      "resolvedStrategy": "trending",
+      "sectionKey": "repeat_purchase"
+    }
+  },
+  {
+    "key": "similar_customers",
+    "title": "Similar Customers Bought",
+    "strategy": "trending",
+    "products": [
+      {
+        "_id": "6a44ba8c29dc97e990fb6882",
+        "merchantId": "6a44ba8c29dc97e990fb6862",
+        "merchantName": "Pizza Palace",
+        "merchantEmail": "pizza@example.com",
+        "title": "50% OFF on All Pizzas",
+        "category": "Special",
+        "businessCategory": "",
+        "businessSubCategory": "",
+        "promoTag": "",
+        "description": "Get 50% discount on all pizza orders this weekend!",
+        "imageUrl": "https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=800",
+        "startDate": "2026-04-22T00:00:00.000Z",
+        "endDate": "2026-04-30T00:00:00.000Z",
+        "selectedProducts": [
+          {
+            "productId": "6a43d14bebd83d7043ffa2f8",
+            "productName": "Samsung 55\" 4K Smart TV",
+            "imageUrl": "https://via.placeholder.com/300",
+            "originalPrice": 599,
+            "offerPrice": 299,
+            "stockQuantity": 50,
+            "_id": "6a44ba8c29dc97e990fb6883"
+          },
+          {
+            "productId": "6a43d14bebd83d7043ffa2f9",
+            "productName": "Sony WH-1000XM5 Headphones",
+            "imageUrl": "https://via.placeholder.com/300",
+            "originalPrice": 699,
+            "offerPrice": 349,
+            "stockQuantity": 30,
+            "_id": "6a44ba8c29dc97e990fb6884"
+          }
+        ],
+        "status": "active",
+        "createdAt": "2026-07-01T06:58:20.560Z",
+        "id": "6a44ba8c29dc97e990fb6882",
+        "type": "offer",
+        "badge": null,
+        "recommendationExplainability": {
+          "finalScore": 0.2,
+          "components": {
+            "affinity": 0,
+            "distance": 1,
+            "popularity": 0,
+            "freshness": 0,
+            "ctr": 0,
+            "conversion": 0,
+            "merchant_quality": 0,
+            "inventory": 0,
+            "price_value": 0
+          },
+          "policyAdjustments": [
+            "diversity_level_3"
+          ],
+          "reasons": []
+        }
+      },
+      {
+        "_id": "6a44ba8c29dc97e990fb6885",
+        "merchantId": "6a44ba8c29dc97e990fb6863",
+        "merchantName": "Fashion Hub",
+        "merchantEmail": "fashion@example.com",
+        "title": "Flat 30% OFF on Clothing",
+        "category": "Festival",
+        "businessCategory": "",
+        "businessSubCategory": "",
+        "promoTag": "",
+        "description": "Massive sale on all clothing items!",
+        "imageUrl": "https://images.unsplash.com/photo-1489987707025-afc232f7ea0f?w=800",
+        "startDate": "2026-04-22T00:00:00.000Z",
+        "endDate": "2026-04-28T00:00:00.000Z",
+        "selectedProducts": [
+          {
+            "productId": "6a43d14bebd83d7043ffa2fa",
+            "productName": "LG 8kg Front Load Washing Machine",
+            "imageUrl": "https://via.placeholder.com/300",
+            "originalPrice": 799,
+            "offerPrice": 559,
+            "stockQuantity": 100,
+            "_id": "6a44ba8c29dc97e990fb6886"
+          },
+          {
+            "productId": "6a43d14bebd83d7043ffa2fb",
+            "productName": "Dyson V12 Cordless Vacuum",
+            "imageUrl": "https://via.placeholder.com/300",
+            "originalPrice": 999,
+            "offerPrice": 699,
+            "stockQuantity": 75,
+            "_id": "6a44ba8c29dc97e990fb6887"
+          }
+        ],
+        "status": "active",
+        "createdAt": "2026-07-01T06:58:20.561Z",
+        "id": "6a44ba8c29dc97e990fb6885",
+        "type": "offer",
+        "badge": null,
+        "recommendationExplainability": {
+          "finalScore": 0.2,
+          "components": {
+            "affinity": 0,
+            "distance": 1,
+            "popularity": 0,
+            "freshness": 0,
+            "ctr": 0,
+            "conversion": 0,
+            "merchant_quality": 0,
+            "inventory": 0,
+            "price_value": 0
+          },
+          "policyAdjustments": [
+            "diversity_level_3"
+          ],
+          "reasons": []
+        }
+      },
+      {
+        "_id": "6a44ba8c29dc97e990fb6888",
+        "merchantId": "6a44ba8c29dc97e990fb6864",
+        "merchantName": "Tech World",
+        "merchantEmail": "tech@example.com",
+        "title": "Buy 1 Get 1 Free on Accessories",
+        "category": "BOGO",
+        "businessCategory": "",
+        "businessSubCategory": "",
+        "promoTag": "",
+        "description": "Amazing BOGO deals on phone cases and accessories!",
+        "imageUrl": "https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=800",
+        "startDate": "2026-04-22T00:00:00.000Z",
+        "endDate": "2026-04-26T00:00:00.000Z",
+        "selectedProducts": [
+          {
+            "productId": "6a43d14bebd83d7043ffa2fc",
+            "productName": "Apple iPad Air M2",
+            "imageUrl": "https://via.placeholder.com/300",
+            "originalPrice": 299,
+            "offerPrice": 149,
+            "stockQuantity": 200,
+            "_id": "6a44ba8c29dc97e990fb6889"
+          }
+        ],
+        "status": "active",
+        "createdAt": "2026-07-01T06:58:20.561Z",
+        "id": "6a44ba8c29dc97e990fb6888",
+        "type": "offer",
+        "badge": null,
+        "recommendationExplainability": {
+          "finalScore": 0.2,
+          "components": {
+            "affinity": 0,
+            "distance": 1,
+            "popularity": 0,
+            "freshness": 0,
+            "ctr": 0,
+            "conversion": 0,
+            "merchant_quality": 0,
+            "inventory": 0,
+            "price_value": 0
+          },
+          "policyAdjustments": [
+            "diversity_level_3"
+          ],
+          "reasons": []
+        }
+      },
+      {
+        "_id": "6a44ba8c29dc97e990fb688a",
+        "merchantId": "6a44ba8c29dc97e990fb6865",
+        "merchantName": "Cafe Delight",
+        "merchantEmail": "cafe@example.com",
+        "title": "20% Cashback on All Orders",
+        "category": "Cashback",
+        "businessCategory": "",
+        "businessSubCategory": "",
+        "promoTag": "",
+        "description": "Get 20% cashback on every order above Rs 200!",
+        "imageUrl": "https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=800",
+        "startDate": "2026-04-22T00:00:00.000Z",
+        "endDate": "2026-04-29T00:00:00.000Z",
+        "selectedProducts": [
+          {
+            "productId": "6a43d14bebd83d7043ffa2fd",
+            "productName": "Bose SoundLink Flex Speaker",
+            "imageUrl": "https://via.placeholder.com/300",
+            "originalPrice": 149,
+            "offerPrice": 119,
+            "stockQuantity": 500,
+            "_id": "6a44ba8c29dc97e990fb688b"
+          },
+          {
+            "productId": "6a43d14bebd83d7043ffa2fe",
+            "productName": "Philips Air Fryer HD9270",
+            "imageUrl": "https://via.placeholder.com/300",
+            "originalPrice": 199,
+            "offerPrice": 149,
+            "stockQuantity": 300,
+            "_id": "6a44ba8c29dc97e990fb688c"
+          }
+        ],
+        "status": "active",
+        "createdAt": "2026-07-01T06:58:20.561Z",
+        "id": "6a44ba8c29dc97e990fb688a",
+        "type": "offer",
+        "badge": null,
+        "recommendationExplainability": {
+          "finalScore": 0.2,
+          "components": {
+            "affinity": 0,
+            "distance": 1,
+            "popularity": 0,
+            "freshness": 0,
+            "ctr": 0,
+            "conversion": 0,
+            "merchant_quality": 0,
+            "inventory": 0,
+            "price_value": 0
+          },
+          "policyAdjustments": [
+            "diversity_level_3"
+          ],
+          "reasons": []
+        }
+      },
+      {
+        "_id": "6a44ba8c29dc97e990fb688d",
+        "merchantId": "6a44ba8c29dc97e990fb6866",
+        "merchantName": "Salon Elegance",
+        "merchantEmail": "salon@example.com",
+        "title": "Hair Spa Combo - Rs 499 only",
+        "category": "Combo",
+        "businessCategory": "",
+        "businessSubCategory": "",
+        "promoTag": "",
+        "description": "Get hair wash, spa, and styling for just Rs 499!",
+        "imageUrl": "https://images.unsplash.com/photo-1560066984-138dadb4c035?w=800",
+        "startDate": "2026-04-22T00:00:00.000Z",
+        "endDate": "2026-05-05T00:00:00.000Z",
+        "selectedProducts": [
+          {
+            "productId": "6a43d14bebd83d7043ffa2ff",
+            "productName": "Canon EOS R50 Mirrorless Camera",
+            "imageUrl": "https://via.placeholder.com/300",
+            "originalPrice": 899,
+            "offerPrice": 499,
+            "stockQuantity": 50,
+            "_id": "6a44ba8c29dc97e990fb688e"
+          }
+        ],
+        "status": "active",
+        "createdAt": "2026-07-01T06:58:20.561Z",
+        "id": "6a44ba8c29dc97e990fb688d",
+        "type": "offer",
+        "badge": null,
+        "recommendationExplainability": {
+          "finalScore": 0.2,
+          "components": {
+            "affinity": 0,
+            "distance": 1,
+            "popularity": 0,
+            "freshness": 0,
+            "ctr": 0,
+            "conversion": 0,
+            "merchant_quality": 0,
+            "inventory": 0,
+            "price_value": 0
+          },
+          "policyAdjustments": [
+            "diversity_level_3"
+          ],
+          "reasons": []
+        }
+      }
+    ],
+    "metadata": {
+      "generatedAt": "2026-07-07T10:56:34.240Z",
+      "cacheHit": false,
+      "strategyVersion": "1.0",
+      "experimentVariant": "default",
+      "totalProducts": 5,
+      "requestId": "req_1783421794041_guyltqe",
+      "confidence": 0.78,
+      "reason": "popular_products",
+      "source": "online",
+      "fallbackUsed": true,
+      "retrievedCandidates": 5,
+      "returnedProducts": 5,
+      "executionTime": 158,
+      "requestedStrategy": "similar_customers",
+      "resolvedStrategy": "trending",
+      "sectionKey": "similar_customers"
+    }
+  }
+]

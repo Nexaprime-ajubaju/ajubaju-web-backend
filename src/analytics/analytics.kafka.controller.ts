@@ -1,5 +1,10 @@
 import { Controller, Logger } from '@nestjs/common';
-import { Ctx, KafkaContext, MessagePattern, Payload } from '@nestjs/microservices';
+import {
+  Ctx,
+  KafkaContext,
+  MessagePattern,
+  Payload,
+} from '@nestjs/microservices';
 import { AnalyticsService } from './analytics.service';
 import { KAFKA_TOPICS } from '../common/constants/kafka-topics';
 
@@ -35,10 +40,16 @@ export class AnalyticsKafkaController {
   }
 
   @MessagePattern(KAFKA_TOPICS.ANALYTICS_DEVICE_BREAKDOWN)
-  async handleDeviceBreakdown(@Payload() message: any, @Ctx() context: KafkaContext) {
+  async handleDeviceBreakdown(
+    @Payload() message: any,
+    @Ctx() context: KafkaContext,
+  ) {
     const correlationId = this.getCorrelationId(message);
     try {
-      return this.success(await this.analyticsService.getDeviceBreakdown(), correlationId);
+      return this.success(
+        await this.analyticsService.getDeviceBreakdown(),
+        correlationId,
+      );
     } catch (error) {
       this.logger.error(`Failed ANALYTICS_DEVICE_BREAKDOWN: ${error.message}`);
       return this.failure(error, correlationId);
@@ -46,10 +57,16 @@ export class AnalyticsKafkaController {
   }
 
   @MessagePattern(KAFKA_TOPICS.ANALYTICS_TOP_REGIONS)
-  async handleTopRegions(@Payload() message: any, @Ctx() context: KafkaContext) {
+  async handleTopRegions(
+    @Payload() message: any,
+    @Ctx() context: KafkaContext,
+  ) {
     const correlationId = this.getCorrelationId(message);
     try {
-      return this.success(await this.analyticsService.getTopRegions(), correlationId);
+      return this.success(
+        await this.analyticsService.getTopRegions(),
+        correlationId,
+      );
     } catch (error) {
       this.logger.error(`Failed ANALYTICS_TOP_REGIONS: ${error.message}`);
       return this.failure(error, correlationId);
@@ -60,7 +77,10 @@ export class AnalyticsKafkaController {
   async handleTopPages(@Payload() message: any, @Ctx() context: KafkaContext) {
     const correlationId = this.getCorrelationId(message);
     try {
-      return this.success(await this.analyticsService.getTopPages(), correlationId);
+      return this.success(
+        await this.analyticsService.getTopPages(),
+        correlationId,
+      );
     } catch (error) {
       this.logger.error(`Failed ANALYTICS_TOP_PAGES: ${error.message}`);
       return this.failure(error, correlationId);
@@ -71,7 +91,10 @@ export class AnalyticsKafkaController {
   async handleEvents(@Payload() message: any, @Ctx() context: KafkaContext) {
     const correlationId = this.getCorrelationId(message);
     try {
-      return this.success(await this.analyticsService.getEvents(), correlationId);
+      return this.success(
+        await this.analyticsService.getEvents(),
+        correlationId,
+      );
     } catch (error) {
       this.logger.error(`Failed ANALYTICS_EVENTS: ${error.message}`);
       return this.failure(error, correlationId);
@@ -79,14 +102,19 @@ export class AnalyticsKafkaController {
   }
 
   @MessagePattern(KAFKA_TOPICS.ANALYTICS_RECENT_ACTIVITY)
-  async handleRecentActivity(@Payload() message: any, @Ctx() context: KafkaContext) {
+  async handleRecentActivity(
+    @Payload() message: any,
+    @Ctx() context: KafkaContext,
+  ) {
     const correlationId = this.getCorrelationId(message);
     try {
-      return this.success(await this.analyticsService.getRecentActivity(), correlationId);
+      return this.success(
+        await this.analyticsService.getRecentActivity(),
+        correlationId,
+      );
     } catch (error) {
       this.logger.error(`Failed ANALYTICS_RECENT_ACTIVITY: ${error.message}`);
       return this.failure(error, correlationId);
     }
   }
 }
-

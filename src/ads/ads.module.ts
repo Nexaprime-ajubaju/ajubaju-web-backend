@@ -25,4 +25,4 @@ import { ModerationModule } from '../moderation/moderation.module';
   providers: [AdsService],
   exports: [AdsService],
 })
-export class AdsModule { }
+export class AdsModule {}

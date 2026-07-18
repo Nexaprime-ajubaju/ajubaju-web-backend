@@ -1,10 +1,26 @@
-import { IsEnum, IsString, IsNumber, IsOptional, IsBoolean, Min } from 'class-validator';
+import {
+  IsEnum,
+  IsString,
+  IsNumber,
+  IsOptional,
+  IsBoolean,
+  Min,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class FurnitureDto {
   @IsEnum([
-    'Sofa', 'Bed', 'Dining Table', 'Chair', 'Table', 'Wardrobe',
-    'Dressing Table', 'Bookshelf', 'Cabinet', 'Mattress', 'Other'
+    'Sofa',
+    'Bed',
+    'Dining Table',
+    'Chair',
+    'Table',
+    'Wardrobe',
+    'Dressing Table',
+    'Bookshelf',
+    'Cabinet',
+    'Mattress',
+    'Other',
   ])
   furnitureType: string;
 

@@ -3,7 +3,7 @@ import { Document } from 'mongoose';
 
 export type MerchantDocument = Merchant & Document;
 
-@Schema({ timestamps: true })
+@Schema({ timestamps: true, optimisticConcurrency: true })
 export class Merchant {
   @Prop({ required: true, unique: true })
   userId: string;
@@ -86,6 +86,53 @@ export class Merchant {
 
   @Prop({ type: [String], default: [] })
   pushTokens?: string[];
+
+  @Prop({
+    type: {
+      planId: { type: String, default: null }, // Reference to SubscriptionPlan unique name or ObjectId
+      status: { type: String, enum: ['TRIAL', 'ACTIVE', 'EXPIRED'], default: 'TRIAL' },
+      startedAt: { type: Date, default: Date.now },
+      expiresAt: { type: Date, default: null },
+      trialEndsAt: { type: Date, default: null },
+      billingCycle: { type: String, enum: ['monthly', 'yearly', 'lifetime'], default: 'monthly' },
+      autoRenew: { type: Boolean, default: false },
+      assignedBy: { type: String, default: 'system' },
+      assignedAt: { type: Date, default: Date.now }
+    },
+    default: null
+  })
+  subscription?: {
+    planId: string;
+    status: 'TRIAL' | 'ACTIVE' | 'EXPIRED';
+    startedAt: Date;
+    expiresAt: Date | null;
+    trialEndsAt: Date | null;
+    billingCycle: 'monthly' | 'yearly' | 'lifetime';
+    autoRenew: boolean;
+    assignedBy: string;
+    assignedAt: Date;
+  };
+
+  @Prop({
+    type: {
+      contentUploadRestrictionUntil: { type: Date, default: null },
+      riskScore: { type: Number, default: 0 },
+      restrictionCount30Days: { type: Number, default: 0 },
+      lastRestrictionAt: { type: Date, default: null },
+    },
+    default: {
+      contentUploadRestrictionUntil: null,
+      riskScore: 0,
+      restrictionCount30Days: 0,
+      lastRestrictionAt: null,
+    },
+  })
+  security?: {
+    contentUploadRestrictionUntil: Date | null;
+    riskScore: number;
+    restrictionCount30Days: number;
+    lastRestrictionAt: Date | null;
+  };
 
   @Prop()
   createdAt: Date;

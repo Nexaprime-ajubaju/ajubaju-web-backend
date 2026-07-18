@@ -5,15 +5,28 @@ import { User, UserSchema } from '../users/schemas/user.schema';
 import { Merchant, MerchantSchema } from '../users/schemas/merchant.schema';
 import { Follow, FollowSchema } from '../users/schemas/follow.schema';
 import { Notification, NotificationSchema } from '../users/schemas/notification.schema';
-import { MerchantProduct, MerchantProductSchema } from '../merchant-products/schemas/merchant-product.schema';
-import { OfferPromotion, OfferPromotionSchema } from './schemas/offer-promotion.schema';
-import { OfferLikeHistory, OfferLikeHistorySchema } from './schemas/offer-like-history.schema';
+import {
+  MerchantProduct,
+  MerchantProductSchema,
+} from '../merchant-products/schemas/merchant-product.schema';
+import {
+  OfferPromotion,
+  OfferPromotionSchema,
+} from './schemas/offer-promotion.schema';
+import {
+  OfferLikeHistory,
+  OfferLikeHistorySchema,
+} from './schemas/offer-like-history.schema';
 import { Voucher, VoucherSchema } from '../vouchers/schemas/voucher.schema';
 import { OffersController } from './offers.controller';
 import { OffersService } from './offers.service';
 import { BannersModule } from '../banners/banners.module';
 import { RedisModule } from '../common/services/redis.module';
 import { ModerationModule } from '../moderation/moderation.module';
+import { SecurityModule } from '../security/security.module';
+
+import { SubscriptionsModule } from '../subscriptions/subscriptions.module';
+import { TransactionModule } from '../common/services/transaction.module';
 
 @Module({
   imports: [
@@ -29,8 +42,11 @@ import { ModerationModule } from '../moderation/moderation.module';
     ]),
     forwardRef(() => KafkaModule),
     BannersModule,
+    SubscriptionsModule,
+    TransactionModule,
     RedisModule, // Offers cache
     ModerationModule,
+    SecurityModule,
   ],
   controllers: [OffersController],
   providers: [OffersService],

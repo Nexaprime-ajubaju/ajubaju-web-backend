@@ -1,5 +1,10 @@
 import { Controller, Logger, Optional } from '@nestjs/common';
-import { Ctx, KafkaContext, MessagePattern, Payload } from '@nestjs/microservices';
+import {
+  Ctx,
+  KafkaContext,
+  MessagePattern,
+  Payload,
+} from '@nestjs/microservices';
 import { CallsService } from './calls.service';
 import { KAFKA_TOPICS } from '../common/constants/kafka-topics';
 import { KafkaService } from '../kafka/kafka.service';
@@ -43,12 +48,18 @@ export class CallsKafkaController {
   }
 
   @MessagePattern(KAFKA_TOPICS.CALL_GET_HISTORY)
-  async handleGetHistory(@Payload() message: any, @Ctx() context: KafkaContext) {
+  async handleGetHistory(
+    @Payload() message: any,
+    @Ctx() context: KafkaContext,
+  ) {
     const value = this.getValue(message);
     const correlationId = this.getCorrelationId(message);
 
     try {
-      const result = await this.callsService.listCallsForUser(value.userId, value.query || {});
+      const result = await this.callsService.listCallsForUser(
+        value.userId,
+        value.query || {},
+      );
       return this.success(result, correlationId);
     } catch (error) {
       this.logger.error(`Failed CALL_GET_HISTORY: ${error.message}`);
@@ -62,7 +73,10 @@ export class CallsKafkaController {
     const correlationId = this.getCorrelationId(message);
 
     try {
-      const result = await this.callsService.ensureParticipant(value.callId, value.userId);
+      const result = await this.callsService.ensureParticipant(
+        value.callId,
+        value.userId,
+      );
       return this.success(result, correlationId);
     } catch (error) {
       this.logger.error(`Failed CALL_GET_BY_ID: ${error.message}`);
@@ -71,7 +85,10 @@ export class CallsKafkaController {
   }
 
   @MessagePattern(KAFKA_TOPICS.CALL_CREATE_INVITE)
-  async handleCreateInvite(@Payload() message: any, @Ctx() context: KafkaContext) {
+  async handleCreateInvite(
+    @Payload() message: any,
+    @Ctx() context: KafkaContext,
+  ) {
     const value = this.getValue(message);
     const correlationId = this.getCorrelationId(message);
 
@@ -110,7 +127,10 @@ export class CallsKafkaController {
     const correlationId = this.getCorrelationId(message);
 
     try {
-      const result = await this.callsService.acceptCall(value.callId, value.userId);
+      const result = await this.callsService.acceptCall(
+        value.callId,
+        value.userId,
+      );
 
       if (this.kafkaService) {
         await this.kafkaService.emit(
@@ -137,7 +157,10 @@ export class CallsKafkaController {
     const correlationId = this.getCorrelationId(message);
 
     try {
-      const result = await this.callsService.rejectCall(value.callId, value.userId);
+      const result = await this.callsService.rejectCall(
+        value.callId,
+        value.userId,
+      );
 
       if (this.kafkaService) {
         await this.kafkaService.emit(
@@ -164,7 +187,11 @@ export class CallsKafkaController {
     const correlationId = this.getCorrelationId(message);
 
     try {
-      const result = await this.callsService.endCall(value.callId, value.userId, value.reason || 'hangup');
+      const result = await this.callsService.endCall(
+        value.callId,
+        value.userId,
+        value.reason || 'hangup',
+      );
 
       if (this.kafkaService) {
         await this.kafkaService.emit(
@@ -187,4 +214,3 @@ export class CallsKafkaController {
     }
   }
 }
-

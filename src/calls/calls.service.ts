@@ -7,8 +7,16 @@ import {
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { v4 as uuidv4 } from 'uuid';
-import { Call, CallDocument, CallStatus, CallType } from './schemas/call.schema';
-import { Conversation, ConversationDocument } from '../chats/schemas/conversation.schema';
+import {
+  Call,
+  CallDocument,
+  CallStatus,
+  CallType,
+} from './schemas/call.schema';
+import {
+  Conversation,
+  ConversationDocument,
+} from '../chats/schemas/conversation.schema';
 import { Message, MessageDocument } from '../chats/schemas/message.schema';
 import { ListCallsDto } from './dto/list-calls.dto';
 
@@ -21,8 +29,10 @@ export class CallsService {
 
   constructor(
     @InjectModel(Call.name) private readonly callModel: Model<CallDocument>,
-    @InjectModel(Conversation.name) private readonly conversationModel: Model<ConversationDocument>,
-    @InjectModel(Message.name) private readonly messageModel: Model<MessageDocument>,
+    @InjectModel(Conversation.name)
+    private readonly conversationModel: Model<ConversationDocument>,
+    @InjectModel(Message.name)
+    private readonly messageModel: Model<MessageDocument>,
   ) {}
 
   private getCallSystemText(call: CallDocument) {
@@ -32,7 +42,10 @@ export class CallsService {
     if (call.status === 'busy') return '📞 User was busy';
     if (call.status === 'ended') {
       if ((call.durationSec || 0) > 0) {
-        const mins = String(Math.floor((call.durationSec || 0) / 60)).padStart(2, '0');
+        const mins = String(Math.floor((call.durationSec || 0) / 60)).padStart(
+          2,
+          '0',
+        );
         const secs = String((call.durationSec || 0) % 60).padStart(2, '0');
         return `📞 Call ended (${mins}:${secs})`;
       }
@@ -42,7 +55,9 @@ export class CallsService {
   }
 
   private async persistCallEventMessage(call: CallDocument) {
-    const conversation = await this.conversationModel.findById(call.conversationId).exec();
+    const conversation = await this.conversationModel
+      .findById(call.conversationId)
+      .exec();
     if (!conversation) return;
 
     const text = this.getCallSystemText(call);
@@ -67,8 +82,13 @@ export class CallsService {
     await conversation.save();
   }
 
-  private async getConversationForParticipant(userId: string, conversationId: string) {
-    const conversation = await this.conversationModel.findById(conversationId).exec();
+  private async getConversationForParticipant(
+    userId: string,
+    conversationId: string,
+  ) {
+    const conversation = await this.conversationModel
+      .findById(conversationId)
+      .exec();
     if (!conversation) {
       throw new NotFoundException('Conversation not found');
     }
@@ -80,8 +100,16 @@ export class CallsService {
     return conversation;
   }
 
-  async createCallInvite(callerId: string, conversationId: string, calleeId: string, type: CallType) {
-    const conversation = await this.getConversationForParticipant(callerId, conversationId);
+  async createCallInvite(
+    callerId: string,
+    conversationId: string,
+    calleeId: string,
+    type: CallType,
+  ) {
+    const conversation = await this.getConversationForParticipant(
+      callerId,
+      conversationId,
+    );
 
     if (!conversation.participants.includes(String(calleeId))) {
       throw new BadRequestException('Callee is not part of this conversation');
@@ -94,10 +122,11 @@ export class CallsService {
     await this.cleanupStaleActiveCallsForUser(String(calleeId));
     await this.cleanupStaleActiveCallsForUser(String(callerId));
 
-    let busyCall = await this.callModel.findOne({
-      participants: String(calleeId),
-      status: { $in: ['initiated', 'ringing', 'accepted'] },
-    })
+    let busyCall = await this.callModel
+      .findOne({
+        participants: String(calleeId),
+        status: { $in: ['initiated', 'ringing', 'accepted'] },
+      })
       .sort({ createdAt: -1 })
       .exec();
 
@@ -107,8 +136,12 @@ export class CallsService {
         String(busyCall.calleeId) === String(calleeId) &&
         ['initiated', 'ringing'].includes(busyCall.status);
 
-      const callAgeMs = Date.now() - new Date(busyCall.startedAt || busyCall.createdAt).getTime();
-      const isStaleRinging = ['initiated', 'ringing'].includes(busyCall.status) && callAgeMs > this.staleRingingMs;
+      const callAgeMs =
+        Date.now() -
+        new Date(busyCall.startedAt || busyCall.createdAt).getTime();
+      const isStaleRinging =
+        ['initiated', 'ringing'].includes(busyCall.status) &&
+        callAgeMs > this.staleRingingMs;
 
       // Allow immediate redial for same pair by closing previous in-flight invite.
       if (isSamePair || isStaleRinging) {
@@ -157,9 +190,14 @@ export class CallsService {
       .exec();
 
     for (const call of activeCalls) {
-      const ageMs = now - new Date(call.startedAt || call.updatedAt || call.createdAt).getTime();
+      const ageMs =
+        now -
+        new Date(call.startedAt || call.updatedAt || call.createdAt).getTime();
 
-      if (['initiated', 'ringing'].includes(call.status) && ageMs > this.staleRingingMs) {
+      if (
+        ['initiated', 'ringing'].includes(call.status) &&
+        ageMs > this.staleRingingMs
+      ) {
         await this.endCallInternal(call.callId, 'missed', 'timeout');
         continue;
       }
@@ -175,7 +213,9 @@ export class CallsService {
       try {
         await this.endCallInternal(callId, 'missed', 'timeout');
       } catch (error) {
-        this.logger.warn(`Missed call timer error for ${callId}: ${error.message}`);
+        this.logger.warn(
+          `Missed call timer error for ${callId}: ${error.message}`,
+        );
       } finally {
         this.activeCallTimeouts.delete(callId);
       }
@@ -216,7 +256,9 @@ export class CallsService {
     }
 
     if (!['ringing', 'initiated'].includes(call.status)) {
-      throw new BadRequestException(`Cannot accept call in status ${call.status}`);
+      throw new BadRequestException(
+        `Cannot accept call in status ${call.status}`,
+      );
     }
 
     call.status = 'accepted';
@@ -235,7 +277,9 @@ export class CallsService {
     }
 
     if (!['ringing', 'initiated'].includes(call.status)) {
-      throw new BadRequestException(`Cannot reject call in status ${call.status}`);
+      throw new BadRequestException(
+        `Cannot reject call in status ${call.status}`,
+      );
     }
 
     return this.endCallInternal(call.callId, 'rejected', 'declined');
@@ -250,10 +294,16 @@ export class CallsService {
     return this.endCallInternal(call.callId, 'missed', 'timeout');
   }
 
-  private async endCallInternal(callId: string, status: CallStatus, reason?: string) {
+  private async endCallInternal(
+    callId: string,
+    status: CallStatus,
+    reason?: string,
+  ) {
     const call = await this.getCallByCallId(callId);
 
-    if (['ended', 'rejected', 'missed', 'failed', 'busy'].includes(call.status)) {
+    if (
+      ['ended', 'rejected', 'missed', 'failed', 'busy'].includes(call.status)
+    ) {
       return call;
     }
 
@@ -263,7 +313,8 @@ export class CallsService {
     call.endReason = reason;
 
     if (call.answeredAt) {
-      const durationMs = endedAt.getTime() - new Date(call.answeredAt).getTime();
+      const durationMs =
+        endedAt.getTime() - new Date(call.answeredAt).getTime();
       call.durationSec = Math.max(0, Math.floor(durationMs / 1000));
     } else {
       call.durationSec = 0;

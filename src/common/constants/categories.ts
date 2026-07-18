@@ -20,7 +20,7 @@ export const ALLOWED_CATEGORIES = [
   'Local Businesses & Vendors',
 ] as const;
 
-export type AllowedCategory = typeof ALLOWED_CATEGORIES[number];
+export type AllowedCategory = (typeof ALLOWED_CATEGORIES)[number];
 
 const LEGACY_CATEGORY_ALIASES: Record<string, AllowedCategory> = {
   'Food & Dining': 'Food & Restaurants',
@@ -49,7 +49,10 @@ export function isValidCategory(category: any): category is AllowedCategory {
  * - All items must be valid categories
  * - No duplicates
  */
-export function validatePreferredCategories(categories: any): { valid: boolean; errors: string[] } {
+export function validatePreferredCategories(categories: any): {
+  valid: boolean;
+  errors: string[];
+} {
   const errors: string[] = [];
 
   if (!Array.isArray(categories)) {
@@ -87,5 +90,9 @@ export function validatePreferredCategories(categories: any): { valid: boolean; 
 export function normalizeCategories(categories: any[]): AllowedCategory[] {
   if (!Array.isArray(categories)) return [];
   const canonical = categories.map((cat) => toCanonicalCategory(cat));
-  return [...new Set(canonical.filter((cat): cat is AllowedCategory => isValidCategory(cat)))];
+  return [
+    ...new Set(
+      canonical.filter((cat): cat is AllowedCategory => isValidCategory(cat)),
+    ),
+  ];
 }

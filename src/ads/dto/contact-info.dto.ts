@@ -1,4 +1,11 @@
-import { IsString, IsNotEmpty, IsOptional, IsEmail, IsEnum, IsUrl } from 'class-validator';
+import {
+  IsString,
+  IsNotEmpty,
+  IsOptional,
+  IsEmail,
+  IsEnum,
+  IsUrl,
+} from 'class-validator';
 
 export class ContactInfoDto {
   @IsString()
@@ -16,11 +23,11 @@ export class ContactInfoDto {
   @IsString()
   whatsapp?: string;
 
-    @IsOptional()  
-    @IsUrl()
-    website?: string;  // Add this field
+  @IsOptional()
+  @IsUrl()
+  website?: string; // Add this field
 
   @IsOptional()
-  @IsEnum(['phone', 'email', 'whatsapp','website'])
+  @IsEnum(['phone', 'email', 'whatsapp', 'website'])
   preferredContactMethod?: string;
 }

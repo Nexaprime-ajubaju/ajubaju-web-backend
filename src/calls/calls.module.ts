@@ -7,7 +7,10 @@ import { CallsService } from './calls.service';
 import { CallsGateway } from './calls.gateway';
 import { CallsKafkaController } from './calls.kafka.controller';
 import { Call, CallSchema } from './schemas/call.schema';
-import { Conversation, ConversationSchema } from '../chats/schemas/conversation.schema';
+import {
+  Conversation,
+  ConversationSchema,
+} from '../chats/schemas/conversation.schema';
 import { Message, MessageSchema } from '../chats/schemas/message.schema';
 import { KafkaModule } from '../kafka/kafka.module';
 

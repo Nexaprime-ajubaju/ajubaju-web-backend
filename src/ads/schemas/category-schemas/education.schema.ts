@@ -5,7 +5,9 @@ export type EducationDocument = Education & Document;
 
 @Schema({ _id: false, timestamps: false })
 export class Education {
-  @Prop({ enum: ['School', 'College', 'Coaching', 'Tutorial', 'Online Course'] })
+  @Prop({
+    enum: ['School', 'College', 'Coaching', 'Tutorial', 'Online Course'],
+  })
   institutionType?: string;
 
   @Prop()

@@ -14,7 +14,9 @@ export class PublicMerchantsController {
   }
 
   @Get('public/:merchantId/store-location')
-  async getPublicMerchantStoreLocation(@Param('merchantId') merchantId: string) {
+  async getPublicMerchantStoreLocation(
+    @Param('merchantId') merchantId: string,
+  ) {
     return this.merchantsService.getPublicMerchantStoreLocation(merchantId);
   }
 

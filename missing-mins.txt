@@ -1,0 +1,30 @@
+c:\place\nexa\GOLO_backen_new\src\ads\dto\category-dtos\vehicle.dto.ts:34 -> @IsNumber()
+c:\place\nexa\GOLO_backen_new\src\ads\dto\category-dtos\vehicle.dto.ts:39 -> @IsNumber()
+c:\place\nexa\GOLO_backen_new\src\ads\dto\create-ad.dto.ts:132 -> @IsNumber()
+c:\place\nexa\GOLO_backen_new\src\banners\dto\submit-banner-promotion.dto.ts:16 -> @IsNumber()
+c:\place\nexa\GOLO_backen_new\src\banners\dto\submit-banner-promotion.dto.ts:19 -> @IsNumber()
+c:\place\nexa\GOLO_backen_new\src\offers\schemas\offer-promotion.schema.ts:165 -> failedImageModerations: { type: Number, default: 0 },
+c:\place\nexa\GOLO_backen_new\src\outbox\schemas\outbox-event.schema.ts:25 -> @Prop({ type: Number, default: 0 })
+c:\place\nexa\GOLO_backen_new\src\products\dto\create-product.dto.ts:52 -> @IsNumber()
+c:\place\nexa\GOLO_backen_new\src\products\dto\create-product.dto.ts:74 -> @IsNumber()
+c:\place\nexa\GOLO_backen_new\src\products\dto\create-product.dto.ts:103 -> @IsNumber()
+c:\place\nexa\GOLO_backen_new\src\security\schemas\security-event.schema.ts:32 -> attemptNumber: { type: Number },
+c:\place\nexa\GOLO_backen_new\src\security\schemas\security-event.schema.ts:33 -> restrictionHours: { type: Number },
+c:\place\nexa\GOLO_backen_new\src\users\dto\create-user-report.dto.ts:45 -> @IsNumber()
+c:\place\nexa\GOLO_backen_new\src\users\dto\create-user-report.dto.ts:56 -> @IsNumber()
+c:\place\nexa\GOLO_backen_new\src\users\dto\create-user-report.dto.ts:60 -> @IsNumber()
+c:\place\nexa\GOLO_backen_new\src\users\schemas\merchant.schema.ts:32 -> @Prop({ type: Number })
+c:\place\nexa\GOLO_backen_new\src\users\schemas\merchant.schema.ts:35 -> @Prop({ type: Number })
+c:\place\nexa\GOLO_backen_new\src\users\schemas\merchant.schema.ts:103 -> riskScore: { type: Number, default: 0 },
+c:\place\nexa\GOLO_backen_new\src\users\schemas\merchant.schema.ts:104 -> restrictionCount30Days: { type: Number, default: 0 },
+c:\place\nexa\GOLO_backen_new\src\users\schemas\pending-merchant-location.schema.ts:15 -> @Prop({ type: Number, required: true })
+c:\place\nexa\GOLO_backen_new\src\users\schemas\pending-merchant-location.schema.ts:18 -> @Prop({ type: Number, required: true })
+c:\place\nexa\GOLO_backen_new\src\users\schemas\user-report.schema.ts:66 -> @Prop({ type: Number, default: 0 })
+c:\place\nexa\GOLO_backen_new\src\vouchers\dto\claim-offer.dto.ts:8 -> @IsNumber()
+c:\place\nexa\GOLO_backen_new\src\vouchers\dto\claim-offer.dto.ts:12 -> @IsNumber()
+c:\place\nexa\GOLO_backen_new\src\vouchers\dto\claim-offer.dto.ts:42 -> @IsNumber()
+c:\place\nexa\GOLO_backen_new\src\vouchers\dto\claim-offer.dto.ts:46 -> @IsNumber()
+c:\place\nexa\GOLO_backen_new\src\vouchers\dto\claim-offer.dto.ts:56 -> @IsNumber()
+c:\place\nexa\GOLO_backen_new\src\vouchers\dto\claim-offer.dto.ts:60 -> @IsNumber()
+c:\place\nexa\GOLO_backen_new\src\vouchers\schemas\voucher.schema.ts:63 -> @Prop({ type: Number, default: null })
+c:\place\nexa\GOLO_backen_new\src\vouchers\schemas\voucher.schema.ts:66 -> @Prop({ type: Number, default: null })

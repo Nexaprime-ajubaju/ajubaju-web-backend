@@ -1,5 +1,10 @@
-import { Controller, Logger, Optional } from '@nestjs/common';
-import { Ctx, KafkaContext, MessagePattern, Payload } from '@nestjs/microservices';
+import { Controller, Logger, Optional, Inject } from '@nestjs/common';
+import {
+  Ctx,
+  KafkaContext,
+  MessagePattern,
+  Payload,
+} from '@nestjs/microservices';
 import { AuditLogsService } from './audit-logs.service';
 import { KAFKA_TOPICS } from '../common/constants/kafka-topics';
 import { KafkaService } from '../kafka/kafka.service';
@@ -10,7 +15,9 @@ export class AuditLogsKafkaController {
 
   constructor(
     private readonly auditLogsService: AuditLogsService,
-    @Optional() private readonly kafkaService?: KafkaService,
+    @Optional()
+    @Inject(KafkaService)
+    private readonly kafkaService?: KafkaService,
   ) {}
 
   private getValue(message: any) {
@@ -86,4 +93,3 @@ export class AuditLogsKafkaController {
     }
   }
 }
-

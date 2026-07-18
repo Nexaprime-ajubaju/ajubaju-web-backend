@@ -33,9 +33,9 @@ export class Report {
   @Prop({ type: String, ref: 'User', required: true, index: true })
   reportedBy: string;
 
-  @Prop({ 
-    type: String, 
-    enum: ReportReason, 
+  @Prop({
+    type: String,
+    enum: ReportReason,
     required: true,
     default: ReportReason.OTHER,
   })
@@ -44,9 +44,9 @@ export class Report {
   @Prop({ type: String, maxlength: 500, trim: true })
   description?: string;
 
-  @Prop({ 
-    type: String, 
-    enum: ReportStatus, 
+  @Prop({
+    type: String,
+    enum: ReportStatus,
     default: ReportStatus.PENDING,
     index: true,
   })

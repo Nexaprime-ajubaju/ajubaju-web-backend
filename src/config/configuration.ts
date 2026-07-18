@@ -15,29 +15,30 @@ const parseList = (value?: string): string[] => {
 
 export default registerAs('config', () => ({
   environment: process.env.NODE_ENV || 'development',
-  
+
   service: {
     name: process.env.SERVICE_NAME || 'ads-service',
     port: Number.parseInt(process.env.PORT, 10) || 3002,
   },
-  
+
   cors: {
     origins: parseList(process.env.CORS_ORIGINS),
   },
-  
+
   mongodb: {
-    // Use external IP that definitely works
-    uri: process.env.MONGODB_URI || 'mongodb://mongo:nexaprime123@62.72.23.96:27017/?authSource=admin&directConnection=true',
-    host: process.env.MONGODB_HOST || '62.72.23.96',
+    uri: process.env.MONGODB_URI || 'mongodb://localhost:27017/golo',
+    host: process.env.MONGODB_HOST || 'localhost',
     port: parseInt(process.env.MONGODB_PORT || '27017', 10),
-    username: process.env.MONGODB_USERNAME || 'mongo',
-    password: process.env.MONGODB_PASSWORD || 'nexaprime123',
-    database: process.env.MONGODB_DATABASE || 'admin',
-},
-  
+    username: process.env.MONGODB_USERNAME || '',
+    password: process.env.MONGODB_PASSWORD || '',
+    database: process.env.MONGODB_DATABASE || 'golo',
+  },
+
   kafka: {
     enabled: parseBoolean(process.env.ENABLE_KAFKA ?? 'false'),
-    brokers: process.env.KAFKA_BROKERS ? process.env.KAFKA_BROKERS.split(',') : [],
+    brokers: process.env.KAFKA_BROKERS
+      ? process.env.KAFKA_BROKERS.split(',')
+      : [],
     clientId: process.env.KAFKA_CLIENT_ID || 'golo-backend',
     groupId: process.env.KAFKA_GROUP_ID || 'golo-consumer-group',
     sasl: process.env.KAFKA_SASL_USERNAME
@@ -58,7 +59,7 @@ export default registerAs('config', () => ({
     db: parseInt(process.env.REDIS_DB || '0', 10),
     keyPrefix: process.env.REDIS_KEY_PREFIX || 'golo:',
   },
-  
+
   jwt: {
     secret: process.env.JWT_SECRET,
     refreshSecret: process.env.JWT_REFRESH_SECRET,

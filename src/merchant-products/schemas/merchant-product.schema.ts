@@ -39,7 +39,8 @@ export class MerchantProduct {
   updatedAt: Date;
 }
 
-export const MerchantProductSchema = SchemaFactory.createForClass(MerchantProduct);
+export const MerchantProductSchema =
+  SchemaFactory.createForClass(MerchantProduct);
 
 MerchantProductSchema.index({ merchantId: 1, createdAt: -1 });
 MerchantProductSchema.index({ merchantId: 1, name: 1 });

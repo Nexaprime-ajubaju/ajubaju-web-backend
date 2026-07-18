@@ -1,4 +1,13 @@
-import { IsString, IsNumber, IsOptional, IsArray, IsEmail, Min, Max, IsEnum } from 'class-validator';
+import {
+  IsString,
+  IsNumber,
+  IsOptional,
+  IsArray,
+  IsEmail,
+  Min,
+  Max,
+  IsEnum,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class MatrimonialDto {

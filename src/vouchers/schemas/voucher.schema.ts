@@ -102,6 +102,13 @@ VoucherSchema.index({ merchantId: 1, status: 1 });
 VoucherSchema.index({ expiresAt: 1, status: 1 });
 VoucherSchema.index({ qrCode: 1, status: 1 });
 VoucherSchema.index(
+  { userId: 1, offerId: 1 },
+  {
+    unique: true,
+    name: 'user_offer_claim_unique',
+  },
+);
+VoucherSchema.index(
   { verificationCode: 1 },
   {
     unique: true,

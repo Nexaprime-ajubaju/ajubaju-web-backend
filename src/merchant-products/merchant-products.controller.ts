@@ -27,14 +27,19 @@ interface CurrentUserPayload {
 
 @Controller('merchant/products')
 export class MerchantProductsController {
-  constructor(private readonly merchantProductsService: MerchantProductsService) {}
+  constructor(
+    private readonly merchantProductsService: MerchantProductsService,
+  ) {}
 
   @Get('public/:merchantId')
   async listPublic(
     @Param('merchantId') merchantId: string,
     @Query() query: ListMerchantProductsDto,
   ) {
-    return this.merchantProductsService.listProductsByMerchantId(merchantId, query);
+    return this.merchantProductsService.listProductsByMerchantId(
+      merchantId,
+      query,
+    );
   }
 
   @Get('public/item/:productId')

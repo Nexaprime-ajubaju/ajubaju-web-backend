@@ -1,20 +1,42 @@
-import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { v4 as uuidv4 } from 'uuid';
 import { Product, ProductDocument } from './schemas/product.schema';
 import { CreateProductDto, UpdateProductDto } from './dto/create-product.dto';
+import { SubscriptionsService } from '../subscriptions/subscriptions.service';
+import { Merchant, MerchantDocument } from '../users/schemas/merchant.schema';
 
 @Injectable()
 export class ProductsService {
   constructor(
     @InjectModel(Product.name) private productModel: Model<ProductDocument>,
+    @InjectModel(Merchant.name) private merchantModel: Model<MerchantDocument>,
+    private readonly SubscriptionsService: SubscriptionsService,
   ) {}
 
   async createProduct(
     merchantId: string,
     createProductDto: CreateProductDto,
   ): Promise<Product> {
+    const merchant = await this.merchantModel
+      .findOne({ userId: merchantId })
+      .exec();
+    if (merchant) {
+      const planDetails =
+        await this.SubscriptionsService.getPlanDetails(merchant);
+      if (!planDetails.planFeatures.canAddProduct) {
+        throw new ForbiddenException(
+          'Free Tier merchants cannot add new products. Please upgrade to Premium.',
+        );
+      }
+    }
+
     const productId = `PROD_${uuidv4()}`;
 
     const product = new this.productModel({
@@ -45,14 +67,26 @@ export class ProductsService {
       this.productModel.countDocuments({ merchantId, isVisible: true }),
     ]);
 
-    return { data, total };
+    // Compute offerEligible for the latest 10 created products
+    const processedData = data.map((product, index) => {
+      const globalIndex = skip + index;
+      return {
+        ...product,
+        offerEligible: globalIndex < 10,
+      };
+    });
+
+    return { data: processedData, total };
   }
 
   async getProductById(
     productId: string,
     merchantId?: string,
   ): Promise<Product> {
-    const product = await this.productModel.findOne({ productId }).lean().exec();
+    const product = await this.productModel
+      .findOne({ productId })
+      .lean()
+      .exec();
 
     if (!product) {
       throw new NotFoundException(`Product with ID ${productId} not found`);
@@ -85,10 +119,20 @@ export class ProductsService {
     return product;
   }
 
-  async deleteProduct(
-    productId: string,
-    merchantId: string,
-  ): Promise<Product> {
+  async deleteProduct(productId: string, merchantId: string): Promise<Product> {
+    const merchant = await this.merchantModel
+      .findOne({ userId: merchantId })
+      .exec();
+    if (merchant) {
+      const planDetails =
+        await this.SubscriptionsService.getPlanDetails(merchant);
+      if (!planDetails.planFeatures.canDeleteProduct) {
+        throw new ForbiddenException(
+          'Free Tier merchants cannot delete products. Please upgrade to Premium.',
+        );
+      }
+    }
+
     const product = await this.productModel
       .findOne({ productId, merchantId })
       .exec();
@@ -120,11 +164,7 @@ export class ProductsService {
       searchFilter.merchantId = merchantId;
     }
 
-    return this.productModel
-      .find(searchFilter)
-      .limit(10)
-      .lean()
-      .exec();
+    return this.productModel.find(searchFilter).limit(10).lean().exec();
   }
 
   async getProductsByCategory(
@@ -168,13 +208,19 @@ export class ProductsService {
       .exec();
 
     const totalProducts = products.length;
-    const totalStock = products.reduce((sum, p) => sum + (p.stockQuantity || 0), 0);
+    const totalStock = products.reduce(
+      (sum, p) => sum + (p.stockQuantity || 0),
+      0,
+    );
     const totalValue = products.reduce(
       (sum, p) => sum + p.regularPrice * (p.stockQuantity || 0),
       0,
     );
     const totalViews = products.reduce((sum, p) => sum + (p.views || 0), 0);
-    const totalPurchases = products.reduce((sum, p) => sum + (p.purchases || 0), 0);
+    const totalPurchases = products.reduce(
+      (sum, p) => sum + (p.purchases || 0),
+      0,
+    );
 
     return {
       totalProducts,

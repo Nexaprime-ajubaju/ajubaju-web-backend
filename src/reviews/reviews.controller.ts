@@ -1,4 +1,13 @@
-import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { ReviewsService } from './reviews.service';
@@ -14,7 +23,11 @@ export class ReviewsController {
     @Query('page') page = '1',
     @Query('limit') limit = '10',
   ) {
-    return this.reviewsService.getOfferReviews(offerId, Number(page), Number(limit));
+    return this.reviewsService.getOfferReviews(
+      offerId,
+      Number(page),
+      Number(limit),
+    );
   }
 
   @Post('vouchers/:voucherId')
@@ -26,7 +39,10 @@ export class ReviewsController {
     @Body('content') content: string,
   ) {
     const userId = user?.id || user?._id;
-    return this.reviewsService.submitOfferReview(userId, voucherId, { rating, content });
+    return this.reviewsService.submitOfferReview(userId, voucherId, {
+      rating,
+      content,
+    });
   }
 
   @Get('merchant')
@@ -39,7 +55,13 @@ export class ReviewsController {
     @Query('search') search?: string,
   ) {
     const merchantId = user?.id || user?._id;
-    return this.reviewsService.getMerchantReviews(merchantId, Number(page), Number(limit), status, search);
+    return this.reviewsService.getMerchantReviews(
+      merchantId,
+      Number(page),
+      Number(limit),
+      status,
+      search,
+    );
   }
 
   @Get('merchant/stats')

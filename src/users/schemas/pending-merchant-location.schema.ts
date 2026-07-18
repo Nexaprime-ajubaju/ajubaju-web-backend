@@ -1,7 +1,8 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document } from 'mongoose';
 
-export type PendingMerchantLocationDocument = PendingMerchantLocation & Document;
+export type PendingMerchantLocationDocument = PendingMerchantLocation &
+  Document;
 
 @Schema({ timestamps: true, collection: 'pending_merchant_locations' })
 export class PendingMerchantLocation {
@@ -24,5 +25,7 @@ export class PendingMerchantLocation {
   updatedAt: Date;
 }
 
-export const PendingMerchantLocationSchema = SchemaFactory.createForClass(PendingMerchantLocation);
+export const PendingMerchantLocationSchema = SchemaFactory.createForClass(
+  PendingMerchantLocation,
+);
 PendingMerchantLocationSchema.index({ email: 1 });

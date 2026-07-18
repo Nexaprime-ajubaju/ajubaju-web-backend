@@ -5,10 +5,21 @@ export type FurnitureDocument = Furniture & Document;
 
 @Schema({ _id: false, timestamps: false })
 export class Furniture {
-  @Prop({ enum: [
-    'Sofa', 'Bed', 'Dining Table', 'Chair', 'Table', 'Wardrobe',
-    'Dressing Table', 'Bookshelf', 'Cabinet', 'Mattress', 'Other'
-  ]})
+  @Prop({
+    enum: [
+      'Sofa',
+      'Bed',
+      'Dining Table',
+      'Chair',
+      'Table',
+      'Wardrobe',
+      'Dressing Table',
+      'Bookshelf',
+      'Cabinet',
+      'Mattress',
+      'Other',
+    ],
+  })
   furnitureType?: string;
 
   @Prop()

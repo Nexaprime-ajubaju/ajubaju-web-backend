@@ -41,7 +41,10 @@ export class CallsGateway implements OnGatewayConnection, OnGatewayDisconnect {
   async handleConnection(client: Socket) {
     try {
       const tokenFromAuth = client.handshake.auth?.token;
-      const tokenFromHeader = client.handshake.headers.authorization?.replace('Bearer ', '');
+      const tokenFromHeader = client.handshake.headers.authorization?.replace(
+        'Bearer ',
+        '',
+      );
       const token = tokenFromAuth || tokenFromHeader;
 
       if (!token) {
@@ -59,7 +62,9 @@ export class CallsGateway implements OnGatewayConnection, OnGatewayDisconnect {
       const userId = String(payload.sub);
       client.data.userId = userId;
       client.join(`user:${userId}`);
-      this.logger.debug(`Calls socket connected for user ${userId}: ${client.id}`);
+      this.logger.debug(
+        `Calls socket connected for user ${userId}: ${client.id}`,
+      );
     } catch (error) {
       this.logger.warn(`Calls socket auth failed: ${error.message}`);
       client.emit('call_error', { message: 'Authentication failed' });
@@ -72,7 +77,9 @@ export class CallsGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   private otherParticipant(call: any, userId: string) {
-    return call.participants.find((participantId: string) => String(participantId) !== String(userId));
+    return call.participants.find(
+      (participantId: string) => String(participantId) !== String(userId),
+    );
   }
 
   private scheduleUnansweredTimeout(callId: string) {
@@ -96,7 +103,9 @@ export class CallsGateway implements OnGatewayConnection, OnGatewayDisconnect {
           this.server.to(`user:${participantId}`).emit('call_ended', event);
         }
       } catch (error) {
-        this.logger.warn(`Unanswered timeout emit failed for ${callId}: ${error.message}`);
+        this.logger.warn(
+          `Unanswered timeout emit failed for ${callId}: ${error.message}`,
+        );
       } finally {
         this.unansweredTimeouts.delete(callId);
       }
@@ -114,7 +123,10 @@ export class CallsGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage('call_invite')
-  async inviteCall(@ConnectedSocket() client: Socket, @MessageBody() payload: CallInviteDto) {
+  async inviteCall(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() payload: CallInviteDto,
+  ) {
     try {
       const callerId = client.data.userId as string;
       if (!callerId) throw new WsException('Unauthorized');
@@ -170,7 +182,10 @@ export class CallsGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage('call_accept')
-  async acceptCall(@ConnectedSocket() client: Socket, @MessageBody() payload: CallIdDto) {
+  async acceptCall(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() payload: CallIdDto,
+  ) {
     try {
       const userId = client.data.userId as string;
       if (!userId) throw new WsException('Unauthorized');
@@ -193,14 +208,20 @@ export class CallsGateway implements OnGatewayConnection, OnGatewayDisconnect {
         });
       }
 
-      return { success: true, data: { callId: call.callId, status: call.status } };
+      return {
+        success: true,
+        data: { callId: call.callId, status: call.status },
+      };
     } catch (error) {
       throw new WsException(error.message || 'Failed to accept call');
     }
   }
 
   @SubscribeMessage('call_reject')
-  async rejectCall(@ConnectedSocket() client: Socket, @MessageBody() payload: CallIdDto) {
+  async rejectCall(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() payload: CallIdDto,
+  ) {
     try {
       const userId = client.data.userId as string;
       if (!userId) throw new WsException('Unauthorized');
@@ -217,7 +238,8 @@ export class CallsGateway implements OnGatewayConnection, OnGatewayDisconnect {
       };
 
       this.server.to(`user:${userId}`).emit('call_rejected', event);
-      if (otherUserId) this.server.to(`user:${otherUserId}`).emit('call_rejected', event);
+      if (otherUserId)
+        this.server.to(`user:${otherUserId}`).emit('call_rejected', event);
 
       return { success: true, data: event };
     } catch (error) {
@@ -226,12 +248,19 @@ export class CallsGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage('call_end')
-  async endCall(@ConnectedSocket() client: Socket, @MessageBody() payload: CallEndDto) {
+  async endCall(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() payload: CallEndDto,
+  ) {
     try {
       const userId = client.data.userId as string;
       if (!userId) throw new WsException('Unauthorized');
 
-      const call = await this.callsService.endCall(payload.callId, userId, payload.reason || 'hangup');
+      const call = await this.callsService.endCall(
+        payload.callId,
+        userId,
+        payload.reason || 'hangup',
+      );
       this.clearUnansweredTimeout(call.callId);
       const otherUserId = this.otherParticipant(call, userId);
 
@@ -245,7 +274,8 @@ export class CallsGateway implements OnGatewayConnection, OnGatewayDisconnect {
       };
 
       this.server.to(`user:${userId}`).emit('call_ended', event);
-      if (otherUserId) this.server.to(`user:${otherUserId}`).emit('call_ended', event);
+      if (otherUserId)
+        this.server.to(`user:${otherUserId}`).emit('call_ended', event);
 
       return { success: true, data: event };
     } catch (error) {
@@ -254,27 +284,44 @@ export class CallsGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage('webrtc_offer')
-  async relayOffer(@ConnectedSocket() client: Socket, @MessageBody() payload: WebRtcSignalDto) {
+  async relayOffer(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() payload: WebRtcSignalDto,
+  ) {
     return this.relaySignal(client, payload, 'webrtc_offer');
   }
 
   @SubscribeMessage('webrtc_answer')
-  async relayAnswer(@ConnectedSocket() client: Socket, @MessageBody() payload: WebRtcSignalDto) {
+  async relayAnswer(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() payload: WebRtcSignalDto,
+  ) {
     return this.relaySignal(client, payload, 'webrtc_answer');
   }
 
   @SubscribeMessage('webrtc_ice_candidate')
-  async relayIce(@ConnectedSocket() client: Socket, @MessageBody() payload: WebRtcSignalDto) {
+  async relayIce(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() payload: WebRtcSignalDto,
+  ) {
     return this.relaySignal(client, payload, 'webrtc_ice_candidate');
   }
 
-  private async relaySignal(client: Socket, payload: WebRtcSignalDto, eventName: string) {
+  private async relaySignal(
+    client: Socket,
+    payload: WebRtcSignalDto,
+    eventName: string,
+  ) {
     try {
       const userId = client.data.userId as string;
       if (!userId) throw new WsException('Unauthorized');
 
-      const call = await this.callsService.ensureParticipant(payload.callId, userId);
-      const targetUserId = payload.targetUserId || this.otherParticipant(call, userId);
+      const call = await this.callsService.ensureParticipant(
+        payload.callId,
+        userId,
+      );
+      const targetUserId =
+        payload.targetUserId || this.otherParticipant(call, userId);
 
       if (!targetUserId) {
         throw new WsException('Target user not found');

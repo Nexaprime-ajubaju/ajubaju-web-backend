@@ -45,7 +45,11 @@ export class BannerPromotion {
   @Prop({ default: '' })
   description: string;
 
-  @Prop({ enum: BannerPromotionType, default: BannerPromotionType.BANNER, index: true })
+  @Prop({
+    enum: BannerPromotionType,
+    default: BannerPromotionType.BANNER,
+    index: true,
+  })
   promotionType: BannerPromotionType;
 
   @Prop({})
@@ -133,7 +137,11 @@ export class BannerPromotion {
     stockQuantity?: number;
   }>;
 
-  @Prop({ enum: BannerPromotionStatus, default: BannerPromotionStatus.UNDER_REVIEW, index: true })
+  @Prop({
+    enum: BannerPromotionStatus,
+    default: BannerPromotionStatus.UNDER_REVIEW,
+    index: true,
+  })
   status: BannerPromotionStatus;
 
   @Prop({ enum: BannerPaymentStatus, default: BannerPaymentStatus.PENDING })
@@ -164,8 +172,14 @@ export class BannerPromotion {
   updatedAt: Date;
 }
 
-export const BannerPromotionSchema = SchemaFactory.createForClass(BannerPromotion);
+export const BannerPromotionSchema =
+  SchemaFactory.createForClass(BannerPromotion);
 
 BannerPromotionSchema.index({ merchantId: 1, createdAt: -1 });
 BannerPromotionSchema.index({ merchantId: 1, promotionType: 1, createdAt: -1 });
-BannerPromotionSchema.index({ status: 1, paymentStatus: 1, startDate: 1, endDate: 1 });
+BannerPromotionSchema.index({
+  status: 1,
+  paymentStatus: 1,
+  startDate: 1,
+  endDate: 1,
+});

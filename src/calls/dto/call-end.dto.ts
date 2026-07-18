@@ -7,5 +7,11 @@ export class CallEndDto {
 
   @IsOptional()
   @IsEnum(['hangup', 'declined', 'timeout', 'network_error', 'busy', 'failed'])
-  reason?: 'hangup' | 'declined' | 'timeout' | 'network_error' | 'busy' | 'failed';
+  reason?:
+    | 'hangup'
+    | 'declined'
+    | 'timeout'
+    | 'network_error'
+    | 'busy'
+    | 'failed';
 }

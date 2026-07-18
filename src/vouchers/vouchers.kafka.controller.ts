@@ -1,5 +1,10 @@
 import { Controller, Logger, Optional } from '@nestjs/common';
-import { Ctx, KafkaContext, MessagePattern, Payload } from '@nestjs/microservices';
+import {
+  Ctx,
+  KafkaContext,
+  MessagePattern,
+  Payload,
+} from '@nestjs/microservices';
 import { KAFKA_TOPICS } from '../common/constants/kafka-topics';
 import { KafkaService } from '../kafka/kafka.service';
 import { VouchersService } from './vouchers.service';
@@ -48,7 +53,10 @@ export class VouchersKafkaController {
     const correlationId = this.getCorrelationId(message);
 
     try {
-      const result = await this.vouchersService.claimOffer(value.userId, value.offerId);
+      const result = await this.vouchersService.claimOffer(
+        value.userId,
+        value.offerId,
+      );
 
       if (this.kafkaService && result?.success) {
         await this.kafkaService.emit(
@@ -94,7 +102,10 @@ export class VouchersKafkaController {
     const correlationId = this.getCorrelationId(message);
 
     try {
-      const result = await this.vouchersService.getVoucherById(value.voucherId, value.userId);
+      const result = await this.vouchersService.getVoucherById(
+        value.voucherId,
+        value.userId,
+      );
       return this.success(result, correlationId);
     } catch (error) {
       this.logger.error(`Failed VOUCHER_GET_BY_ID: ${error.message}`);
@@ -108,7 +119,11 @@ export class VouchersKafkaController {
     const correlationId = this.getCorrelationId(message);
 
     try {
-      const result = await this.vouchersService.verifyVoucher(value.voucherId, value.qrCode, value.merchantId);
+      const result = await this.vouchersService.verifyVoucher(
+        value.voucherId,
+        value.qrCode,
+        value.merchantId,
+      );
 
       if (this.kafkaService && result?.success && result?.valid) {
         await this.kafkaService.emit(
@@ -162,15 +177,19 @@ export class VouchersKafkaController {
   }
 
   @MessagePattern(KAFKA_TOPICS.VOUCHER_GENERATE_CODE)
-  async handleGenerateCode(@Payload() message: any, @Ctx() context: KafkaContext) {
+  async handleGenerateCode(
+    @Payload() message: any,
+    @Ctx() context: KafkaContext,
+  ) {
     const value = this.getValue(message);
     const correlationId = this.getCorrelationId(message);
 
     try {
-      const result = await this.vouchersService.generateVerificationCodeForVoucher(
-        value.voucherId,
-        value.merchantId,
-      );
+      const result =
+        await this.vouchersService.generateVerificationCodeForVoucher(
+          value.voucherId,
+          value.merchantId,
+        );
       return this.success(result, correlationId);
     } catch (error) {
       this.logger.error(`Failed VOUCHER_GENERATE_CODE: ${error.message}`);

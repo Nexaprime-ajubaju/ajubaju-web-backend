@@ -182,9 +182,17 @@ export class BannersController {
   async getActiveHomepageBanners(
     @Query('limit') limit?: string,
     @Query('city') city?: string,
-    @Query('fullLocation') fullLocation?: string,
+    @Query('fullLocation') fullLocationStr?: string,
   ) {
     const safeLimit = Number(limit) || 5;
+    let fullLocation: { lat: number; lng: number; radius: number } | undefined;
+    if (fullLocationStr) {
+      try {
+        fullLocation = JSON.parse(fullLocationStr);
+      } catch (e) {
+        // ignore
+      }
+    }
     const rows = await this.bannersService.getActiveHomepageBanners(
       safeLimit,
       city,
@@ -204,7 +212,9 @@ export class BannersController {
     @Query('status') status: string,
     @CurrentUser() user: any,
   ) {
-    if (!['admin', 'manager'].includes(String(user?.role || '').toLowerCase())) {
+    if (
+      !['admin', 'manager'].includes(String(user?.role || '').toLowerCase())
+    ) {
       throw new ForbiddenException(
         'Only admin/manager can view banner moderation queue',
       );
@@ -225,7 +235,9 @@ export class BannersController {
     @Body() body: ReviewBannerPromotionDto,
     @CurrentUser() user: any,
   ) {
-    if (!['admin', 'manager'].includes(String(user?.role || '').toLowerCase())) {
+    if (
+      !['admin', 'manager'].includes(String(user?.role || '').toLowerCase())
+    ) {
       throw new ForbiddenException(
         'Only admin/manager can review banner promotions',
       );
@@ -252,7 +264,9 @@ export class BannersController {
     @Param('requestId') requestId: string,
     @CurrentUser() user: any,
   ) {
-    if (!['admin', 'manager'].includes(String(user?.role || '').toLowerCase())) {
+    if (
+      !['admin', 'manager'].includes(String(user?.role || '').toLowerCase())
+    ) {
       throw new ForbiddenException(
         'Only admin/manager can delete banner promotions',
       );

@@ -1,6 +1,17 @@
-import { 
-  Controller, Post, Body, Get, Put, Delete, Param, 
-  UseGuards, Query, Ip, NotFoundException, Req
+import {
+  Controller,
+  Post,
+  Body,
+  Get,
+  Put,
+  Delete,
+  Param,
+  UseGuards,
+  Query,
+  Ip,
+  NotFoundException,
+  Req,
+  BadRequestException,
 } from '@nestjs/common';
 
 import { UsersService } from './users.service';
@@ -18,7 +29,6 @@ import { RedisService } from '../common/services/redis.service';
 
 @Controller('users')
 export class UsersController {
-
   constructor(
     private readonly usersService: UsersService,
     private readonly redisService: RedisService,
@@ -51,7 +61,8 @@ export class UsersController {
   async reportUser(
     @Param('id') id: string,
     @CurrentUser() reporter: any,
-    @Body() body: { reason: string; description?: string; evidenceUrls?: string[] }
+    @Body()
+    body: { reason: string; description?: string; evidenceUrls?: string[] },
   ) {
     const { reason, description, evidenceUrls } = body;
     const reporterId = reporter?.id || reporter?._id;
@@ -106,17 +117,20 @@ export class UsersController {
     @Body('duration') duration: number,
     @CurrentUser() admin: any,
   ) {
-    const user = await this.usersService.banUser(id, reason, admin.id, admin.email, duration);
+    const user = await this.usersService.banUser(
+      id,
+      reason,
+      admin.id,
+      admin.email,
+      duration,
+    );
     return { success: true, data: user };
   }
 
   @Post('admin/users/:id/unban')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
-  async unbanUser(
-    @Param('id') id: string,
-    @CurrentUser() admin: any,
-  ) {
+  async unbanUser(@Param('id') id: string, @CurrentUser() admin: any) {
     const user = await this.usersService.unbanUser(id, admin.id, admin.email);
     return { success: true, data: user };
   }
@@ -128,19 +142,39 @@ export class UsersController {
 
   @Post('register')
   async register(@Body() dto: RegisterDto, @Ip() ip: string, @Req() req: any) {
-    const user = await this.usersService.register(dto, ip, req?.headers?.['user-agent']);
-    return { success: true, message: 'User registered successfully', data: user };
+    const user = await this.usersService.register(
+      dto,
+      ip,
+      req?.headers?.['user-agent'],
+    );
+    return {
+      success: true,
+      message: 'User registered successfully',
+      data: user,
+    };
   }
 
   @Post('login')
   async login(@Body() dto: LoginDto, @Ip() ip: string, @Req() req: any) {
-    const result = await this.usersService.login(dto, ip, req?.headers?.['user-agent']);
+    const result = await this.usersService.login(
+      dto,
+      ip,
+      req?.headers?.['user-agent'],
+    );
     return { success: true, message: 'Login successful', data: result };
   }
 
   @Post('social-auth')
-  async socialAuth(@Body() dto: SocialAuthDto, @Ip() ip: string, @Req() req: any) {
-    const result = await this.usersService.socialAuth(dto, ip, req?.headers?.['user-agent']);
+  async socialAuth(
+    @Body() dto: SocialAuthDto,
+    @Ip() ip: string,
+    @Req() req: any,
+  ) {
+    const result = await this.usersService.socialAuth(
+      dto,
+      ip,
+      req?.headers?.['user-agent'],
+    );
     return { success: true, message: 'Social login successful', data: result };
   }
 
@@ -158,14 +192,27 @@ export class UsersController {
 
   @Post('forgot-password/verify-otp')
   async verifyForgotPasswordOTP(@Body() body: { email: string; otp: string }) {
-    const result = await this.usersService.verifyForgotPasswordOTP(body.email, body.otp);
+    const result = await this.usersService.verifyForgotPasswordOTP(
+      body.email,
+      body.otp,
+    );
     return { success: true, message: 'OTP verified', data: result };
   }
 
   @Post('forgot-password/reset')
-  async resetForgotPassword(@Body() body: { email: string; otp: string; newPassword: string }) {
-    const result = await this.usersService.resetForgotPassword(body.email, body.otp, body.newPassword);
-    return { success: true, message: 'Password changed successfully', data: result };
+  async resetForgotPassword(
+    @Body() body: { email: string; otp: string; newPassword: string },
+  ) {
+    const result = await this.usersService.resetForgotPassword(
+      body.email,
+      body.otp,
+      body.newPassword,
+    );
+    return {
+      success: true,
+      message: 'Password changed successfully',
+      data: result,
+    };
   }
 
   @Get('dashboard/stats')
@@ -205,7 +252,15 @@ export class UsersController {
 
   // Save pending merchant location (used when frontend couldn't submit coords during register)
   @Post('pending-location')
-  async savePendingMerchantLocation(@Body() body: { email: string; address: string; latitude: number; longitude: number }) {
+  async savePendingMerchantLocation(
+    @Body()
+    body: {
+      email: string;
+      address: string;
+      latitude: number;
+      longitude: number;
+    },
+  ) {
     const res = await this.usersService.savePendingMerchantLocation(body);
     return { success: true, data: res };
   }
@@ -214,7 +269,10 @@ export class UsersController {
   @Post('pending-location/sync')
   @UseGuards(JwtAuthGuard)
   async syncPendingMerchantLocation(@CurrentUser() user: any) {
-    const res = await this.usersService.syncPendingMerchantLocation(user.id, user.email);
+    const res = await this.usersService.syncPendingMerchantLocation(
+      user.id,
+      user.email,
+    );
     return { success: true, data: res };
   }
 
@@ -222,27 +280,34 @@ export class UsersController {
   @UseGuards(JwtAuthGuard)
   async updateProfile(@CurrentUser() user: any, @Body() data: any) {
     try {
-      console.log(`[Controller] Updating profile for user ${user.id} with data:`, {
-        hasName: !!data.name,
-        hasEmail: !!data.email,
-        hasProfilePhoto: !!data.profilePhoto,
-        photoSize: data.profilePhoto ? 
-          (Buffer.byteLength(data.profilePhoto, 'utf8') / 1024 / 1024).toFixed(2) + "MB" : 
-          "N/A",
-        hasInterests: !!data.profile?.interests,
-      });
-      
+      console.log(
+        `[Controller] Updating profile for user ${user.id} with data:`,
+        {
+          hasName: !!data.name,
+          hasEmail: !!data.email,
+          hasProfilePhoto: !!data.profilePhoto,
+          photoSize: data.profilePhoto
+            ? (
+                Buffer.byteLength(data.profilePhoto, 'utf8') /
+                1024 /
+                1024
+              ).toFixed(2) + 'MB'
+            : 'N/A',
+          hasInterests: !!data.profile?.interests,
+        },
+      );
+
       const profile = await this.usersService.updateProfile(user.id, data);
-      
+
       console.log(`[Controller] Profile updated successfully:`, {
         hasPhoto: !!profile.profilePhoto,
         interests: profile.profile?.interests?.length || 0,
       });
-      
-      return { 
-        success: true, 
-        message: 'Profile updated successfully', 
-        data: profile 
+
+      return {
+        success: true,
+        message: 'Profile updated successfully',
+        data: profile,
       };
     } catch (error) {
       console.error(`[Controller] Error updating profile:`, error.message);
@@ -261,22 +326,40 @@ export class UsersController {
   @Post('verify-password-otp')
   @UseGuards(JwtAuthGuard)
   async verifyOTP(@CurrentUser() user: any, @Body() body: any) {
-    const result = await this.usersService.verifyPasswordChangeOTP(user.id, body.otp);
+    const result = await this.usersService.verifyPasswordChangeOTP(
+      user.id,
+      body.otp,
+    );
     return { success: true, message: 'OTP verified', data: result };
   }
 
   @Post('change-password-otp')
   @UseGuards(JwtAuthGuard)
   async changePassword(@CurrentUser() user: any, @Body() body: any) {
-    const result = await this.usersService.changePasswordWithOTP(user.id, body.otp, body.newPassword);
+    const result = await this.usersService.changePasswordWithOTP(
+      user.id,
+      body.otp,
+      body.newPassword,
+    );
     return { success: true, message: 'Password changed', data: result };
   }
 
   @Post('change-password')
   @UseGuards(JwtAuthGuard)
-  async changePasswordDirect(@CurrentUser() user: any, @Body() body: { currentPassword: string; newPassword: string }) {
-    const result = await this.usersService.changePasswordDirect(user.id, body.currentPassword, body.newPassword);
-    return { success: true, message: 'Password changed successfully', data: result };
+  async changePasswordDirect(
+    @CurrentUser() user: any,
+    @Body() body: { currentPassword: string; newPassword: string },
+  ) {
+    const result = await this.usersService.changePasswordDirect(
+      user.id,
+      body.currentPassword,
+      body.newPassword,
+    );
+    return {
+      success: true,
+      message: 'Password changed successfully',
+      data: result,
+    };
   }
 
 
@@ -285,19 +368,28 @@ export class UsersController {
   @Get('wishlist')
   @UseGuards(JwtAuthGuard)
   async getWishlist(@CurrentUser() user: any) {
-    return { success: true, data: await this.usersService.getWishlistAds(user.id) };
+    return {
+      success: true,
+      data: await this.usersService.getWishlistAds(user.id),
+    };
   }
 
   @Get('wishlist/ids')
   @UseGuards(JwtAuthGuard)
   async getWishlistIds(@CurrentUser() user: any) {
-    return { success: true, data: await this.usersService.getWishlistIds(user.id) };
+    return {
+      success: true,
+      data: await this.usersService.getWishlistIds(user.id),
+    };
   }
 
   @Post('wishlist/:adId')
   @UseGuards(JwtAuthGuard)
   async toggleWishlist(@CurrentUser() user: any, @Param('adId') adId: string) {
-    return { success: true, data: await this.usersService.toggleWishlist(user.id, adId) };
+    return {
+      success: true,
+      data: await this.usersService.toggleWishlist(user.id, adId),
+    };
   }
 
   @Post('likes/product')
@@ -308,16 +400,26 @@ export class UsersController {
   ) {
     return {
       success: true,
-      data: await this.usersService.likeProduct(user.id, body?.offerId, body?.product || null),
+      data: await this.usersService.likeProduct(
+        user.id,
+        body?.offerId,
+        body?.product || null,
+      ),
     };
   }
 
   @Get('merchant/liked-products')
   @UseGuards(JwtAuthGuard)
-  async getMerchantLikedProducts(@CurrentUser() user: any, @Query('limit') limit?: string) {
+  async getMerchantLikedProducts(
+    @CurrentUser() user: any,
+    @Query('limit') limit?: string,
+  ) {
     return {
       success: true,
-      data: await this.usersService.getMerchantLikedProducts(user.id, limit ? Number(limit) : 10),
+      data: await this.usersService.getMerchantLikedProducts(
+        user.id,
+        limit ? Number(limit) : 10,
+      ),
     };
   }
 
@@ -325,7 +427,10 @@ export class UsersController {
   @Get('notifications')
   @UseGuards(JwtAuthGuard)
   async getNotifications(@CurrentUser() user: any) {
-    return { success: true, data: await this.usersService.getNotifications(user.id) };
+    return {
+      success: true,
+      data: await this.usersService.getNotifications(user.id),
+    };
   }
 
   @Post('notifications/push-token')
@@ -365,16 +470,26 @@ export class UsersController {
   @Get('admin/users')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
-  async adminGetAllUsers() {
-    return { success: true, data: await this.usersService.adminGetAllUsers() };
+  async adminGetAllUsers(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string
+  ) {
+    const pageNum = parseInt(page) || 1;
+    const limitNum = parseInt(limit) || 10;
+    return { success: true, data: await this.usersService.adminGetAllUsers(pageNum, limitNum) };
   }
 
   @Delete('admin/users/:id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
   async deleteUser(@Param('id') id: string, @CurrentUser() admin: any) {
-    await this.usersService.adminDeleteUser(id, admin.id, admin.email);
-    return { success: true };
+    try {
+      await this.usersService.adminDeleteUser(id, admin.id, admin.email);
+      return { success: true };
+    } catch (error) {
+      console.error(`[UsersController] Error deleting user ${id}:`, error);
+      throw new BadRequestException(`Failed to delete user: ${error.message}`);
+    }
   }
 
   @Post('admin/users/:id/kyc')

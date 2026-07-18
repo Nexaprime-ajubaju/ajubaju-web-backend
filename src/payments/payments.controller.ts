@@ -48,7 +48,10 @@ export class PaymentsController {
 
   @Post('fail')
   @UseGuards(JwtAuthGuard)
-  async markPaymentFailed(@CurrentUser() user: any, @Body() dto: MarkPaymentFailedDto) {
+  async markPaymentFailed(
+    @CurrentUser() user: any,
+    @Body() dto: MarkPaymentFailedDto,
+  ) {
     const data = await this.paymentsService.markPaymentFailed(user.id, dto);
     return {
       success: true,
@@ -70,7 +73,10 @@ export class PaymentsController {
 
   @Get('my')
   @UseGuards(JwtAuthGuard)
-  async listMyPayments(@CurrentUser() user: any, @Query() query: ListPaymentsQueryDto) {
+  async listMyPayments(
+    @CurrentUser() user: any,
+    @Query() query: ListPaymentsQueryDto,
+  ) {
     const data = await this.paymentsService.listMyPayments(user.id, query);
     return {
       success: true,
@@ -80,7 +86,10 @@ export class PaymentsController {
 
   @Get(':paymentId')
   @UseGuards(JwtAuthGuard)
-  async getPaymentById(@CurrentUser() user: any, @Param('paymentId') paymentId: string) {
+  async getPaymentById(
+    @CurrentUser() user: any,
+    @Param('paymentId') paymentId: string,
+  ) {
     const data = await this.paymentsService.getPaymentById(user.id, paymentId);
     return {
       success: true,
@@ -94,7 +103,8 @@ export class PaymentsController {
     @Req() req: Request & { rawBody?: Buffer },
     @Headers('x-razorpay-signature') signature: string,
   ) {
-    const rawBody = req.rawBody?.toString('utf8') || JSON.stringify(req.body || {});
+    const rawBody =
+      req.rawBody?.toString('utf8') || JSON.stringify(req.body || {});
     const data = await this.paymentsService.handleWebhook(rawBody, signature);
 
     return {

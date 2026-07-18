@@ -1,14 +1,23 @@
 import { NestFactory } from '@nestjs/core';
 import { MicroserviceOptions, Transport } from '@nestjs/microservices';
 import { AppModule } from './app.module';
-import { Logger, ValidationPipe } from '@nestjs/common';
+import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as dotenv from 'dotenv';
 import { json, urlencoded } from 'express';
+import helmet from 'helmet';
+import * as compression from 'compression';
+import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
+import * as hpp from 'hpp';
+import * as mongoSanitize from 'express-mongo-sanitize';
+import * as cookieParser from 'cookie-parser';
+import { Logger } from 'nestjs-pino';
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 
 dotenv.config();
 
 const vercelOriginPattern = /^https:\/\/[a-z0-9-]+\.vercel\.app$/i;
+const renderOriginPattern = /^https:\/\/[a-z0-9-]+\.onrender\.com$/i;
 
 const parseBoolean = (value?: string): boolean => {
   if (!value) return false;
@@ -20,7 +29,7 @@ const isAllowedOrigin = (origin: string, allowedOrigins: string[]): boolean => {
     return true;
   }
 
-  return vercelOriginPattern.test(origin);
+  return vercelOriginPattern.test(origin) || renderOriginPattern.test(origin);
 };
 
 const validationPipe = new ValidationPipe({
@@ -33,17 +42,38 @@ const validationPipe = new ValidationPipe({
 });
 
 async function bootstrap() {
-  const logger = new Logger('Bootstrap');
+  console.log('--> BOOTSTRAP STARTING');
   const kafkaEnabled = parseBoolean(process.env.ENABLE_KAFKA);
 
   const app = await NestFactory.create(AppModule, { rawBody: true });
+  const logger = app.get(Logger);
+  app.useLogger(logger);
+
   const configService = app.get(ConfigService);
+
+  const httpAdapter = app.getHttpAdapter();
+  if (process.env.TRUST_PROXY === 'true') {
+    httpAdapter.getInstance().set('trust proxy', 1);
+    logger.log('Trust Proxy enabled');
+  }
+
+  // Security Headers & Middlewares
+  app.use(helmet({ contentSecurityPolicy: false }));
+  app.use(hpp());
+  app.use(mongoSanitize());
+  app.use(cookieParser());
+  httpAdapter.getInstance().disable('x-powered-by');
+
+  // Performance
+  app.use(compression());
 
   // Allow larger payloads for banner image submissions (base64 data URLs).
   app.use(json({ limit: '15mb' }));
   app.use(urlencoded({ extended: true, limit: '15mb' }));
 
   app.useGlobalPipes(validationPipe);
+  app.useGlobalFilters(new GlobalExceptionFilter());
+  app.enableShutdownHooks();
 
   if (kafkaEnabled) {
     const brokers = (process.env.KAFKA_BROKERS || '')
@@ -87,9 +117,14 @@ async function bootstrap() {
         return;
       }
 
-      const allowedOrigins = corsOrigins.length > 0
-        ? corsOrigins
-        : ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:3004'];
+      const allowedOrigins =
+        corsOrigins.length > 0
+          ? corsOrigins
+          : [
+              'http://localhost:3000',
+              'http://localhost:3001',
+              'http://localhost:3004',
+            ];
 
       if (isAllowedOrigin(origin, allowedOrigins)) {
         callback(null, true);
@@ -104,9 +139,24 @@ async function bootstrap() {
   });
 
   const port = configService.get('config.service.port');
+
+  if (process.env.NODE_ENV !== 'production') {
+    const config = new DocumentBuilder()
+      .setTitle('GOLO API')
+      .setDescription('The complete GOLO backend API documentation.')
+      .setVersion('1.0')
+      .addBearerAuth()
+      .build();
+    const document = SwaggerModule.createDocument(app, config);
+    SwaggerModule.setup('api-docs', app, document);
+  }
+
+  console.log('--> ABOUT TO LISTEN ON PORT', port);
   await app.listen(port, '0.0.0.0');
+  console.log('--> LISTENING ON PORT', port);
   console.log(`Application is running on: ${await app.getUrl()}`);
   console.log(`Backend forcefully restarted to pick up latest ModerationService changes!`);
-  logger.log(`HTTP mode enabled. Ads microservice is running on port ${port}`);
+  logger.log(`HTTP mode enabled. Server is running on port ${port}`);
 }
-bootstrap();
+bootstrap().catch((err) => console.error('--> BOOTSTRAP FAILED', err));
+

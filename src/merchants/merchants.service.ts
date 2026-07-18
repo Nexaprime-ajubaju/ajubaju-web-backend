@@ -1,4 +1,8 @@
-import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Merchant, MerchantDocument } from '../users/schemas/merchant.schema';
@@ -181,7 +185,9 @@ export class MerchantsService {
     radiusKm: number = 10,
   ) {
     if (!latitude || !longitude || !radiusKm) {
-      throw new BadRequestException('Latitude, longitude, and radius are required');
+      throw new BadRequestException(
+        'Latitude, longitude, and radius are required',
+      );
     }
 
     try {
@@ -250,13 +256,19 @@ export class MerchantsService {
       const allowedUpdates: any = {};
 
       if (updateData.storeName) allowedUpdates.storeName = updateData.storeName;
-      if (updateData.storeEmail) allowedUpdates.storeEmail = updateData.storeEmail;
+      if (updateData.storeEmail)
+        allowedUpdates.storeEmail = updateData.storeEmail;
       if (updateData.gstNumber) allowedUpdates.gstNumber = updateData.gstNumber;
-      if (updateData.contactNumber) allowedUpdates.contactNumber = updateData.contactNumber;
-      if (updateData.storeCategory) allowedUpdates.storeCategory = updateData.storeCategory;
-      if (updateData.storeSubCategory) allowedUpdates.storeSubCategory = updateData.storeSubCategory;
-      if (updateData.storeLocation) allowedUpdates.storeLocation = updateData.storeLocation;
-      if (updateData.profilePhoto) allowedUpdates.profilePhoto = updateData.profilePhoto;
+      if (updateData.contactNumber)
+        allowedUpdates.contactNumber = updateData.contactNumber;
+      if (updateData.storeCategory)
+        allowedUpdates.storeCategory = updateData.storeCategory;
+      if (updateData.storeSubCategory)
+        allowedUpdates.storeSubCategory = updateData.storeSubCategory;
+      if (updateData.storeLocation)
+        allowedUpdates.storeLocation = updateData.storeLocation;
+      if (updateData.profilePhoto)
+        allowedUpdates.profilePhoto = updateData.profilePhoto;
       if (updateData.shopPhoto) allowedUpdates.shopPhoto = updateData.shopPhoto;
 
       allowedUpdates.updatedAt = new Date();
@@ -320,7 +332,9 @@ export class MerchantsService {
     }
 
     if (Object.keys(allowedSettings).length === 0) {
-      throw new BadRequestException('At least one notification setting is required');
+      throw new BadRequestException(
+        'At least one notification setting is required',
+      );
     }
 
     try {

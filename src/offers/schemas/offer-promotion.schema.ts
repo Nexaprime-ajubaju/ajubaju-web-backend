@@ -92,12 +92,12 @@ export class OfferPromotion {
   @Prop({ default: 1 })
   loyaltyStarsPerPurchase: number;
 
-    @Prop({ default: 10 }) 
+  @Prop({ default: 10 })
   loyaltyScorePerStar: number;
 
-    // New: Points per purchase set by merchant
-    @Prop({ default: 0 })
-    loyaltyPointsPerPurchase: number;
+  // New: Points per purchase set by merchant
+  @Prop({ default: 0 })
+  loyaltyPointsPerPurchase: number;
 
   @Prop({ default: '' })
   promotionExpiryText: string;
@@ -123,7 +123,11 @@ export class OfferPromotion {
   })
   selectedProducts: Array<any>;
 
-  @Prop({ enum: OfferPromotionStatus, default: OfferPromotionStatus.UNDER_REVIEW, index: true })
+  @Prop({
+    enum: OfferPromotionStatus,
+    default: OfferPromotionStatus.UNDER_REVIEW,
+    index: true,
+  })
   status: OfferPromotionStatus;
 
   @Prop({ enum: OfferPaymentStatus, default: OfferPaymentStatus.PENDING })
@@ -150,6 +154,27 @@ export class OfferPromotion {
   @Prop({ default: false })
   expiryNotificationSent: boolean;
 
+  @Prop({ default: 0 })
+  views: number;
+
+  @Prop({ type: [String], default: [] })
+  viewHistory: string[];
+
+  @Prop({
+    type: {
+      failedImageModerations: { type: Number, default: 0 },
+      lockedUntil: { type: Date, default: null },
+    },
+    default: {
+      failedImageModerations: 0,
+      lockedUntil: null,
+    },
+  })
+  security?: {
+    failedImageModerations: number;
+    lockedUntil: Date | null;
+  };
+
   @Prop()
   createdAt: Date;
 
@@ -157,5 +182,6 @@ export class OfferPromotion {
   updatedAt: Date;
 }
 
-export const OfferPromotionSchema = SchemaFactory.createForClass(OfferPromotion);
+export const OfferPromotionSchema =
+  SchemaFactory.createForClass(OfferPromotion);
 OfferPromotionSchema.index({ merchantId: 1, createdAt: -1 });
