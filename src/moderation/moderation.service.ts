@@ -19,6 +19,12 @@ export class ModerationService {
           envJson = envJson.slice(1, -1);
         }
         const credentials = JSON.parse(envJson);
+        
+        // Ensure private_key has actual newlines, not literal '\n' strings which cause "DECODER routines::unsupported"
+        if (credentials && credentials.private_key) {
+          credentials.private_key = credentials.private_key.replace(/\\n/g, '\n');
+        }
+        
         this.client = new ImageAnnotatorClient({ credentials });
       } else {
         this.client = new ImageAnnotatorClient();
