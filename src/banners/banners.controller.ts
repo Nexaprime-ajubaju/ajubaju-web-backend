@@ -21,7 +21,7 @@ import { UpdateBannerPromotionDto } from './dto/update-banner-promotion.dto';
 
 @Controller('banners')
 export class BannersController {
-  constructor(private readonly bannersService: BannersService) {}
+  constructor(private readonly bannersService: BannersService) { }
 
   @Post('promotions/request')
   @UseGuards(JwtAuthGuard)

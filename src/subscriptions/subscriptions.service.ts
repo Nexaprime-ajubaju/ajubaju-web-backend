@@ -391,15 +391,21 @@ export class SubscriptionsService {
       .populate({ path: 'userId', select: 'firstName lastName email phoneNumber' })
       .exec();
 
-    return merchants.map(m => ({
-      _id: m._id,
-      merchantId: m.userId, // Send back userId as merchantId for admin panel
-      businessName: (m as any).storeName, // Store name used as business name
-      status: m.subscription?.status,
-      trialEndsAt: m.subscription?.trialEndsAt,
-      startedAt: m.subscription?.startedAt,
-      expiresAt: m.subscription?.expiresAt,
-    }));
+    return merchants.map(m => {
+      const user = m.userId as any;
+      return {
+        id: m._id, // Maps to merchant.id for React keys
+        _id: m._id,
+        merchantId: user?._id || m.userId, 
+        name: (m as any).storeName || 'Unknown Store', // Maps to merchant.name in UI
+        email: (m as any).storeEmail || user?.email || 'N/A', // Maps to merchant.email in UI
+        status: m.subscription?.status,
+        billingCycle: m.subscription?.billingCycle || 'monthly', // Maps to merchant.billingCycle in UI
+        trialEndsAt: m.subscription?.trialEndsAt,
+        startedAt: m.subscription?.startedAt,
+        expiresAt: m.subscription?.expiresAt,
+      };
+    });
   }
 
   async getMerchantSubscription(merchantId: string) {

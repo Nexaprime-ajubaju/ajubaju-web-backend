@@ -52,7 +52,7 @@ export class BannersService implements OnModuleInit {
     private readonly transactionService: TransactionService,
     private readonly moderationService: ModerationService,
     @Optional() private readonly kafkaService?: KafkaService,
-  ) {}
+  ) { }
 
   private toRadians(value: number): number {
     return (value * Math.PI) / 180;
@@ -71,9 +71,9 @@ export class BannersService implements OnModuleInit {
     const a =
       Math.sin(dLat / 2) * Math.sin(dLat / 2) +
       Math.cos(this.toRadians(latitudeA)) *
-        Math.cos(this.toRadians(latitudeB)) *
-        Math.sin(dLon / 2) *
-        Math.sin(dLon / 2);
+      Math.cos(this.toRadians(latitudeB)) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
 
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     return earthRadiusKm * c;
@@ -658,7 +658,7 @@ export class BannersService implements OnModuleInit {
     city?: string,
     location?: { lat: number; lng: number; radius: number }
   ): Promise<BannerPromotion[]> {
-    const cacheKey = this.activeBannersCacheKey(limit, city, location);
+    const cacheKey = `banner_pool_${limit}_${city || 'global'}_${location ? `${location.lat}_${location.lng}_${location.radius}` : 'no_loc'}`;
     const cached = await this.redisService.get<BannerPromotion[]>(cacheKey);
     if (cached) {
       return cached;
@@ -681,7 +681,7 @@ export class BannersService implements OnModuleInit {
     if (city) {
       query.targetCities = city;
     }
-    
+
     if (location && location.lat && location.lng && location.radius) {
       query.targetLocations = {
         $near: {
