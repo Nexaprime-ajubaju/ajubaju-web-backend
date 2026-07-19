@@ -23,7 +23,9 @@ export class SubscriptionsService {
    * Resolves trial expirations dynamically to fall back to 'Free Tier'.
    */
   async getActivePlan(merchantId: string): Promise<SubscriptionPlanDocument> {
-    const merchant = await this.merchantModel.findOne({ userId: merchantId }).exec();
+    const isObjId = /^[0-9a-fA-F]{24}$/.test(merchantId);
+    const query = isObjId ? { $or: [{ _id: merchantId }, { userId: merchantId }] } : { userId: merchantId };
+    const merchant = await this.merchantModel.findOne(query).exec();
     if (!merchant) throw new NotFoundException('Merchant not found');
 
     if (!merchant.subscription || !merchant.subscription.planId) {
@@ -341,7 +343,9 @@ export class SubscriptionsService {
   }
 
   async subscribeToPlan(merchantId: string, planName: string, billingCycle: 'monthly' | 'yearly') {
-    const merchant = await this.merchantModel.findOne({ userId: merchantId }).exec();
+    const isObjId = /^[0-9a-fA-F]{24}$/.test(merchantId);
+    const query = isObjId ? { $or: [{ _id: merchantId }, { userId: merchantId }] } : { userId: merchantId };
+    const merchant = await this.merchantModel.findOne(query).exec();
     if (!merchant) throw new NotFoundException('Merchant not found');
 
     const plan = await this.subscriptionPlanModel.findOne({ name: planName, isActive: true }).exec();
@@ -403,7 +407,9 @@ export class SubscriptionsService {
   }
 
   async getMerchantSubscription(merchantId: string) {
-    const merchant = await this.merchantModel.findOne({ userId: merchantId }).exec();
+    const isObjId = /^[0-9a-fA-F]{24}$/.test(merchantId);
+    const query = isObjId ? { $or: [{ _id: merchantId }, { userId: merchantId }] } : { userId: merchantId };
+    const merchant = await this.merchantModel.findOne(query).exec();
     if (!merchant) throw new NotFoundException('Merchant not found');
     
     // We already have getPlanDetails(merchant)
@@ -411,7 +417,9 @@ export class SubscriptionsService {
   }
 
   async assignMerchantSubscription(merchantId: string, data: any) {
-    const merchant = await this.merchantModel.findOne({ userId: merchantId }).exec();
+    const isObjId = /^[0-9a-fA-F]{24}$/.test(merchantId);
+    const query = isObjId ? { $or: [{ _id: merchantId }, { userId: merchantId }] } : { userId: merchantId };
+    const merchant = await this.merchantModel.findOne(query).exec();
     if (!merchant) throw new NotFoundException('Merchant not found');
 
     const plan = await this.subscriptionPlanModel.findOne({ name: data.planId }).exec();
@@ -447,6 +455,17 @@ export class SubscriptionsService {
   }
 
   async getMerchantSubscriptionHistory(merchantId: string) {
-    return this.historyModel.find({ merchantId }).sort({ createdAt: -1 }).exec();
+    const isObjId = /^[0-9a-fA-F]{24}$/.test(merchantId);
+    const query = isObjId ? { $or: [{ merchantId }, { userId: merchantId }] } : { merchantId };
+    // We should technically fetch the merchant to get their userId if merchantId is _id, 
+    // but looking at assignMerchantSubscription, it saves history with `merchantId: merchantId` which is the param passed.
+    // If the param passed was an _id, the history has _id. If it was userId, it has userId.
+    // So searching for both $or: [{ merchantId }, { merchantId: merchant.userId }] is best.
+    let searchId = merchantId;
+    if (isObjId) {
+      const merchant = await this.merchantModel.findOne({ _id: merchantId }).exec();
+      if (merchant && merchant.userId) searchId = merchant.userId;
+    }
+    return this.historyModel.find({ $or: [{ merchantId: merchantId }, { merchantId: searchId }] }).sort({ createdAt: -1 }).exec();
   }
 }

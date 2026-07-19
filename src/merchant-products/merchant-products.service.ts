@@ -173,7 +173,7 @@ export class MerchantProductsService implements OnModuleInit {
                 success: false,
                 statusCode: 403,
                 errorCode: 'PRODUCT_LIMIT_REACHED',
-                message: `Free Tier merchants can only add up to ${planDetails.planFeatures.maxProducts} products. Please upgrade to Premium.`,
+                message: `${planDetails.name} merchants can only add up to ${planDetails.planFeatures.maxProducts} products. Please upgrade to a higher plan.`,
               });
             }
           }
@@ -527,7 +527,7 @@ export class MerchantProductsService implements OnModuleInit {
           statusCode: 403,
           errorCode: 'PRODUCT_DELETE_NOT_ALLOWED',
           message:
-            'Free Tier merchants cannot delete products. Please upgrade to Premium.',
+            `${planDetails.name} merchants cannot delete products. Please upgrade to a higher plan.`,
         });
       }
     }

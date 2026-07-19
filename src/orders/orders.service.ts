@@ -328,7 +328,7 @@ export class OrdersService {
           success: false,
           statusCode: 403,
           errorCode: 'PLAN_RESTRICTION',
-          message: `Free Tier merchants can only change order status to: ${allowedStatuses.join(', ')}. Please upgrade to Premium.`,
+          message: `${planDetails.name} merchants can only change order status to: ${allowedStatuses.join(', ')}. Please upgrade to a higher plan.`,
         });
       }
     }

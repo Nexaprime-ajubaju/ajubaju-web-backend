@@ -32,7 +32,7 @@ export class ProductsService {
         await this.SubscriptionsService.getPlanDetails(merchant);
       if (!planDetails.planFeatures.canAddProduct) {
         throw new ForbiddenException(
-          'Free Tier merchants cannot add new products. Please upgrade to Premium.',
+          `${planDetails.name} merchants cannot add new products. Please upgrade to a higher plan.`,
         );
       }
     }
@@ -128,7 +128,7 @@ export class ProductsService {
         await this.SubscriptionsService.getPlanDetails(merchant);
       if (!planDetails.planFeatures.canDeleteProduct) {
         throw new ForbiddenException(
-          'Free Tier merchants cannot delete products. Please upgrade to Premium.',
+          `${planDetails.name} merchants cannot delete products. Please upgrade to a higher plan.`,
         );
       }
     }

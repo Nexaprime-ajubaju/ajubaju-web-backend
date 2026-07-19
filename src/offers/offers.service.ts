@@ -360,7 +360,7 @@ export class OffersService implements OnModuleInit {
             success: false,
             statusCode: 400,
             errorCode: 'MONTHLY_OFFER_LIMIT_REACHED',
-            message: `You have reached your monthly limit of ${monthlyLimit} offers. Please upgrade to Premium.`,
+            message: `${planDetails.name} merchants can only add up to ${monthlyLimit} offers. Please upgrade to a higher plan.`,
           });
         }
 
@@ -558,11 +558,11 @@ export class OffersService implements OnModuleInit {
     if (merchantDoc) {
       const planDetails =
         await this.SubscriptionsService.getPlanDetails(merchantDoc);
-      if (!planDetails.planFeatures.canEditOffer) {
-        throw new ForbiddenException(
-          'Free Tier merchants cannot edit offers. Please upgrade to Premium.',
-        );
-      }
+        if (!planDetails.planFeatures.canEditOffer) {
+          throw new ForbiddenException(
+            `${planDetails.name} merchants cannot edit offers. Please upgrade to a higher plan.`,
+          );
+        }
     }
 
     const request = await this.offerModel
@@ -638,11 +638,11 @@ export class OffersService implements OnModuleInit {
     if (merchantDoc) {
       const planDetails =
         await this.SubscriptionsService.getPlanDetails(merchantDoc);
-      if (!planDetails.planFeatures.canDeleteOffer) {
-        throw new ForbiddenException(
-          'Free Tier merchants cannot delete offers. Please upgrade to Premium.',
-        );
-      }
+        if (!planDetails.planFeatures.canDeleteOffer) {
+          throw new ForbiddenException(
+            `${planDetails.name} merchants cannot delete offers. Please upgrade to a higher plan.`,
+          );
+        }
     }
 
     const offer = await this.offerModel
