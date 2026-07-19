@@ -3,6 +3,7 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { KafkaModule } from '../kafka/kafka.module';
 import { RedisModule } from '../common/services/redis.module';
 import { ModerationModule } from '../moderation/moderation.module';
+import { SecurityModule } from '../security/security.module';
 import {
   MerchantProduct,
   MerchantProductSchema,
@@ -25,6 +26,7 @@ import { TransactionModule } from '../common/services/transaction.module';
     RedisModule, // Cache merchant product listings, inventory
     SubscriptionsModule,
     ModerationModule,
+    SecurityModule,
   ],
   controllers: [MerchantProductsController],
   providers: [MerchantProductsService],

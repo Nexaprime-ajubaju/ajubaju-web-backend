@@ -14,6 +14,7 @@ import { KafkaService } from '../kafka/kafka.service';
 import { KAFKA_TOPICS } from '../common/constants/kafka-topics';
 import { RedisService } from '../common/services/redis.service';
 import { ModerationService } from '../moderation/moderation.service';
+import { ModerationSecurityService } from '../security/moderation/moderation-security.service';
 import { CreateMerchantProductDto } from './dto/create-merchant-product.dto';
 import { ListMerchantProductsDto } from './dto/list-merchant-products.dto';
 import { UpdateMerchantProductDto } from './dto/update-merchant-product.dto';
@@ -38,6 +39,7 @@ export class MerchantProductsService implements OnModuleInit {
     private readonly redisService: RedisService,
     private readonly transactionService: TransactionService,
     private readonly moderationService: ModerationService,
+    private readonly moderationSecurityService: ModerationSecurityService,
     @Optional() private readonly kafkaService?: KafkaService,
   ) {}
 
@@ -100,6 +102,7 @@ export class MerchantProductsService implements OnModuleInit {
           for (const frame of frames) {
             const isSafe = await this.moderationService.isImageSafe(frame, merchantId);
             if (!isSafe) {
+              await this.moderationSecurityService.handleFailure(merchantId, 'new_product', frame, 'INAPPROPRIATE_CONTENT', 'multi');
               throw new BadRequestException('The uploaded video contains inappropriate content and cannot be published.');
             }
           }
@@ -115,10 +118,13 @@ export class MerchantProductsService implements OnModuleInit {
   }
 
   async create(merchantId: string, dto: CreateMerchantProductDto) {
+    await this.moderationSecurityService.checkRestriction(merchantId);
+
     if (dto.images && dto.images.length > 0 && this.moderationService) {
       for (const imageUrl of dto.images) {
         const isSafe = await this.moderationService.isImageSafe(imageUrl, merchantId);
         if (!isSafe) {
+          await this.moderationSecurityService.handleFailure(merchantId, 'new_product', imageUrl, 'INAPPROPRIATE_CONTENT', 'multi');
           throw new BadRequestException('One or more images contain inappropriate content and cannot be uploaded.');
         }
       }
@@ -456,6 +462,8 @@ export class MerchantProductsService implements OnModuleInit {
     productId: string,
     dto: UpdateMerchantProductDto,
   ) {
+    await this.moderationSecurityService.checkRestriction(merchantId);
+    
     const product = await this.findProductOrThrow(productId);
 
     if (String(product.merchantId) !== String(merchantId)) {
@@ -487,6 +495,7 @@ export class MerchantProductsService implements OnModuleInit {
         for (const imageUrl of sanitizedImages) {
           const isSafe = await this.moderationService.isImageSafe(imageUrl, merchantId);
           if (!isSafe) {
+            await this.moderationSecurityService.handleFailure(merchantId, String(product._id), imageUrl, 'INAPPROPRIATE_CONTENT', 'multi');
             throw new BadRequestException('One or more images contain inappropriate content and cannot be uploaded.');
           }
         }

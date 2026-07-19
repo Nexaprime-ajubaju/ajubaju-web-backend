@@ -30,6 +30,8 @@ import { v4 as uuidv4 } from 'uuid';
 import { RedisService } from '../common/services/redis.service';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import { ModerationService } from '../moderation/moderation.service';
+import { ModerationSecurityService } from '../security/moderation/moderation-security.service';
+import * as crypto from 'crypto';
 
 @Injectable()
 export class AdsService implements OnModuleInit, OnModuleDestroy {
@@ -333,6 +335,7 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
 
     // Image Moderation
     private readonly moderationService?: ModerationService,
+    private readonly moderationSecurityService?: ModerationSecurityService,
   ) {
     // Initialize email transporter
     this.emailEnabled = !!this.configService.get('EMAIL_USER');
@@ -551,15 +554,29 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
       );
     }
 
+    if (this.moderationSecurityService) {
+      await this.moderationSecurityService.checkRestriction(createAdDto.userId);
+    }
+
     // --- Image Moderation Check ---
     if (this.moderationService && createAdDto.images && createAdDto.images.length > 0) {
+      const isMulti = createAdDto.images.length > 1;
+      const context = isMulti ? 'multi' : 'single';
+
       for (const imageUrl of createAdDto.images) {
-        const isSafe = await this.moderationService.isImageSafe(imageUrl);
+        const isSafe = await this.moderationService.isImageSafe(imageUrl, createAdDto.userId);
         if (!isSafe) {
+          if (this.moderationSecurityService) {
+            const imageHash = crypto.createHash('sha256').update(imageUrl).digest('hex');
+            await this.moderationSecurityService.handleFailure(createAdDto.userId, 'new_ad', imageHash, 'INAPPROPRIATE_CONTENT', context);
+          }
           throw new BadRequestException(
             'One or more images contain inappropriate content and cannot be uploaded.',
           );
         }
+      }
+      if (this.moderationSecurityService) {
+        await this.moderationSecurityService.handleSuccess(createAdDto.userId, 'new_ad');
       }
     }
     // ------------------------------
@@ -1644,6 +1661,10 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
       throw new ForbiddenException('You can only update your own ads');
     }
 
+    if (this.moderationSecurityService) {
+      await this.moderationSecurityService.checkRestriction(userId);
+    }
+
     const currentEditCount =
       typeof (ad as any).editCount === 'number' ? (ad as any).editCount : 0;
     const hasUsedEdit =
@@ -1655,15 +1676,25 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
 
     // --- Image Moderation Check ---
     if (this.moderationService && updateData.images && updateData.images.length > 0) {
+      const isMulti = updateData.images.length > 1;
+      const context = isMulti ? 'multi' : 'single';
+      
       for (const imageUrl of updateData.images) {
         // Optionally skip if image is already in the old ad, 
         // but for safety, we check all provided images.
-        const isSafe = await this.moderationService.isImageSafe(imageUrl);
+        const isSafe = await this.moderationService.isImageSafe(imageUrl, userId);
         if (!isSafe) {
+          if (this.moderationSecurityService) {
+            const imageHash = crypto.createHash('sha256').update(imageUrl).digest('hex');
+            await this.moderationSecurityService.handleFailure(userId, adId, imageHash, 'INAPPROPRIATE_CONTENT', context);
+          }
           throw new BadRequestException(
             'One or more images contain inappropriate content and cannot be uploaded.',
           );
         }
+      }
+      if (this.moderationSecurityService) {
+        await this.moderationSecurityService.handleSuccess(userId, adId);
       }
     }
     // ------------------------------

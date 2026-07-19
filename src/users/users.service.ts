@@ -26,6 +26,8 @@ import { OfferLikeHistory, OfferLikeHistoryDocument } from '../offers/schemas/of
 import { OfferPromotion, OfferPromotionDocument } from '../offers/schemas/offer-promotion.schema';
 import { RedisService } from '../common/services/redis.service';
 import { EmailService } from '../common/services/email.service';
+import { SystemSettings, SystemSettingsDocument } from '../system-settings/schemas/system-settings.schema';
+import * as moment from 'moment';
 // OutboxService import removed as the module is not present in the repository
 
 import { validatePreferredCategories, normalizeCategories } from '../common/constants/categories';
@@ -308,6 +310,7 @@ export class UsersService implements OnModuleInit {
     @Optional() @InjectModel('PendingMerchantLocation') private pendingLocationModel?: Model<any>,
     @Optional() @InjectModel(OfferLikeHistory.name) private offerLikeHistoryModel?: Model<OfferLikeHistoryDocument>,
     @Optional() @InjectModel(OfferPromotion.name) private offerPromotionModel?: Model<OfferPromotionDocument>,
+    @Optional() @InjectModel(SystemSettings.name) private systemSettingsModel?: Model<SystemSettingsDocument>,
     @Optional() private outboxService?: any,
     private emailService?: EmailService,
   ) {
@@ -465,6 +468,36 @@ export class UsersService implements OnModuleInit {
 
     if (accountType === 'merchant') {
       const { latitude, longitude } = this.getMerchantCoordinates(registerDto);
+      
+      const settings = this.systemSettingsModel ? await this.systemSettingsModel.findOne({ key: 'global' }).exec() : null;
+      const trialDays = settings?.merchantTrialDays ?? 50;
+      
+      let subscriptionData = null;
+      if (trialDays > 0) {
+        subscriptionData = {
+          planId: 'Premium',
+          status: 'TRIAL',
+          startedAt: new Date(),
+          expiresAt: null,
+          trialEndsAt: moment().add(trialDays, 'days').toDate(),
+          billingCycle: 'monthly',
+          autoRenew: false,
+          assignedBy: 'system',
+          assignedAt: new Date()
+        };
+      } else {
+        subscriptionData = {
+          planId: 'Free Tier',
+          status: 'ACTIVE',
+          startedAt: new Date(),
+          expiresAt: null,
+          trialEndsAt: null,
+          billingCycle: 'monthly',
+          autoRenew: false,
+          assignedBy: 'system',
+          assignedAt: new Date()
+        };
+      }
 
       await this.merchantModel.create({
         userId: savedUser._id.toString(),
@@ -484,6 +517,7 @@ export class UsersService implements OnModuleInit {
         shopPhoto: registerDto.shopPhoto || undefined,
         status: 'pending',
         documents: registerDto.documents || undefined,
+        subscription: subscriptionData,
       });
 
       if (this.emailService) {
@@ -769,11 +803,42 @@ export class UsersService implements OnModuleInit {
     let merchant = await this.merchantModel.findOne({ userId: user._id.toString() }).exec();
     if (!merchant) {
       // Auto-create merchant profile to avoid 404s in the frontend
+      const settings = this.systemSettingsModel ? await this.systemSettingsModel.findOne({ key: 'global' }).exec() : null;
+      const trialDays = settings?.merchantTrialDays ?? 50;
+      
+      let subscriptionData = null;
+      if (trialDays > 0) {
+        subscriptionData = {
+          planId: 'Premium',
+          status: 'TRIAL',
+          startedAt: new Date(),
+          expiresAt: null,
+          trialEndsAt: moment().add(trialDays, 'days').toDate(),
+          billingCycle: 'monthly',
+          autoRenew: false,
+          assignedBy: 'system',
+          assignedAt: new Date()
+        };
+      } else {
+        subscriptionData = {
+          planId: 'Free Tier',
+          status: 'ACTIVE',
+          startedAt: new Date(),
+          expiresAt: null,
+          trialEndsAt: null,
+          billingCycle: 'monthly',
+          autoRenew: false,
+          assignedBy: 'system',
+          assignedAt: new Date()
+        };
+      }
+
       merchant = await this.merchantModel.create({
         userId: user._id.toString(),
         storeName: user.name || '',
         storeEmail: user.email || '',
         status: 'active',
+        subscription: subscriptionData,
       });
     }
     return merchant.toObject ? merchant.toObject() : merchant;

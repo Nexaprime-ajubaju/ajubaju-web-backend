@@ -28,14 +28,22 @@ export class GlobalExceptionFilter implements ExceptionFilter {
         ? exception.getResponse()
         : 'An unexpected error occurred.';
 
-    // Format the response securely
+    let customCode;
+    let extraData = {};
+
+    if (typeof message === 'object' && message !== null) {
+      const { message: msgStr, code, ...rest } = message as any;
+      if (code) customCode = code;
+      extraData = rest;
+    }
+
     const errorResponse = {
       success: false,
       statusCode: status,
       errorCode:
         status === HttpStatus.INTERNAL_SERVER_ERROR
           ? 'INTERNAL_SERVER_ERROR'
-          : 'API_ERROR',
+          : customCode || 'API_ERROR',
       message:
         status === HttpStatus.INTERNAL_SERVER_ERROR
           ? 'An unexpected error occurred.'
@@ -46,6 +54,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
             : message,
       timestamp: new Date().toISOString(),
       path: request.originalUrl,
+      ...extraData,
     };
 
     // Log the exception appropriately using Pino via Nest Logger

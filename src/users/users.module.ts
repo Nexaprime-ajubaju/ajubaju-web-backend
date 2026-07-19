@@ -12,6 +12,7 @@ import { UserReport, UserReportSchema } from './schemas/user-report.schema';
 import { Follow, FollowSchema } from './schemas/follow.schema';
 import { OfferLikeHistory, OfferLikeHistorySchema } from '../offers/schemas/offer-like-history.schema';
 import { OfferPromotion, OfferPromotionSchema } from '../offers/schemas/offer-promotion.schema';
+import { SystemSettings, SystemSettingsSchema } from '../system-settings/schemas/system-settings.schema';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { KafkaModule } from '../kafka/kafka.module';
 import { AdsModule } from '../ads/ads.module';
@@ -31,6 +32,7 @@ import { EmailModule } from '../common/services/email.service';
       { name: Follow.name, schema: FollowSchema },
       { name: OfferLikeHistory.name, schema: OfferLikeHistorySchema },
       { name: OfferPromotion.name, schema: OfferPromotionSchema },
+      { name: SystemSettings.name, schema: SystemSettingsSchema },
     ]),
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.registerAsync({
