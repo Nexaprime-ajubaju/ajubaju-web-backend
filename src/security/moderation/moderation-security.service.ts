@@ -1,11 +1,12 @@
 import { Injectable, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, isValidObjectId } from 'mongoose';
 import { SecurityEventsService } from '../events/security-events.service';
 import { MerchantModerationAttempt, MerchantModerationAttemptDocument } from '../schemas/merchant-moderation-attempt.schema';
 import { SecurityEventType } from '../schemas/security-event.schema';
 import { SecurityConfig } from '../config/security.config';
 import { Merchant, MerchantDocument } from '../../users/schemas/merchant.schema';
+import { User, UserDocument } from '../../users/schemas/user.schema';
 import { OfferPromotion, OfferPromotionDocument } from '../../offers/schemas/offer-promotion.schema';
 
 @Injectable()
@@ -16,24 +17,27 @@ export class ModerationSecurityService {
     private readonly moderationAttemptModel: Model<MerchantModerationAttemptDocument>,
     @InjectModel(Merchant.name)
     private readonly merchantModel: Model<MerchantDocument>,
+    @InjectModel(User.name)
+    private readonly userModel: Model<UserDocument>,
     @InjectModel(OfferPromotion.name)
     private readonly offerModel: Model<OfferPromotionDocument>,
   ) {}
 
   async checkRestriction(merchantId: string, offerId?: string) {
-    const merchant = await this.merchantModel.findOne({ userId: merchantId }).exec();
+    // merchantId parameter is actually the userId (User._id)
+    const user = await this.userModel.findById(merchantId).exec();
     
-    if (merchant?.security?.contentUploadRestrictionUntil) {
-      if (merchant.security.contentUploadRestrictionUntil > new Date()) {
+    if (user?.security?.contentUploadRestrictionUntil) {
+      if (user.security.contentUploadRestrictionUntil > new Date()) {
         throw new ForbiddenException({
           code: 'CONTENT_UPLOAD_RESTRICTED',
           message: 'All content image uploads are temporarily restricted due to repeated moderation failures.',
-          restrictedUntil: merchant.security.contentUploadRestrictionUntil,
+          restrictedUntil: user.security.contentUploadRestrictionUntil,
         });
       }
     }
 
-    if (offerId) {
+    if (offerId && isValidObjectId(offerId)) {
       const offer = await this.offerModel.findOne({ _id: offerId, merchantId }).exec();
       if (offer?.security?.lockedUntil) {
         if (offer.security.lockedUntil > new Date()) {
@@ -54,7 +58,7 @@ export class ModerationSecurityService {
   }
 
   async handleSuccess(merchantId: string, offerId?: string) {
-    if (offerId && offerId !== 'new_offer') {
+    if (offerId && isValidObjectId(offerId)) {
       await this.offerModel.updateOne(
         { _id: offerId, merchantId, 'security.failedImageModerations': { $gt: 0 } },
         { $set: { 'security.failedImageModerations': 0, 'security.lockedUntil': null } }
@@ -62,7 +66,7 @@ export class ModerationSecurityService {
     }
   }
 
-  async handleFailure(merchantId: string, offerId: string, imageHash: string, failureReason: string) {
+  async handleFailure(merchantId: string, offerId: string, imageHash: string, failureReason: string, context: 'single' | 'multi' = 'single') {
     const nowUTC = new Date();
 
     // 1. Log the failed attempt
@@ -76,7 +80,7 @@ export class ModerationSecurityService {
 
     // 2. Offer-level lock (Level 1)
     let offerUpdate = null;
-    if (offerId !== 'new_offer') {
+    if (offerId && isValidObjectId(offerId)) {
       offerUpdate = await this.offerModel.findOneAndUpdate(
         { _id: offerId, merchantId },
         { $inc: { 'security.failedImageModerations': 1 } },
@@ -106,30 +110,32 @@ export class ModerationSecurityService {
       }
     }
 
-    // 3. Merchant-wide lock (Level 2)
-    const merchant = await this.merchantModel.findOne({ userId: merchantId }).exec();
+    // 3. User-wide lock (Level 2)
+    const user = await this.userModel.findById(merchantId).exec();
     
     let windowStart = new Date(nowUTC.getTime() - SecurityConfig.rollingWindowHours * 3600000);
-    if (merchant?.security?.lastRestrictionAt && merchant.security.lastRestrictionAt > windowStart) {
-      windowStart = merchant.security.lastRestrictionAt;
+    if (user?.security?.lastRestrictionAt && user.security.lastRestrictionAt > windowStart) {
+      windowStart = user.security.lastRestrictionAt;
     }
 
     const merchantFailures24h = await this.moderationAttemptModel.countDocuments({
-      merchantId,
+      merchantId, // This is still called merchantId in the attempt schema, but represents userId
       createdAt: { $gte: windowStart },
     }).exec();
 
-    if (merchantFailures24h >= SecurityConfig.merchantFailureLimit) {
-      const restrictionCount = (merchant?.security?.restrictionCount30Days || 0) + 1;
+    const failureLimit = context === 'multi' ? SecurityConfig.multiImageFailureLimit : SecurityConfig.singleImageFailureLimit;
+
+    if (merchantFailures24h >= failureLimit) {
+      const restrictionCount = (user?.security?.restrictionCount30Days || 0) + 1;
       
       const restrictionHoursIndex = Math.min(restrictionCount - 1, SecurityConfig.merchantRestrictionHours.length - 1);
       const restrictionHours = SecurityConfig.merchantRestrictionHours[restrictionHoursIndex];
       const restrictedUntil = new Date(nowUTC.getTime() + restrictionHours * 3600000);
 
       // Atomic update to avoid race conditions
-      const updated = await this.merchantModel.findOneAndUpdate(
+      const updated = await this.userModel.findOneAndUpdate(
         { 
-          userId: merchantId,
+          _id: merchantId,
           $or: [
             { 'security.contentUploadRestrictionUntil': { $lt: nowUTC } },
             { 'security.contentUploadRestrictionUntil': null },
@@ -151,7 +157,7 @@ export class ModerationSecurityService {
           merchantId,
           eventType: SecurityEventType.MERCHANT_RESTRICTED,
           severity: 'CRITICAL',
-          message: `Merchant content upload restricted for ${restrictionHours} hours.`,
+          message: `User content upload restricted for ${restrictionHours} hours.`,
           metadata: { attemptNumber: merchantFailures24h, restrictionHours, imageHash, failureReason }
         });
 
@@ -162,24 +168,24 @@ export class ModerationSecurityService {
         });
       } else {
         // Already restricted by another thread
-        const currentMerchant = await this.merchantModel.findOne({ userId: merchantId }).exec();
-        if (currentMerchant?.security?.contentUploadRestrictionUntil && currentMerchant.security.contentUploadRestrictionUntil > nowUTC) {
+        const currentUser = await this.userModel.findById(merchantId).exec();
+        if (currentUser?.security?.contentUploadRestrictionUntil && currentUser.security.contentUploadRestrictionUntil > nowUTC) {
           throw new ForbiddenException({
             code: 'CONTENT_UPLOAD_RESTRICTED',
             message: 'All content image uploads are temporarily restricted due to repeated moderation failures.',
-            restrictedUntil: currentMerchant.security.contentUploadRestrictionUntil,
+            restrictedUntil: currentUser.security.contentUploadRestrictionUntil,
           });
         }
       }
-    } else if (merchantFailures24h === SecurityConfig.merchantFailureLimit - 1) {
+    } else if (merchantFailures24h === failureLimit - 1) {
        throw new BadRequestException({
          code: 'FINAL_MODERATION_WARNING',
-         message: "One more failed moderation attempt will temporarily disable offer image uploads.",
+         message: "One more failed moderation attempt will temporarily disable image uploads.",
        });
-    } else if (merchantFailures24h === SecurityConfig.merchantFailureLimit - 2) {
+    } else if (merchantFailures24h === failureLimit - 2) {
        throw new BadRequestException({
          code: 'MODERATION_WARNING',
-         message: "Repeated uploads that violate GOLO's content policy may temporarily restrict your ability to upload offer images.",
+         message: "Repeated uploads that violate GOLO's content policy may temporarily restrict your ability to upload images.",
        });
     }
 
@@ -199,7 +205,7 @@ export class ModerationSecurityService {
         merchantId,
         createdAt: { $gte: thirtyDaysAgo }
       }).exec(),
-      this.merchantModel.findOne({ userId: merchantId }).select('security.restrictionCount30Days').exec(),
+      this.userModel.findById(merchantId).select('security.restrictionCount30Days').exec(),
     ]);
 
     let score = 0;

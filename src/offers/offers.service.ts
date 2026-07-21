@@ -227,6 +227,8 @@ export class OffersService implements OnModuleInit {
 
   async submitOfferPromotionRequest(merchantId: string, payload: any) {
     try {
+      await this.moderationSecurityService.checkRestriction(merchantId);
+      
       if (!payload || typeof payload !== 'object') {
         throw new BadRequestException('Invalid offer payload');
       }
@@ -286,11 +288,10 @@ export class OffersService implements OnModuleInit {
       const selectedDays = normalizedDates.length;
 
       if (payload.imageUrl && this.moderationService) {
-        await this.moderationSecurityService.checkRestriction(merchantId);
         const isSafe = await this.moderationService.isImageSafe(payload.imageUrl, merchantId);
         if (!isSafe) {
           const imageHash = crypto.createHash('sha256').update(payload.imageUrl).digest('hex');
-          await this.moderationSecurityService.handleFailure(merchantId, 'new_offer', imageHash, 'INAPPROPRIATE_CONTENT');
+          await this.moderationSecurityService.handleFailure(merchantId, 'new_offer', imageHash, 'INAPPROPRIATE_CONTENT', 'single');
           throw new BadRequestException('One or more images contain inappropriate content and cannot be uploaded.');
         } else {
           await this.moderationSecurityService.handleSuccess(merchantId, 'new_offer');
@@ -552,6 +553,8 @@ export class OffersService implements OnModuleInit {
     merchantId: string,
     payload: any,
   ) {
+    await this.moderationSecurityService.checkRestriction(merchantId);
+    
     const merchantDoc = await this.merchantModel
       .findOne({ userId: merchantId })
       .exec();
@@ -573,11 +576,10 @@ export class OffersService implements OnModuleInit {
     if (payload.category !== undefined) request.category = String(payload.category).trim();
     if (payload.imageUrl !== undefined) {
       if (payload.imageUrl && this.moderationService) {
-        await this.moderationSecurityService.checkRestriction(merchantId, request._id.toString());
         const isSafe = await this.moderationService.isImageSafe(payload.imageUrl, merchantId);
         if (!isSafe) {
           const imageHash = crypto.createHash('sha256').update(payload.imageUrl).digest('hex');
-          await this.moderationSecurityService.handleFailure(merchantId, request._id.toString(), imageHash, 'INAPPROPRIATE_CONTENT');
+          await this.moderationSecurityService.handleFailure(merchantId, request._id.toString(), imageHash, 'INAPPROPRIATE_CONTENT', 'single');
           throw new BadRequestException('One or more images contain inappropriate content and cannot be uploaded.');
         } else {
           await this.moderationSecurityService.handleSuccess(merchantId, request._id.toString());

@@ -137,6 +137,24 @@ export class User {
   @Prop()
   kycRejectionReason?: string;
 
+  @Prop({
+    type: {
+      contentUploadRestrictionUntil: Date,
+      restrictionCount30Days: { type: Number, default: 0 },
+      lastRestrictionAt: Date,
+    },
+    default: {
+      contentUploadRestrictionUntil: null,
+      restrictionCount30Days: 0,
+      lastRestrictionAt: null,
+    },
+  })
+  security?: {
+    contentUploadRestrictionUntil: Date | null;
+    restrictionCount30Days: number;
+    lastRestrictionAt: Date | null;
+  };
+
   @Prop()
   createdAt: Date;
 

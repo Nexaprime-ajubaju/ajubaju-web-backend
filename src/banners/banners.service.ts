@@ -14,6 +14,7 @@ import { KafkaService } from '../kafka/kafka.service';
 import { KAFKA_TOPICS } from '../common/constants/kafka-topics';
 import { RedisService } from '../common/services/redis.service';
 import { ModerationService } from '../moderation/moderation.service';
+import { ModerationSecurityService } from '../security/moderation/moderation-security.service';
 import { User, UserDocument } from '../users/schemas/user.schema';
 import { Merchant, MerchantDocument } from '../users/schemas/merchant.schema';
 import {
@@ -51,6 +52,7 @@ export class BannersService implements OnModuleInit {
     private readonly redisService: RedisService,
     private readonly transactionService: TransactionService,
     private readonly moderationService: ModerationService,
+    private readonly moderationSecurityService: ModerationSecurityService,
     @Optional() private readonly kafkaService?: KafkaService,
   ) {}
 
@@ -234,6 +236,8 @@ export class BannersService implements OnModuleInit {
     merchantId: string,
     payload: SubmitBannerPromotionDto,
   ): Promise<BannerPromotion> {
+    await this.moderationSecurityService.checkRestriction(merchantId);
+
     const merchant = await this.userModel
       .findById(merchantId)
       .select('name email role accountType')
@@ -318,6 +322,7 @@ export class BannersService implements OnModuleInit {
     if (payload.imageUrl && this.moderationService) {
       const isSafe = await this.moderationService.isImageSafe(payload.imageUrl);
       if (!isSafe) {
+        await this.moderationSecurityService.handleFailure(merchantId, 'new_banner', payload.imageUrl, 'INAPPROPRIATE_CONTENT', 'single');
         throw new BadRequestException('One or more images contain inappropriate content and cannot be uploaded.');
       }
     }
@@ -548,6 +553,8 @@ export class BannersService implements OnModuleInit {
     payload: UpdateBannerPromotionDto,
     expectedType: BannerPromotionType = BannerPromotionType.BANNER,
   ): Promise<BannerPromotion> {
+    await this.moderationSecurityService.checkRestriction(merchantId);
+
     const request = await this.bannerPromotionModel
       .findOne({ requestId, merchantId, promotionType: expectedType })
       .exec();
@@ -568,6 +575,7 @@ export class BannersService implements OnModuleInit {
       if (this.moderationService && payload.imageUrl && payload.imageUrl !== request.imageUrl) {
         const isSafe = await this.moderationService.isImageSafe(payload.imageUrl);
         if (!isSafe) {
+          await this.moderationSecurityService.handleFailure(merchantId, requestId, payload.imageUrl, 'INAPPROPRIATE_CONTENT', 'single');
           throw new BadRequestException('Image contains inappropriate content and cannot be uploaded.');
         }
       }
