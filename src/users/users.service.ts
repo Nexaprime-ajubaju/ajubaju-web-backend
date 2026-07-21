@@ -6,6 +6,7 @@ import { isValidObjectId, Model } from 'mongoose';
 import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
 import { User, UserDocument, UserRole } from './schemas/user.schema';
+import { OTP, OTPDocument } from './schemas/otp.schema';
 import { Notification, NotificationDocument } from './schemas/notification.schema';
 import { Merchant, MerchantDocument } from './schemas/merchant.schema';
 import { UserReport, UserReportDocument } from './schemas/user-report.schema';
@@ -56,8 +57,8 @@ export class UsersService implements OnModuleInit {
       this.configService.get<string>('EMAIL_HOST');
     const smtpPort = Number(
       this.configService.get<string>('SMTP_PORT') ||
-        this.configService.get<string>('EMAIL_PORT') ||
-        '587',
+      this.configService.get<string>('EMAIL_PORT') ||
+      '587',
     );
     const smtpUser =
       this.configService.get<string>('SMTP_USER') ||
@@ -226,7 +227,7 @@ export class UsersService implements OnModuleInit {
         } else if (!phone.startsWith("+")) {
           phone = `+${cleaned}`;
         }
-        
+
         const existingPhone = await this.userModel.findOne({ phone: phone }).lean().exec();
         if (existingPhone) {
           throw new BadRequestException('Phone number is already registered.');
@@ -296,6 +297,7 @@ export class UsersService implements OnModuleInit {
 
   constructor(
     @InjectModel(User.name) private userModel: Model<UserDocument>,
+    @InjectModel(OTP.name) private otpModel: Model<OTPDocument>,
     @InjectModel(Notification.name) private notificationModel: Model<NotificationDocument>,
     @InjectModel(Merchant.name) private merchantModel: Model<MerchantDocument>,
     @InjectModel(UserReport.name) private userReportModel: Model<UserReportDocument>,
@@ -321,8 +323,8 @@ export class UsersService implements OnModuleInit {
       this.configService.get<string>('EMAIL_HOST');
     const smtpPort = Number(
       this.configService.get<string>('SMTP_PORT') ||
-        this.configService.get<string>('EMAIL_PORT') ||
-        '587',
+      this.configService.get<string>('EMAIL_PORT') ||
+      '587',
     );
     const smtpUser =
       this.configService.get<string>('SMTP_USER') ||
@@ -400,7 +402,22 @@ export class UsersService implements OnModuleInit {
   }
   async register(registerDto: RegisterDto, ip?: string, userAgent?: string): Promise<UserResponseDto> {
     this.logger.log(`Registering new user: ${registerDto.email}`);
-    
+
+    // Enforce email verification OTP check
+    const normalizedEmail = this.normalizeEmail(registerDto.email);
+    const verifiedOtp = await this.otpModel.findOne({
+      email: normalizedEmail,
+      verified: true,
+      updatedAt: { $gte: new Date(Date.now() - 15 * 60 * 1000) } // verified in last 15 minutes
+    }).exec();
+
+    if (!verifiedOtp) {
+      throw new BadRequestException('Email has not been verified via OTP');
+    }
+
+    // Clean up the verified OTP
+    await this.otpModel.deleteOne({ email: normalizedEmail }).exec();
+
     const accountType = registerDto.accountType === 'merchant' ? 'merchant' : 'user';
 
     // Check if user exists with the specific account type
@@ -468,10 +485,10 @@ export class UsersService implements OnModuleInit {
 
     if (accountType === 'merchant') {
       const { latitude, longitude } = this.getMerchantCoordinates(registerDto);
-      
+
       const settings = this.systemSettingsModel ? await this.systemSettingsModel.findOne({ key: 'global' }).exec() : null;
       const trialDays = settings?.merchantTrialDays ?? 50;
-      
+
       let subscriptionData = null;
       if (trialDays > 0) {
         subscriptionData = {
@@ -542,19 +559,19 @@ export class UsersService implements OnModuleInit {
 
   async login(loginDto: LoginDto, ip?: string, userAgent?: string): Promise<{ accessToken: string; refreshToken: string; user: UserResponseDto }> {
     this.logger.log(`Login attempt: ${loginDto.email} (accountType: ${loginDto.accountType})`);
-    
+
     const accountType = loginDto.accountType === 'merchant' ? 'merchant' : 'user';
     const user = await this.userModel.findOne({ email: loginDto.email, accountType }).exec();
-    
+
     if (!user) {
       this.logger.warn(`Login failed - user not found: ${loginDto.email} for accountType: ${accountType}`);
-      
+
       // Friendly error if registered as other type
       const otherUser = await this.userModel.findOne({ email: loginDto.email }).exec();
       if (otherUser) {
         throw new UnauthorizedException(`This email is registered as a ${otherUser.accountType}. Please use the ${otherUser.accountType === 'user' ? 'User' : 'Merchant'} login, or register a new ${accountType} account.`);
       }
-      
+
       throw new UnauthorizedException('Invalid credentials');
     }
 
@@ -762,7 +779,7 @@ export class UsersService implements OnModuleInit {
 
   async logout(userId: string, refreshToken: string): Promise<void> {
     this.logger.log(`Logout user: ${userId}`);
-    
+
     await this.userModel.updateOne(
       { _id: userId },
       { $pull: { refreshTokens: refreshToken } }
@@ -782,7 +799,7 @@ export class UsersService implements OnModuleInit {
 
   async getProfile(userId: string): Promise<UserResponseDto> {
     this.logger.log(`Getting profile for user: ${userId}`);
-    
+
     const user = await this.userModel.findById(userId).exec();
     if (!user) {
       throw new NotFoundException('User not found');
@@ -805,7 +822,7 @@ export class UsersService implements OnModuleInit {
       // Auto-create merchant profile to avoid 404s in the frontend
       const settings = this.systemSettingsModel ? await this.systemSettingsModel.findOne({ key: 'global' }).exec() : null;
       const trialDays = settings?.merchantTrialDays ?? 50;
-      
+
       let subscriptionData = null;
       if (trialDays > 0) {
         subscriptionData = {
@@ -847,36 +864,54 @@ export class UsersService implements OnModuleInit {
   async updateProfile(userId: string, updateData: any): Promise<UserResponseDto> {
     this.logger.log(`Updating profile for user: ${userId}`);
     this.logger.debug(`Update data received: ${JSON.stringify(updateData).substring(0, 200)}...`);
-    
+
     // Check if email is being changed and if it's already taken
     if (updateData.email) {
       this.logger.log(`Checking if email ${updateData.email} is already in use`);
-      const existingUser = await this.userModel.findOne({ 
+      const existingUser = await this.userModel.findOne({
         email: updateData.email,
         _id: { $ne: userId }
       }).exec();
-      
+
       if (existingUser) {
         throw new ConflictException('Email is already in use');
       }
+
+      const currentUser = await this.userModel.findById(userId).exec();
+      const normalizedNewEmail = updateData.email.trim().toLowerCase();
+      if (currentUser && currentUser.email.trim().toLowerCase() !== normalizedNewEmail) {
+        // Email is actually changing! Verify OTP.
+        const verifiedOtp = await this.otpModel.findOne({
+          email: normalizedNewEmail,
+          verified: true,
+          updatedAt: { $gte: new Date(Date.now() - 15 * 60 * 1000) }
+        }).exec();
+
+        if (!verifiedOtp) {
+          throw new BadRequestException('New email has not been verified via OTP');
+        }
+
+        // Clean up OTP
+        await this.otpModel.deleteOne({ email: normalizedNewEmail }).exec();
+      }
     }
-    
+
     // Validate profile photo size (max 2MB)
     if (updateData.profilePhoto) {
       const photoSize = Buffer.byteLength(updateData.profilePhoto, 'utf8');
       const maxSizeMB = 2;
       const maxSizeBytes = maxSizeMB * 1024 * 1024;
-      
+
       if (photoSize > maxSizeBytes) {
         this.logger.warn(`Profile photo too large: ${(photoSize / 1024 / 1024).toFixed(2)}MB`);
         throw new BadRequestException(`Profile photo must be less than ${maxSizeMB}MB. Current size: ${(photoSize / 1024 / 1024).toFixed(2)}MB`);
       }
       this.logger.debug(`Profile photo size: ${(photoSize / 1024).toFixed(2)}KB - OK`);
     }
-    
+
     // Only allow updating specific fields
     const allowedUpdates: any = {};
-    
+
     if (updateData.name) allowedUpdates.name = updateData.name;
     if (updateData.email) allowedUpdates.email = updateData.email;
     if (updateData.profilePhoto) allowedUpdates.profilePhoto = updateData.profilePhoto;
@@ -890,7 +925,7 @@ export class UsersService implements OnModuleInit {
     if (updateData.profile?.interests && Array.isArray(updateData.profile.interests)) {
       allowedUpdates['profile.interests'] = updateData.profile.interests;
     }
-    
+
     // Bug Fix #2: Validate preferredCategories
     if (updateData.preferredCategories !== undefined) {
       if (Array.isArray(updateData.preferredCategories)) {
@@ -901,7 +936,7 @@ export class UsersService implements OnModuleInit {
           this.logger.warn(`Invalid categories provided: ${errorMsg}`);
           throw new BadRequestException(`Invalid preferred categories: ${errorMsg}`);
         }
-        
+
         // Normalize: remove duplicates and ensure valid format
         const normalizedCategories = normalizeCategories(updateData.preferredCategories);
         allowedUpdates['preferredCategories'] = normalizedCategories;
@@ -932,19 +967,19 @@ export class UsersService implements OnModuleInit {
 
     this.logger.log(`Profile updated successfully for user: ${userId}`);
     this.logger.debug(`Updated fields: ${JSON.stringify(Object.keys(allowedUpdates))}`);
-    
+
     return this.toResponseDto(user);
   }
 
   async findById(userId: string): Promise<UserResponseDto> {
     try {
       this.logger.log(`Find by ID: ${userId}`);
-      
+
       // Check if userId is a valid ObjectId format
       if (!userId.match(/^[0-9a-fA-F]{24}$/)) {
         throw new BadRequestException('Invalid user ID format');
       }
-      
+
       const user = await this.userModel.findById(userId).exec();
       if (!user) {
         throw new NotFoundException(`User with ID ${userId} not found`);
@@ -963,22 +998,22 @@ export class UsersService implements OnModuleInit {
   async getUserById(userId: string): Promise<UserResponseDto> {
     try {
       this.logger.log(`Getting user by ID: ${userId}`);
-      
+
       // Check if userId is a valid ObjectId format
       if (!userId || !userId.match(/^[0-9a-fA-F]{24}$/)) {
         this.logger.warn(`Invalid user ID format: ${userId}`);
         throw new BadRequestException('Invalid user ID format');
       }
-      
+
       // Find user in database
       const user = await this.userModel.findById(userId).exec();
-      
+
       // Check if user exists
       if (!user) {
         this.logger.warn(`User not found: ${userId}`);
         throw new NotFoundException(`User with ID ${userId} not found`);
       }
-      
+
       // Fetch merchant profile if user is a merchant
       let merchantProfile = null;
       if (user.accountType === 'merchant') {
@@ -987,18 +1022,18 @@ export class UsersService implements OnModuleInit {
 
       this.logger.log(`User found: ${user.email}`);
       return this.toResponseDto(user, merchantProfile);
-      
+
     } catch (error) {
       // Handle different types of errors
       if (error.name === 'CastError') {
         this.logger.error(`Cast error for ID ${userId}`);
         throw new BadRequestException('Invalid user ID format');
       }
-      
+
       if (error instanceof NotFoundException || error instanceof BadRequestException) {
         throw error;
       }
-      
+
       this.logger.error(`Unexpected error getting user ${userId}: ${error.message}`);
       throw new InternalServerErrorException('Failed to get user');
     }
@@ -1011,9 +1046,9 @@ export class UsersService implements OnModuleInit {
 
   async getAllUsers(page: number = 1, limit: number = 10): Promise<{ users: UserResponseDto[]; total: number }> {
     this.logger.log(`Getting all users - Page: ${page}, Limit: ${limit}`);
-    
+
     const skip = (page - 1) * limit;
-    
+
     const [users, total] = await Promise.all([
       this.userModel
         .find()
@@ -1044,7 +1079,7 @@ export class UsersService implements OnModuleInit {
 
   async adminUpdateUser(userId: string, updateData: any, adminId: string, adminEmail: string): Promise<UserResponseDto> {
     this.logger.log(`Admin updating user: ${userId}`);
-    
+
     // Admin can update any field
     const user = await this.userModel.findByIdAndUpdate(
       userId,
@@ -1124,7 +1159,7 @@ export class UsersService implements OnModuleInit {
 
   async adminGetStats(): Promise<any> {
     this.logger.log('Admin getting stats');
-    
+
     const totalUsers = await this.userModel.countDocuments();
     const totalAdmins = await this.userModel.countDocuments({ role: UserRole.ADMIN });
     const totalRegularUsers = await this.userModel.countDocuments({ role: UserRole.USER });
@@ -1294,6 +1329,101 @@ export class UsersService implements OnModuleInit {
     });
   }
 
+  async sendEmailOTP(
+    email: string,
+    type: 'register' | 'profile',
+    accountType?: 'user' | 'merchant',
+    userId?: string
+  ): Promise<any> {
+    const normalizedEmail = this.normalizeEmail(email);
+    if (!normalizedEmail) {
+      throw new BadRequestException('Email address is required');
+    }
+
+    if (type === 'register') {
+      const accType = accountType === 'merchant' ? 'merchant' : 'user';
+      const existingUser = await this.userModel.findOne({ email: normalizedEmail, accountType: accType }).exec();
+      if (existingUser) {
+        throw new ConflictException(`An account of type ${accType} with this email already exists`);
+      }
+    } else if (type === 'profile') {
+      if (!userId) {
+        throw new BadRequestException('User ID is required for profile OTP verification');
+      }
+      const existingUser = await this.userModel.findOne({ email: normalizedEmail, _id: { $ne: userId } }).exec();
+      if (existingUser) {
+        throw new ConflictException('Email is already in use by another account');
+      }
+    }
+
+    const otp = this.generateOTP();
+    const expiryTime = new Date(Date.now() + 5 * 60 * 1000);
+
+    await this.otpModel.findOneAndUpdate(
+      { email: normalizedEmail },
+      {
+        otp,
+        expiresAt: expiryTime,
+        verified: false,
+      },
+      { upsert: true, new: true }
+    ).exec();
+
+    this.ensureOtpMailerReady();
+
+    if (!this.mailTransporter || !this.mailFrom) {
+      throw new InternalServerErrorException('Email service not configured. Please contact support.');
+    }
+
+    await this.mailTransporter.sendMail({
+      from: this.mailFrom,
+      to: normalizedEmail,
+      subject: type === 'profile' ? 'GOLO Change Email Verification OTP' : 'GOLO Email Verification OTP',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 540px; margin: 0 auto; padding: 24px;">
+          <div style="background: #157a4f; color: #fff; width: 56px; height: 56px; border-radius: 16px; display: flex; align-items: center; justify-content: center; font-size: 30px; font-weight: 800; margin-bottom: 20px;">G</div>
+          <h2 style="color: #111827; margin: 0 0 12px;">Email Verification</h2>
+          <p style="margin: 0 0 16px; color: #374151;">Your verification OTP code is:</p>
+          <div style="font-size: 30px; letter-spacing: 8px; font-weight: 800; color: #111827; background: #E8F5EE; border: 1px solid #157a4f; border-radius: 16px; padding: 18px; text-align: center; margin: 18px 0;">${otp}</div>
+          <p style="color: #4B5563; margin: 0 0 8px;">This OTP is valid for 5 minutes.</p>
+          <p style="color: #9CA3AF; font-size: 13px; margin: 0;">If you did not request this, you can safely ignore this email.</p>
+        </div>
+      `,
+    });
+
+    return {
+      message: 'OTP sent to your email address',
+      expiresIn: 300,
+    };
+  }
+
+  async verifyEmailOTP(email: string, otp: string): Promise<any> {
+    const normalizedEmail = this.normalizeEmail(email);
+    const cleanOtp = String(otp || '').trim();
+
+    if (!normalizedEmail || !cleanOtp) {
+      throw new BadRequestException('Email and OTP are required');
+    }
+
+    const otpDoc = await this.otpModel.findOne({ email: normalizedEmail }).exec();
+    if (!otpDoc) {
+      throw new BadRequestException('No OTP found. Please request a new one.');
+    }
+
+    if (new Date() > otpDoc.expiresAt) {
+      throw new BadRequestException('OTP has expired. Please request a new one.');
+    }
+
+    if (otpDoc.otp !== cleanOtp) {
+      throw new UnauthorizedException('Invalid OTP');
+    }
+
+    otpDoc.verified = true;
+    await otpDoc.save();
+
+    return { message: 'OTP verified successfully' };
+  }
+
   async sendForgotPasswordOTP(email: string): Promise<any> {
     const normalizedEmail = this.normalizeEmail(email);
     if (!normalizedEmail) {
@@ -1435,13 +1565,13 @@ export class UsersService implements OnModuleInit {
 
   async sendPasswordChangeOTP(userId: string): Promise<any> {
     this.logger.log(`Sending password change OTP email for user: ${userId}`);
-    
+
     try {
       // Validate userId - handle both string and ObjectId
       if (!userId) {
         throw new BadRequestException('User ID is required');
       }
-      
+
       const userIdStr = userId.toString();
       this.logger.debug(`Processing userId: ${userIdStr}`);
 
@@ -1451,10 +1581,10 @@ export class UsersService implements OnModuleInit {
         this.logger.warn(`User not found with ID: ${userIdStr}`);
         throw new NotFoundException('User not found');
       }
-      
+
       this.logger.debug(`User found: ${user.email}`);
       this.logger.debug(`User email: ${user.email || 'NOT SET'}`);
-      
+
       if (!user.email) {
         throw new BadRequestException('Registered email not found for this account.');
       }
@@ -1512,7 +1642,7 @@ export class UsersService implements OnModuleInit {
 
   async verifyPasswordChangeOTP(userId: string, otp: string): Promise<any> {
     this.logger.log(`Verifying password change OTP for user: ${userId}`);
-    
+
     const user = await this.userModel.findById(userId).exec();
     if (!user) {
       throw new NotFoundException('User not found');
@@ -1546,7 +1676,7 @@ export class UsersService implements OnModuleInit {
 
   async changePasswordWithOTP(userId: string, otp: string, newPassword: string): Promise<UserResponseDto> {
     this.logger.log(`Changing password with OTP for user: ${userId}`);
-    
+
     const user = await this.userModel.findById(userId).exec();
     if (!user) {
       throw new NotFoundException('User not found');
@@ -1608,7 +1738,7 @@ export class UsersService implements OnModuleInit {
 
   async changePasswordDirect(userId: string, currentPassword: string, newPassword: string): Promise<UserResponseDto> {
     this.logger.log(`Changing password directly for user: ${userId}`);
-    
+
     if (!currentPassword || !newPassword) {
       throw new BadRequestException('Current password and new password are required');
     }
@@ -1673,7 +1803,7 @@ export class UsersService implements OnModuleInit {
 
   async toggleWishlist(userId: string, adId: string): Promise<{ wishlist: string[], added: boolean }> {
     this.logger.log(`Toggling wishlist for user: ${userId}, ad: ${adId}`);
-    
+
     if (!adId) {
       throw new BadRequestException('Ad ID is required');
     }
@@ -1947,15 +2077,15 @@ export class UsersService implements OnModuleInit {
     );
     const offerDetails = this.offerPromotionModel && offerIdentifiers.length
       ? await this.offerPromotionModel
-          .find({
-            $or: [
-              { _id: { $in: offerIdentifiers.filter((id) => isValidObjectId(id)) } },
-              { requestId: { $in: offerIdentifiers } },
-            ],
-          })
-          .select('_id requestId imageUrl title category selectedProducts')
-          .lean()
-          .exec()
+        .find({
+          $or: [
+            { _id: { $in: offerIdentifiers.filter((id) => isValidObjectId(id)) } },
+            { requestId: { $in: offerIdentifiers } },
+          ],
+        })
+        .select('_id requestId imageUrl title category selectedProducts')
+        .lean()
+        .exec()
       : [];
     const offerDetailMap = new Map<string, any>();
     for (const offer of offerDetails as any[]) {
@@ -2249,7 +2379,7 @@ export class UsersService implements OnModuleInit {
 
   async getUsersByRole(role: string, page: number = 1, limit: number = 10, kycStatus?: string): Promise<{ users: any[]; total: number }> {
     this.logger.log(`Getting users by role: ${role}, page: ${page}, limit: ${limit}, kycStatus: ${kycStatus}`);
-    
+
     const query: any = { role };
     if (kycStatus) {
       query.kycStatus = kycStatus;
@@ -2367,7 +2497,7 @@ export class UsersService implements OnModuleInit {
   async adminDeleteUser(id: string, adminId: string, adminEmail: string): Promise<void> {
     const user = await this.userModel.findById(id).exec();
     if (!user) throw new NotFoundException('User not found');
-    
+
     // Outbox Pattern: Save event to database first to guarantee 100% data consistency
     if (this.outboxService) {
       await this.outboxService.saveEvent(KAFKA_TOPICS.USER_DELETED, {
@@ -2382,7 +2512,7 @@ export class UsersService implements OnModuleInit {
     }
 
     await this.userModel.findByIdAndDelete(id).exec();
-    
+
     if (this.auditLogsService) {
       await this.auditLogsService.log({
         action: 'USER_DELETED_BY_ADMIN',
@@ -2405,7 +2535,7 @@ export class UsersService implements OnModuleInit {
     if (!merchant) {
       throw new NotFoundException('Merchant not found');
     }
-    
+
     // Always use the canonical user ID of the merchant for consistency
     const canonicalMerchantId = String(merchant.userId);
 
@@ -2445,13 +2575,13 @@ export class UsersService implements OnModuleInit {
     if (!isValidObjectId(userId) || !isValidObjectId(merchantId)) {
       return { success: true, isFollowing: false };
     }
-    
+
     // Check against canonical ID in case the ID provided is the internal _id
     const merchant = await this.merchantModel.findOne({
       $or: [{ _id: merchantId }, { userId: merchantId }]
     });
     const targetId = merchant ? String(merchant.userId) : merchantId;
-    
+
     const existingFollow = await this.followModel.findOne({ userId, merchantId: targetId });
     return { success: true, isFollowing: !!existingFollow };
   }

@@ -9,14 +9,14 @@ async function checkMerchants() {
     await mongoose.connect(mongoUri);
 
     const db = mongoose.connection.db;
-    
+
     console.log('=== ALL MERCHANTS WITH CATEGORIES ===\n');
     const merchants = await db.collection('merchants').find({}).toArray();
-    
+
     console.log(`Total merchants: ${merchants.length}\n`);
-    
+
     merchants.forEach((m, i) => {
-      console.log(`${i+1}. ${m.storeName}`);
+      console.log(`${i + 1}. ${m.storeName}`);
       console.log(`   UserId: ${m.userId}`);
       console.log(`   Category: ${m.storeCategory}`);
       console.log(`   SubCategory: ${m.storeSubCategory}`);

@@ -32,7 +32,7 @@ export class UsersController {
   constructor(
     private readonly usersService: UsersService,
     private readonly redisService: RedisService,
-  ) {}
+  ) { }
 
   // ==================== FOLLOW MERCHANT ====================
   @Post('merchants/:merchantId/follow')
@@ -138,6 +138,41 @@ export class UsersController {
   @Post('validate-registration-step')
   async validateRegistrationStep(@Body() dto: any) {
     return this.usersService.validateRegistrationStep(dto);
+  }
+
+  @Post('email-otp/send')
+  async sendEmailOTP(
+    @Body() body: { email: string; type: 'register' | 'profile'; accountType?: 'user' | 'merchant' }
+  ) {
+    const result = await this.usersService.sendEmailOTP(body.email, body.type, body.accountType);
+    return { success: true, ...result };
+  }
+
+  @Post('email-otp/verify')
+  async verifyEmailOTP(
+    @Body() body: { email: string; otp: string }
+  ) {
+    const result = await this.usersService.verifyEmailOTP(body.email, body.otp);
+    return { success: true, ...result };
+  }
+
+  @Post('profile/email-otp/send')
+  @UseGuards(JwtAuthGuard)
+  async sendProfileEmailOTP(
+    @CurrentUser() user: any,
+    @Body() body: { email: string }
+  ) {
+    const result = await this.usersService.sendEmailOTP(body.email, 'profile', undefined, user.id);
+    return { success: true, ...result };
+  }
+
+  @Post('profile/email-otp/verify')
+  @UseGuards(JwtAuthGuard)
+  async verifyProfileEmailOTP(
+    @Body() body: { email: string; otp: string }
+  ) {
+    const result = await this.usersService.verifyEmailOTP(body.email, body.otp);
+    return { success: true, ...result };
   }
 
   @Post('register')
@@ -288,10 +323,10 @@ export class UsersController {
           hasProfilePhoto: !!data.profilePhoto,
           photoSize: data.profilePhoto
             ? (
-                Buffer.byteLength(data.profilePhoto, 'utf8') /
-                1024 /
-                1024
-              ).toFixed(2) + 'MB'
+              Buffer.byteLength(data.profilePhoto, 'utf8') /
+              1024 /
+              1024
+            ).toFixed(2) + 'MB'
             : 'N/A',
           hasInterests: !!data.profile?.interests,
         },

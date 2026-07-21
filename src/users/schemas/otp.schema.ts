@@ -5,8 +5,11 @@ export type OTPDocument = OTP & Document;
 
 @Schema({ timestamps: true })
 export class OTP {
-  @Prop({ required: true, index: true })
-  phone: string;
+  @Prop({ required: false, index: true })
+  phone?: string;
+
+  @Prop({ required: false, index: true })
+  email?: string;
 
   @Prop({ required: true })
   otp: string;

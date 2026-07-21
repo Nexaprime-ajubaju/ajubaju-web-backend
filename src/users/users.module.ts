@@ -10,6 +10,7 @@ import { Notification, NotificationSchema } from './schemas/notification.schema'
 import { Merchant, MerchantSchema } from './schemas/merchant.schema';
 import { UserReport, UserReportSchema } from './schemas/user-report.schema';
 import { Follow, FollowSchema } from './schemas/follow.schema';
+import { OTP, OTPSchema } from './schemas/otp.schema';
 import { OfferLikeHistory, OfferLikeHistorySchema } from '../offers/schemas/offer-like-history.schema';
 import { OfferPromotion, OfferPromotionSchema } from '../offers/schemas/offer-promotion.schema';
 import { SystemSettings, SystemSettingsSchema } from '../system-settings/schemas/system-settings.schema';
@@ -24,6 +25,7 @@ import { EmailModule } from '../common/services/email.service';
   imports: [
     MongooseModule.forFeature([
       { name: User.name, schema: UserSchema },
+      { name: OTP.name, schema: OTPSchema },
       { name: Notification.name, schema: NotificationSchema },
       { name: Merchant.name, schema: MerchantSchema },
       { name: 'PendingMerchantLocation', schema: require('./schemas/pending-merchant-location.schema').PendingMerchantLocationSchema },
@@ -40,7 +42,7 @@ import { EmailModule } from '../common/services/email.service';
       useFactory: async (configService: ConfigService) => {
         const secret = configService.get<string>('JWT_SECRET');
         const expiresIn = configService.get<string>('JWT_EXPIRATION') || '15m';
-        
+
         if (!secret) {
           throw new Error('JWT_SECRET is not defined in environment variables');
         }
@@ -63,4 +65,4 @@ import { EmailModule } from '../common/services/email.service';
   providers: [UsersService, JwtStrategy],
   exports: [UsersService, JwtStrategy, PassportModule],
 })
-export class UsersModule {}
+export class UsersModule { }
