@@ -50,6 +50,21 @@ export class SubscriptionsService {
       }
     }
 
+    // Resolve Paid Plan Expiry
+    if (merchant.subscription.status === 'ACTIVE' && merchant.subscription.expiresAt && planId !== 'Free Tier') {
+      if (moment().isAfter(moment(merchant.subscription.expiresAt))) {
+        // Paid plan expired, fallback to Free Tier
+        const freeTier = await this.subscriptionPlanModel.findOne({ name: 'Free Tier' }).exec();
+        if (freeTier) {
+          planId = (freeTier as any).name;
+          merchant.subscription.planId = planId;
+          merchant.subscription.status = 'ACTIVE';
+          merchant.subscription.expiresAt = null;
+          await merchant.save();
+        }
+      }
+    }
+
     // Resolve plan by planId (which we will assume is the unique `name` string for easy readability)
     let plan = await this.subscriptionPlanModel.findOne({ name: planId }).exec();
     if (!plan) {
@@ -121,7 +136,8 @@ export class SubscriptionsService {
         description: plan.description || "Start scaling your business",
         isPopular: plan.name.toLowerCase().includes('pro'),
         isActive: plan.isActive !== false,
-        displayFeatures
+        displayFeatures,
+        features: plan.features
       };
     });
   }

@@ -16,6 +16,7 @@ import { RedisService } from '../common/services/redis.service';
 import { ModerationService } from '../moderation/moderation.service';
 import { User, UserDocument } from '../users/schemas/user.schema';
 import { Merchant, MerchantDocument } from '../users/schemas/merchant.schema';
+import { SubscriptionsService } from '../subscriptions/subscriptions.service';
 import {
   BannerPromotionType,
   BannerPaymentStatus,
@@ -51,6 +52,7 @@ export class BannersService implements OnModuleInit {
     private readonly redisService: RedisService,
     private readonly transactionService: TransactionService,
     private readonly moderationService: ModerationService,
+    private readonly subscriptionsService: SubscriptionsService,
     @Optional() private readonly kafkaService?: KafkaService,
   ) { }
 
@@ -250,6 +252,33 @@ export class BannersService implements OnModuleInit {
       );
     }
 
+    const promotionType =
+      payload.promotionType === PromotionTypeDto.OFFER
+        ? BannerPromotionType.OFFER
+        : BannerPromotionType.BANNER;
+
+    let isFreeBanner = false;
+    if (promotionType === BannerPromotionType.BANNER) {
+      // Enforce subscription plan limits for banners
+      const plan = await this.subscriptionsService.getActivePlan(merchantId);
+      if (plan && plan.features && plan.features.banner) {
+        const activeBannersCount = await this.bannerPromotionModel.countDocuments({
+          merchantId,
+          promotionType: BannerPromotionType.BANNER,
+          status: { $in: [BannerPromotionStatus.ACTIVE, BannerPromotionStatus.APPROVED, BannerPromotionStatus.UNDER_REVIEW] }
+        });
+
+        const limit = plan.features.banner.monthlyCredits;
+        if (activeBannersCount < limit) {
+          isFreeBanner = true;
+        } else if (!plan.features.banner.payAsYouGo) {
+          throw new BadRequestException(
+            `Your current subscription plan limits you to ${limit} banner(s). You have already reached this limit.`
+          );
+        }
+      }
+    }
+
     const merchantProfile = await this.merchantModel
       .findOne({ userId: merchantId })
       .select('storeLocation storeLocationLatitude storeLocationLongitude')
@@ -310,11 +339,6 @@ export class BannersService implements OnModuleInit {
       }),
     );
 
-    const promotionType =
-      payload.promotionType === PromotionTypeDto.OFFER
-        ? BannerPromotionType.OFFER
-        : BannerPromotionType.BANNER;
-
     if (payload.imageUrl && this.moderationService) {
       const isSafe = await this.moderationService.isImageSafe(payload.imageUrl);
       if (!isSafe) {
@@ -347,7 +371,7 @@ export class BannersService implements OnModuleInit {
             selectedDays,
             dailyRate,
             platformFee,
-            totalPrice: Number(payload.totalPrice || computedTotal),
+            totalPrice: isFreeBanner ? 0 : Number(payload.totalPrice || computedTotal),
             loyaltyRewardEnabled: Boolean(payload.loyaltyRewardEnabled),
             loyaltyStarsToOffer: Number(payload.loyaltyStarsToOffer || 0),
             loyaltyStarsPerPurchase: Number(
@@ -358,8 +382,8 @@ export class BannersService implements OnModuleInit {
             termsAndConditions: payload.termsAndConditions || '',
             exampleUsage: payload.exampleUsage || '',
             selectedProducts,
-            status: BannerPromotionStatus.APPROVED,
-            paymentStatus: BannerPaymentStatus.PENDING,
+            status: isFreeBanner ? BannerPromotionStatus.UNDER_REVIEW : BannerPromotionStatus.PENDING,
+            paymentStatus: isFreeBanner ? BannerPaymentStatus.PAID : BannerPaymentStatus.PENDING,
             isHomepageVisible: false,
           },
         ],
@@ -477,7 +501,7 @@ export class BannersService implements OnModuleInit {
         request.adminNotes = adminNotes || '';
 
         if (decision === 'approve') {
-          request.status = BannerPromotionStatus.APPROVED;
+          request.status = BannerPromotionStatus.ACTIVE;
           request.isHomepageVisible = true;
         } else {
           request.status = BannerPromotionStatus.REJECTED;
@@ -514,17 +538,17 @@ export class BannersService implements OnModuleInit {
       throw new NotFoundException('Banner promotion request not found');
     }
 
-    if (request.status !== BannerPromotionStatus.APPROVED) {
+    if (request.status !== BannerPromotionStatus.PENDING) {
       throw new BadRequestException(
-        'Only approved requests can be paid and activated',
+        'Only pending requests can be paid',
       );
     }
 
     request.paymentStatus = BannerPaymentStatus.PAID;
     request.paidAt = new Date();
     request.paymentReference = paymentReference || '';
-    request.status = BannerPromotionStatus.ACTIVE;
-    request.isHomepageVisible = true;
+    request.status = BannerPromotionStatus.UNDER_REVIEW;
+    request.isHomepageVisible = false;
 
     await request.save();
     await this.enforceActiveBannerLimit(5);
