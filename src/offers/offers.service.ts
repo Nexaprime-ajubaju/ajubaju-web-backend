@@ -4,6 +4,8 @@ import { Model, isValidObjectId } from 'mongoose';
 import { v4 as uuidv4 } from 'uuid';
 import { KafkaService } from '../kafka/kafka.service';
 import { RedisService } from '../common/services/redis.service';
+import { ModerationService } from '../moderation/moderation.service';
+import { ModerationSecurityService } from '../security/moderation/moderation-security.service';
 import { OfferPromotion, OfferPromotionDocument, OfferPromotionStatus, OfferPaymentStatus } from './schemas/offer-promotion.schema';
 // Banner models removed to keep offers module independent from banners
 import { User, UserDocument } from '../users/schemas/user.schema';
@@ -29,6 +31,8 @@ export class OffersService implements OnModuleInit {
     @InjectModel(Merchant.name) private readonly merchantModel: Model<MerchantDocument>,
     private readonly redisService: RedisService,
     @Optional() private readonly kafkaService?: KafkaService,
+    @Optional() private readonly moderationService?: ModerationService,
+    @Optional() private readonly moderationSecurityService?: ModerationSecurityService,
   ) { }
 
   private offerMerchantCacheKey(merchantId: string) {
@@ -281,6 +285,20 @@ export class OffersService implements OnModuleInit {
         .exec();
       this.logger.log(`[submitOfferPromotionRequest] Merchant profile: ${JSON.stringify(merchantProfile)}`);
 
+      if (this.moderationSecurityService) {
+        await this.moderationSecurityService.checkRestriction(merchantId);
+      }
+
+      if (this.moderationService && payload.imageUrl) {
+        const isSafe = await this.moderationService.isImageSafe(payload.imageUrl, merchantId);
+        if (!isSafe) {
+          if (this.moderationSecurityService) {
+            await this.moderationSecurityService.handleFailure(merchantId, 'new_offer', payload.imageUrl, 'INAPPROPRIATE_CONTENT', 'single');
+          }
+          throw new BadRequestException('One or more images contain inappropriate content and cannot be uploaded.');
+        }
+      }
+
       const latitude = Number(merchantProfile?.storeLocationLatitude);
       const longitude = Number(merchantProfile?.storeLocationLongitude);
       const hasCoords = Number.isFinite(latitude) && Number.isFinite(longitude);
@@ -406,8 +424,22 @@ export class OffersService implements OnModuleInit {
   }
 
   async updateMerchantOffer(requestId: string, merchantId: string, payload: any) {
+    if (this.moderationSecurityService) {
+      await this.moderationSecurityService.checkRestriction(merchantId);
+    }
+
     const request = await this.offerModel.findOne({ requestId, merchantId }).exec();
     if (!request) throw new NotFoundException('Offer not found');
+
+    if (this.moderationService && payload.imageUrl && payload.imageUrl !== request.imageUrl) {
+      const isSafe = await this.moderationService.isImageSafe(payload.imageUrl, merchantId);
+      if (!isSafe) {
+        if (this.moderationSecurityService) {
+          await this.moderationSecurityService.handleFailure(merchantId, requestId, payload.imageUrl, 'INAPPROPRIATE_CONTENT', 'single');
+        }
+        throw new BadRequestException('One or more images contain inappropriate content and cannot be uploaded.');
+      }
+    }
 
     const nextTitle = payload.title ?? payload.bannerTitle;
     const nextCategory = payload.category ?? payload.bannerCategory;
