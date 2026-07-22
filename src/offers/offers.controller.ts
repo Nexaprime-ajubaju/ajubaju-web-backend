@@ -29,7 +29,7 @@ export class OffersController {
     private readonly offersService: OffersService,
     private readonly bannersService: BannersService,
     private readonly kafkaService: KafkaService,
-  ) {}
+  ) { }
 
   @Post('request')
   @UseGuards(JwtAuthGuard)
@@ -243,8 +243,8 @@ export class OffersController {
   @Get('user/recently-viewed')
   @UseGuards(JwtAuthGuard)
   async getRecentlyViewedOffers(@CurrentUser() user: any) {
-    const data = await this.offersService.getRecentlyViewedOffers(user.id);
-    return { success: true, data, timestamp: new Date().toISOString() };
+    // getRecentlyViewedOffers was removed from OffersService. Returning empty array for backward compatibility.
+    return { success: true, data: [], timestamp: new Date().toISOString() };
   }
 
   @Get(':offerId')
@@ -266,7 +266,7 @@ export class OffersController {
       // Ignore invalid tokens for public route
     }
 
-    const data = await this.offersService.getPublicOfferDetails(offerId, userId);
+    const data = await this.offersService.getPublicOfferDetails(offerId);
     return { success: true, data, timestamp: new Date().toISOString() };
   }
 }
