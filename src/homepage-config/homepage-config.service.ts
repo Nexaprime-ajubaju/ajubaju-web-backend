@@ -139,9 +139,15 @@ export class HomepageConfigService {
     }
 
     const config = await this.transactionService.execute(async (session) => {
-      let cfg = await this.configModel.findOne().session(session).exec();
+      let query = this.configModel.findOne();
+      if (session) {
+        query = query.session(session);
+      }
+      let cfg = await query.exec();
+
       if (!cfg) {
         this.logger.log('No homepage config found, creating default...');
+        const createOptions = session ? { session } : {};
         const created = await this.configModel.create(
           [
             {
@@ -149,7 +155,7 @@ export class HomepageConfigService {
               sections: DEFAULT_SECTIONS,
             },
           ],
-          { session },
+          createOptions,
         );
         cfg = created[0];
       }
@@ -170,64 +176,90 @@ export class HomepageConfigService {
 
     for (const section of updateDto.sections) {
       if (keys.has(section.key)) {
-        throw new BadRequestException(`Duplicate key found: ${section.key}`);
+        throw new BadRequestException(`Duplicate section key: ${section.key}`);
       }
       keys.add(section.key);
 
       if (displayOrders.has(section.displayOrder)) {
         throw new BadRequestException(
-          `Duplicate displayOrder found: ${section.displayOrder}`,
+          `Duplicate display order: ${section.displayOrder}`,
         );
       }
       displayOrders.add(section.displayOrder);
     }
 
-    const savedConfig = await this.transactionService.execute(
-      async (session) => {
-        let cfg = await this.configModel.findOne().session(session).exec();
-        if (!cfg) {
-          cfg = new this.configModel({ version: 1 });
-        }
+    const updated = await this.transactionService.execute(async (session) => {
+      let query = this.configModel.findOne();
+      if (session) {
+        query = query.session(session);
+      }
+      let cfg = await query.exec();
 
-        this.logger.log(
-          `Homepage config updated by admin ${adminId || 'unknown'}`,
+      if (!cfg) {
+        const createOptions = session ? { session } : {};
+        const created = await this.configModel.create(
+          [
+            {
+              version: 1,
+              sections: updateDto.sections,
+            },
+          ],
+          createOptions,
         );
-
-        cfg.sections = updateDto.sections as HomepageSection[];
+        cfg = created[0];
+      } else {
         cfg.version += 1;
-        cfg.updatedBy = adminId;
+        cfg.sections = updateDto.sections as any;
+        if (session) {
+          await cfg.save({ session });
+        } else {
+          await cfg.save();
+        }
+      }
+      return cfg;
+    });
 
-        await cfg.save({ session });
-        return cfg;
-      },
-    );
-
-    this.cachedConfig = savedConfig;
-    return savedConfig;
+    this.cachedConfig = updated;
+    return updated;
   }
 
   async resetDefaults(adminId?: string): Promise<HomepageConfig> {
-    const savedConfig = await this.transactionService.execute(
-      async (session) => {
-        let cfg = await this.configModel.findOne().session(session).exec();
-        if (!cfg) {
-          cfg = new this.configModel({ version: 1 });
-        }
+    return this.resetToDefault(adminId);
+  }
 
-        this.logger.log(
-          `Homepage config reset by admin ${adminId || 'unknown'}`,
+  async resetToDefault(adminId?: string): Promise<HomepageConfig> {
+    const updated = await this.transactionService.execute(async (session) => {
+      let query = this.configModel.findOne();
+      if (session) {
+        query = query.session(session);
+      }
+      let cfg = await query.exec();
+
+      if (!cfg) {
+        const createOptions = session ? { session } : {};
+        const created = await this.configModel.create(
+          [
+            {
+              version: 1,
+              sections: DEFAULT_SECTIONS,
+            },
+          ],
+          createOptions,
         );
-
-        cfg.sections = DEFAULT_SECTIONS;
+        cfg = created[0];
+      } else {
         cfg.version += 1;
-        cfg.updatedBy = adminId;
+        cfg.sections = DEFAULT_SECTIONS;
+        if (session) {
+          await cfg.save({ session });
+        } else {
+          await cfg.save();
+        }
+      }
+      return cfg;
+    });
 
-        await cfg.save({ session });
-        return cfg;
-      },
-    );
-
-    this.cachedConfig = savedConfig;
-    return savedConfig;
+    this.cachedConfig = updated;
+    return updated;
   }
 }

@@ -18,10 +18,30 @@ import { SubmitBannerPromotionDto } from './dto/submit-banner-promotion.dto';
 import { ReviewBannerPromotionDto } from './dto/review-banner-promotion.dto';
 import { PayBannerPromotionDto } from './dto/pay-banner-promotion.dto';
 import { UpdateBannerPromotionDto } from './dto/update-banner-promotion.dto';
+import { BannerTrackingService } from './services/banner-tracking.service';
+import { BannerAnalyticsService } from './services/banner-analytics.service';
+import { BannerAdminService } from './services/banner-admin.service';
+import { BannerServingService } from './services/banner-serving.service';
 
 @Controller('banners')
 export class BannersController {
-  constructor(private readonly bannersService: BannersService) { }
+  constructor(
+    private readonly bannersService: BannersService,
+    private readonly trackingService: BannerTrackingService,
+    private readonly analyticsService: BannerAnalyticsService,
+    private readonly adminService: BannerAdminService,
+    private readonly bannerServingService: BannerServingService,
+  ) {}
+
+  @Get('promotions/check-availability')
+  async checkBannerAvailability(@Query('city') city?: string) {
+    const data = await this.bannersService.checkBannerAvailability(city);
+    return {
+      success: true,
+      data,
+      timestamp: new Date().toISOString(),
+    };
+  }
 
   @Post('promotions/request')
   @UseGuards(JwtAuthGuard)
@@ -184,19 +204,10 @@ export class BannersController {
     @Query('city') city?: string,
     @Query('fullLocation') fullLocationStr?: string,
   ) {
-    const safeLimit = Number(limit) || 5;
-    let fullLocation: { lat: number; lng: number; radius: number } | undefined;
-    if (fullLocationStr) {
-      try {
-        fullLocation = JSON.parse(fullLocationStr);
-      } catch (e) {
-        // ignore
-      }
-    }
-    const rows = await this.bannersService.getActiveHomepageBanners(
-      safeLimit,
+    const safeLimit = Number(limit) || 9;
+    const rows = await this.bannerServingService.getActiveHomepageBanners(
       city,
-      fullLocation,
+      safeLimit,
     );
 
     return {
@@ -206,20 +217,45 @@ export class BannersController {
     };
   }
 
+  // High-Throughput Async Tracking Endpoints
+  @Post('promotions/impression')
+  async trackBannerImpression(
+    @Body()
+    body: {
+      bannerId: string;
+      merchantId: string;
+      userId?: string;
+      city?: string;
+      slot?: number;
+      generation?: number;
+    },
+  ) {
+    this.trackingService.trackImpression(body);
+    return { success: true };
+  }
+
+  @Post('promotions/click')
+  async trackBannerClick(
+    @Body()
+    body: {
+      bannerId: string;
+      merchantId: string;
+      userId?: string;
+      city?: string;
+    },
+  ) {
+    this.trackingService.trackClick(body);
+    return { success: true };
+  }
+
+  // Admin Monitoring & Scheduler Inspection Endpoints
   @Get('admin/promotions')
   @UseGuards(JwtAuthGuard)
   async adminListBannerPromotions(
     @Query('status') status: string,
     @CurrentUser() user: any,
   ) {
-    if (
-      !['admin', 'manager'].includes(String(user?.role || '').toLowerCase())
-    ) {
-      throw new ForbiddenException(
-        'Only admin/manager can view banner moderation queue',
-      );
-    }
-
+    this.checkAdminRole(user);
     const rows = await this.bannersService.listBannerPromotionsForAdmin(status);
     return {
       success: true,
@@ -235,14 +271,7 @@ export class BannersController {
     @Body() body: ReviewBannerPromotionDto,
     @CurrentUser() user: any,
   ) {
-    if (
-      !['admin', 'manager'].includes(String(user?.role || '').toLowerCase())
-    ) {
-      throw new ForbiddenException(
-        'Only admin/manager can review banner promotions',
-      );
-    }
-
+    this.checkAdminRole(user);
     const result = await this.bannersService.reviewBannerPromotionRequest(
       requestId,
       body.decision,
@@ -264,14 +293,7 @@ export class BannersController {
     @Param('requestId') requestId: string,
     @CurrentUser() user: any,
   ) {
-    if (
-      !['admin', 'manager'].includes(String(user?.role || '').toLowerCase())
-    ) {
-      throw new ForbiddenException(
-        'Only admin/manager can delete banner promotions',
-      );
-    }
-
+    this.checkAdminRole(user);
     const result = await this.bannersService.deleteBannerPromotion(requestId);
 
     return {
@@ -280,5 +302,77 @@ export class BannersController {
       data: result,
       timestamp: new Date().toISOString(),
     };
+  }
+
+  @Get('admin/queue')
+  @UseGuards(JwtAuthGuard)
+  async adminGetQueue(@Query('city') city: string, @CurrentUser() user: any) {
+    this.checkAdminRole(user);
+    const data = await this.adminService.getCityQueueInfo(city);
+    return { success: true, data };
+  }
+
+  @Get('admin/scheduler')
+  @UseGuards(JwtAuthGuard)
+  async adminGetSchedulerState(
+    @Query('city') city: string,
+    @CurrentUser() user: any,
+  ) {
+    this.checkAdminRole(user);
+    const data = await this.adminService.getSchedulerState(city);
+    return { success: true, data };
+  }
+
+  @Get('admin/live-slots')
+  @UseGuards(JwtAuthGuard)
+  async adminGetLiveSlots(
+    @Query('city') city: string,
+    @CurrentUser() user: any,
+  ) {
+    this.checkAdminRole(user);
+    const data = await this.adminService.getLiveSlots(city);
+    return { success: true, data };
+  }
+
+  @Get('admin/analytics')
+  @UseGuards(JwtAuthGuard)
+  async adminGetAnalytics(
+    @Query('bannerId') bannerId: string,
+    @Query('merchantId') merchantId: string,
+    @Query('days') days: string,
+    @CurrentUser() user: any,
+  ) {
+    this.checkAdminRole(user);
+    const data = await this.analyticsService.getBannerAnalytics(
+      bannerId,
+      merchantId,
+      Number(days) || 30,
+    );
+    return { success: true, data };
+  }
+
+  @Get('admin/health')
+  @UseGuards(JwtAuthGuard)
+  async adminGetHealth(
+    @Query('city') city: string,
+    @CurrentUser() user: any,
+  ) {
+    this.checkAdminRole(user);
+    const data = await this.adminService.getHealthStatus(city);
+    return { success: true, data };
+  }
+
+  private checkAdminRole(user: any) {
+    const role = String(user?.role || '').toLowerCase();
+    const adminType = String(user?.adminType || '').toLowerCase();
+
+    const isAllowed =
+      ['admin', 'manager', 'super_admin'].includes(role) ||
+      ['admin', 'manager', 'super_admin'].includes(adminType) ||
+      Boolean(user?.adminType);
+
+    if (!isAllowed) {
+      throw new ForbiddenException('Only admin/manager can perform this action');
+    }
   }
 }

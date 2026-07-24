@@ -38,7 +38,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
           : 'API_ERROR',
       message:
         status === HttpStatus.INTERNAL_SERVER_ERROR
-          ? 'An unexpected error occurred.'
+          ? (exception as any)?.message || 'An unexpected error occurred.'
           : typeof message === 'object' &&
               message !== null &&
               'message' in message

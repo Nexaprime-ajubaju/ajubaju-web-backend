@@ -225,14 +225,19 @@ export class SubscriptionsService {
         } else {
           trials++;
         }
+      } else if (status === 'ACTIVE' && merchant.subscription?.expiresAt && planId !== 'Free Tier') {
+        if (moment().isAfter(moment(merchant.subscription.expiresAt))) {
+          status = 'ACTIVE';
+          planId = 'Free Tier';
+        }
       } else if (status === 'EXPIRED') {
         expired++;
       }
 
-      if (status === 'ACTIVE' && planId) {
+      if ((status === 'ACTIVE' || status === 'TRIAL') && planId) {
         activeMerchantsByPlan[planId] = (activeMerchantsByPlan[planId] || 0) + 1;
         
-        if (planId !== 'Free Tier' && planId.toLowerCase() !== 'free tier') {
+        if (planId !== 'Free Tier' && planId.toLowerCase() !== 'free tier' && status === 'ACTIVE') {
           paid++;
         }
       }
