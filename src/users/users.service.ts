@@ -194,6 +194,7 @@ export class UsersService implements OnModuleInit {
       adTitle: String(adTitle || ''),
       type,
       message,
+      title,
       read: false,
     });
 
@@ -293,6 +294,51 @@ export class UsersService implements OnModuleInit {
         details: { message },
       });
     }
+  }
+
+  /**
+   * Admin: Broadcast notification to audience
+   */
+  async adminBroadcastNotification(
+    adminId: string,
+    adminEmail: string,
+    audience: string,
+    type: string,
+    title: string,
+    message: string,
+  ): Promise<{ success: boolean; sentCount: number }> {
+    let userIds: string[] = [];
+
+    if (audience === 'all' || audience === 'customer') {
+      const users = await this.userModel.find({}, '_id').lean().exec();
+      userIds = userIds.concat(users.map(u => String(u._id)));
+    }
+
+    if (audience === 'all' || audience === 'merchant') {
+      const merchants = await this.merchantModel.find({}, 'userId').lean().exec();
+      userIds = userIds.concat(merchants.map(m => String(m.userId)));
+    }
+
+    // Remove duplicates
+    userIds = [...new Set(userIds)];
+
+    this.logger.log(`Broadcasting notification to ${userIds.length} users (Audience: ${audience})`);
+    
+    // Fire and forget batch processing
+    const BATCH_SIZE = 50;
+    const processBatch = async () => {
+      for (let i = 0; i < userIds.length; i += BATCH_SIZE) {
+        const batch = userIds.slice(i, i + BATCH_SIZE);
+        await Promise.all(batch.map(id => 
+          this.createNotificationAndPush(id, adminId, adminEmail || 'admin', '-', '-', type, message, title)
+            .catch(err => this.logger.warn(`Failed broadcast to ${id}: ${err.message}`))
+        ));
+      }
+    };
+    
+    processBatch().catch(err => this.logger.error(`Broadcast failed: ${err.message}`));
+
+    return { success: true, sentCount: userIds.length };
   }
 
   constructor(
@@ -403,22 +449,25 @@ export class UsersService implements OnModuleInit {
   async register(registerDto: RegisterDto, ip?: string, userAgent?: string): Promise<UserResponseDto> {
     this.logger.log(`Registering new user: ${registerDto.email}`);
 
-    // Enforce email verification OTP check
-    const normalizedEmail = this.normalizeEmail(registerDto.email);
-    const verifiedOtp = await this.otpModel.findOne({
-      email: normalizedEmail,
-      verified: true,
-      updatedAt: { $gte: new Date(Date.now() - 15 * 60 * 1000) } // verified in last 15 minutes
-    }).exec();
-
-    if (!verifiedOtp) {
-      throw new BadRequestException('Email has not been verified via OTP');
-    }
-
-    // Clean up the verified OTP
-    await this.otpModel.deleteOne({ email: normalizedEmail }).exec();
-
     const accountType = registerDto.accountType === 'merchant' ? 'merchant' : 'user';
+
+    const normalizedEmail = this.normalizeEmail(registerDto.email);
+    
+    // Only enforce email verification OTP check for non-merchants
+    if (accountType !== 'merchant') {
+      const verifiedOtp = await this.otpModel.findOne({
+        email: normalizedEmail,
+        verified: true,
+        updatedAt: { $gte: new Date(Date.now() - 15 * 60 * 1000) } // verified in last 15 minutes
+      }).exec();
+
+      if (!verifiedOtp) {
+        throw new BadRequestException('Email has not been verified via OTP');
+      }
+
+      // Clean up the verified OTP
+      await this.otpModel.deleteOne({ email: normalizedEmail }).exec();
+    }
 
     // Check if user exists with the specific account type
     const existingUser = await this.userModel.findOne({ email: registerDto.email, accountType }).exec();

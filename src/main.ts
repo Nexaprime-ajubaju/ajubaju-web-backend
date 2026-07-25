@@ -124,6 +124,7 @@ async function bootstrap() {
               'http://localhost:3000',
               'http://localhost:3001',
               'http://localhost:3004',
+              'http://localhost:3005',
             ];
 
       if (isAllowedOrigin(origin, allowedOrigins)) {

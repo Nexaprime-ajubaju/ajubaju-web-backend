@@ -60,13 +60,7 @@ export function validatePreferredCategories(categories: any): {
     return { valid: false, errors };
   }
 
-  if (categories.length === 0) {
-    errors.push('At least 1 category must be selected');
-  }
 
-  if (categories.length > 6) {
-    errors.push('Maximum 6 categories allowed');
-  }
 
   const seen = new Set<string>();
   for (const cat of categories) {

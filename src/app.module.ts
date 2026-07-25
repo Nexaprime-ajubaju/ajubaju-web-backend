@@ -32,6 +32,7 @@ import { SystemSettingsModule } from './system-settings/system-settings.module';
 import { SubscriptionsModule } from './subscriptions/subscriptions.module';
 import { HomepageConfigModule } from './homepage-config/homepage-config.module';
 import { RecommendationEngineModule } from './recommendation-engine/recommendation-engine.module';
+import { SupportTicketsModule } from './support-tickets/support-tickets.module';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
 import * as Joi from 'joi';
@@ -185,6 +186,7 @@ const logger = new Logger('MongoDB');
     HomepageConfigModule,
     FeatureStoreModule,
     RecommendationEngineModule,
+    SupportTicketsModule,
     ModerationModule,
     SecurityModule,
   ],

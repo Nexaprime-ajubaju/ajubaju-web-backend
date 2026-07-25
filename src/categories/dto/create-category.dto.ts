@@ -19,6 +19,10 @@ export class CreateCategoryDto {
 
   @IsString()
   @IsOptional()
+  platform?: string;
+
+  @IsString()
+  @IsOptional()
   description?: string;
 
   @IsString()

@@ -649,8 +649,10 @@ export class OffersService implements OnModuleInit {
     const prefetchLimit = Math.min(300, Math.max(120, safeLimit * 8));
     const safeRadiusKm = Math.min(100, Math.max(1, Number(params.radiusKm) || 5));
     const locationNeedle = String(params.location || '').trim().toLowerCase();
-    const locationTokens = locationNeedle
-      .split(/[\s,]+/)
+    const locationSegments = locationNeedle.split(',').map((s) => s.trim()).filter(Boolean);
+    const locationCity = locationSegments[0] || locationNeedle;
+    const locationTokens = locationCity
+      .split(/\s+/)
       .map((token) => token.trim())
       .filter((token) => token.length >= 3);
     const queryNeedle = String(params.query || '').trim().toLowerCase();

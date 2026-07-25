@@ -5,12 +5,14 @@ import { Category, CategoryDocument } from './schemas/category.schema';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
 import { Ad } from '../ads/schemas/category-schemas/ad.schema';
+import { OfferPromotion } from '../offers/schemas/offer-promotion.schema';
 
 @Injectable()
 export class CategoriesService {
   constructor(
     @InjectModel(Category.name) private categoryModel: Model<CategoryDocument>,
-    @InjectModel(Ad.name) private adModel: Model<any>
+    @InjectModel(Ad.name) private adModel: Model<any>,
+    @InjectModel(OfferPromotion.name) private offerModel: Model<any>
   ) {}
 
   async create(createCategoryDto: CreateCategoryDto): Promise<Category> {
@@ -26,9 +28,18 @@ export class CategoriesService {
       { $group: { _id: '$category', count: { $sum: 1 } } }
     ]).exec();
 
-    const countMap = {};
+    const offerCounts = await this.offerModel.aggregate([
+      { $group: { _id: '$businessCategory', count: { $sum: 1 } } }
+    ]).exec();
+
+    const adCountMap = {};
     adCounts.forEach(c => {
-      countMap[c._id] = c.count;
+      adCountMap[c._id] = c.count;
+    });
+
+    const offerCountMap = {};
+    offerCounts.forEach(c => {
+      offerCountMap[c._id] = c.count;
     });
 
     let activeCategories = 0;
@@ -40,9 +51,13 @@ export class CategoriesService {
       else hiddenCategories++;
       if (cat.parent && cat.parent !== '-') subcategories++;
 
+      const listingsCount = cat.platform === 'golo' 
+        ? (offerCountMap[cat.name] || 0) 
+        : (adCountMap[cat.name] || 0);
+
       return {
         ...cat,
-        listings: countMap[cat.name] || 0
+        listings: listingsCount
       };
     });
 

@@ -84,6 +84,34 @@ export class ReviewsController {
     @Body('status') status: ReviewStatus,
   ) {
     const merchantId = user?.id || user?._id;
-    return this.reviewsService.updateReviewStatus(merchantId, reviewId, status);
+    return this.reviewsService.updateReviewStatus(
+      merchantId,
+      reviewId,
+      status,
+    );
+  }
+
+  // ==================== PLATFORM REVIEWS ====================
+
+  @Post('platform')
+  async submitPlatformReview(
+    @Body('userId') userId: string,
+    @Body('rating') rating: number,
+    @Body('content') content: string,
+    @Body('source') source: string,
+  ) {
+    return this.reviewsService.submitPlatformReview(userId, {
+      rating,
+      content,
+      source,
+    });
+  }
+
+  @Get('admin/platform')
+  async getPlatformReviews(
+    @Query('page') page = '1',
+    @Query('limit') limit = '20',
+  ) {
+    return this.reviewsService.getPlatformReviews(Number(page), Number(limit));
   }
 }

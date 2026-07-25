@@ -4,11 +4,13 @@ import { CategoriesService } from './categories.service';
 import { CategoriesController } from './categories.controller';
 import { Category, CategorySchema } from './schemas/category.schema';
 import { Ad, AdSchema } from '../ads/schemas/category-schemas/ad.schema';
+import { OfferPromotion, OfferPromotionSchema } from '../offers/schemas/offer-promotion.schema';
 
 @Module({
   imports: [
     MongooseModule.forFeature([{ name: Category.name, schema: CategorySchema }]),
-    MongooseModule.forFeature([{ name: Ad.name, schema: AdSchema }])
+    MongooseModule.forFeature([{ name: Ad.name, schema: AdSchema }]),
+    MongooseModule.forFeature([{ name: OfferPromotion.name, schema: OfferPromotionSchema }])
   ],
   controllers: [CategoriesController],
   providers: [CategoriesService],
