@@ -30,7 +30,7 @@ export class OrdersService {
     private readonly merchantModel: Model<MerchantDocument>,
     private readonly SubscriptionsService: SubscriptionsService,
     private readonly transactionService: TransactionService,
-  ) {}
+  ) { }
 
   private async sendPushNotificationToMerchant(
     merchantId: string,

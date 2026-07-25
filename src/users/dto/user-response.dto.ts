@@ -27,6 +27,12 @@ export class UserResponseDto {
   merchantLoyaltyPoints?: { [merchantId: string]: number };
   loyaltyTier?: string;
 
+  // Moderation / restriction fields
+  contentUploadRestrictionUntil?: Date | string | null;
+  security?: {
+    contentUploadRestrictionUntil?: Date | string | null;
+  };
+
   constructor(partial: Partial<UserResponseDto>) {
     Object.assign(this, partial);
   }
