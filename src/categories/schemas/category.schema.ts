@@ -17,6 +17,9 @@ export class Category {
   @Prop({ default: 'Active', enum: ['Active', 'Hidden'] })
   status: string;
 
+  @Prop({ default: 'golo', enum: ['golo', 'choja'] })
+  platform: string;
+
   @Prop()
   description: string;
 

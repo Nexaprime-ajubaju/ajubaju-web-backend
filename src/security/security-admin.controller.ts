@@ -19,7 +19,45 @@ export class SecurityAdminController {
 
   @Get('events')
   async getRecentEvents() {
-    return this.securityEventModel.find().sort({ createdAt: -1 }).limit(100).exec();
+    return this.securityEventModel.aggregate([
+      { $sort: { createdAt: -1 } },
+      { $limit: 100 },
+      {
+        $lookup: {
+          from: 'merchants',
+          localField: 'merchantId',
+          foreignField: 'userId',
+          as: 'merchantDetails'
+        }
+      },
+      {
+        $unwind: {
+          path: '$merchantDetails',
+          preserveNullAndEmptyArrays: true
+        }
+      },
+      {
+        $addFields: {
+          merchantObjectId: { 
+            $convert: { input: '$merchantId', to: 'objectId', onError: null, onNull: null } 
+          }
+        }
+      },
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'merchantObjectId',
+          foreignField: '_id',
+          as: 'userDetails'
+        }
+      },
+      {
+        $unwind: {
+          path: '$userDetails',
+          preserveNullAndEmptyArrays: true
+        }
+      }
+    ]).exec();
   }
 
   @Get('restricted-merchants')

@@ -114,8 +114,8 @@ export class ModerationSecurityService {
     const user = await this.userModel.findById(merchantId).exec();
     
     let windowStart = new Date(nowUTC.getTime() - SecurityConfig.rollingWindowHours * 3600000);
-    if (user?.security?.lastRestrictionAt && user.security.lastRestrictionAt > windowStart) {
-      windowStart = user.security.lastRestrictionAt;
+    if (user?.security?.contentUploadRestrictionUntil && user.security.contentUploadRestrictionUntil > windowStart) {
+      windowStart = user.security.contentUploadRestrictionUntil;
     }
 
     const merchantFailures24h = await this.moderationAttemptModel.countDocuments({

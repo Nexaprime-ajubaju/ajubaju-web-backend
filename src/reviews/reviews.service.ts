@@ -7,6 +7,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { UserDocument } from '../users/schemas/user.schema';
 import { Review, ReviewDocument, ReviewStatus } from './schemas/review.schema';
+import { PlatformReview, PlatformReviewDocument } from './schemas/platform-review.schema';
 import {
   Voucher,
   VoucherDocument,
@@ -18,6 +19,8 @@ export class ReviewsService {
   constructor(
     @InjectModel(Review.name)
     private readonly reviewModel: Model<ReviewDocument>,
+    @InjectModel(PlatformReview.name)
+    private readonly platformReviewModel: Model<PlatformReviewDocument>,
     @InjectModel('User') private readonly userModel: Model<UserDocument>,
     @InjectModel(Voucher.name)
     private readonly voucherModel: Model<VoucherDocument>,
@@ -318,6 +321,77 @@ export class ReviewsService {
       data: {
         _id: String(review._id),
         status: review.status,
+      },
+    };
+  }
+
+  // ==================== PLATFORM REVIEWS ====================
+
+  async submitPlatformReview(
+    userId: string | undefined,
+    payload: { rating: number; content: string; source?: string }
+  ) {
+    const rating = Number(payload?.rating);
+    const content = String(payload?.content || '').trim();
+    const source = payload?.source || 'website';
+
+    if (!Number.isFinite(rating) || rating < 1 || rating > 5) {
+      throw new BadRequestException('Rating must be between 1 and 5');
+    }
+
+    if (!content) {
+      throw new BadRequestException('Feedback is required');
+    }
+
+    const review = await this.platformReviewModel.create({
+      userId: userId ? new Types.ObjectId(userId) : undefined,
+      rating,
+      content,
+      source,
+    });
+
+    return {
+      success: true,
+      message: 'Platform review submitted successfully',
+      data: review,
+    };
+  }
+
+  async getPlatformReviews(page = 1, limit = 20) {
+    const skip = (page - 1) * limit;
+
+    const [reviews, total] = await Promise.all([
+      this.platformReviewModel
+        .find()
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .populate('userId', 'name email')
+        .lean()
+        .exec(),
+      this.platformReviewModel.countDocuments(),
+    ]);
+
+    // Calculate averages and counts
+    const aggregation = await this.platformReviewModel.aggregate([
+      {
+        $group: {
+          _id: null,
+          avgRating: { $avg: '$rating' },
+        },
+      },
+    ]);
+
+    const averageRating = aggregation.length > 0 ? Number(aggregation[0].avgRating.toFixed(1)) : 0;
+
+    return {
+      success: true,
+      data: {
+        reviews,
+        total,
+        averageRating,
+        page,
+        totalPages: Math.ceil(total / limit),
       },
     };
   }

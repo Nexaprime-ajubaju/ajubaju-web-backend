@@ -459,6 +459,27 @@ export class UsersController {
   }
 
   // ==================== NOTIFICATIONS ====================
+  @Post('admin/notifications/broadcast')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  async adminBroadcastNotification(
+    @CurrentUser() admin: any,
+    @Body() body: { audience: string; type: string; title: string; message: string }
+  ) {
+    if (!body.audience || !body.type || !body.message) {
+      throw new BadRequestException('Missing required fields for broadcast');
+    }
+    const adminId = admin.id || admin._id;
+    return this.usersService.adminBroadcastNotification(
+      adminId,
+      admin.email,
+      body.audience,
+      body.type,
+      body.title,
+      body.message
+    );
+  }
+
   @Get('notifications')
   @UseGuards(JwtAuthGuard)
   async getNotifications(@CurrentUser() user: any) {

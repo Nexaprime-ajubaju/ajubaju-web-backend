@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { User, UserSchema } from '../users/schemas/user.schema';
 import { Review, ReviewSchema } from './schemas/review.schema';
+import { PlatformReview, PlatformReviewSchema } from './schemas/platform-review.schema';
 import { Voucher, VoucherSchema } from '../vouchers/schemas/voucher.schema';
 import { ReviewsKafkaController } from './reviews.kafka.controller';
 import { ReviewsController } from './reviews.controller';
@@ -13,6 +14,7 @@ import { RedisModule } from '../common/services/redis.module';
   imports: [
     MongooseModule.forFeature([
       { name: Review.name, schema: ReviewSchema },
+      { name: PlatformReview.name, schema: PlatformReviewSchema },
       { name: User.name, schema: UserSchema },
       { name: Voucher.name, schema: VoucherSchema },
     ]),

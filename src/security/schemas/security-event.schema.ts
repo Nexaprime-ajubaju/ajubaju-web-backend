@@ -44,7 +44,7 @@ export class SecurityEvent {
     requestId?: string;
   };
 
-  @Prop({ type: Date, default: Date.now })
+  @Prop({ type: Date, default: Date.now, index: -1 })
   createdAt: Date;
 }
 
