@@ -137,7 +137,7 @@ export class MerchantProductsService implements OnModuleInit {
     }
 
     try {
-      const payload = {
+      const payload: any = {
         merchantId,
         name: dto.name.trim(),
         category: dto.category.trim(),
@@ -164,18 +164,17 @@ export class MerchantProductsService implements OnModuleInit {
             session,
           );
           if (planDetails.planFeatures.maxProducts !== -1) {
-            const totalProducts = await this.merchantProductModel
-              .countDocuments({ merchantId })
+            const activeProducts = await this.merchantProductModel
+              .countDocuments({ merchantId, isActive: { $ne: false } })
               .session(session)
               .exec();
-            if (totalProducts >= planDetails.planFeatures.maxProducts) {
-              throw new ForbiddenException({
-                success: false,
-                statusCode: 403,
-                errorCode: 'PRODUCT_LIMIT_REACHED',
-                message: `Free Tier merchants can only add up to ${planDetails.planFeatures.maxProducts} products. Please upgrade to Premium.`,
-              });
+            if (activeProducts >= planDetails.planFeatures.maxProducts) {
+              payload.isActive = false;
+            } else {
+              payload.isActive = true;
             }
+          } else {
+            payload.isActive = true;
           }
         }
 
@@ -462,6 +461,14 @@ export class MerchantProductsService implements OnModuleInit {
       throw new ForbiddenException('You can only update your own products');
     }
 
+    if (product.isActive && product.lastActivatedAt) {
+      const freezePeriodMs = 30 * 24 * 60 * 60 * 1000;
+      const timeSinceActivation = Date.now() - new Date(product.lastActivatedAt).getTime();
+      if (timeSinceActivation < freezePeriodMs) {
+        throw new BadRequestException('Product cannot be edited during the 30-day freeze period after activation.');
+      }
+    }
+
     if (typeof dto.name === 'string') {
       product.name = dto.name.trim();
     }
@@ -562,6 +569,57 @@ export class MerchantProductsService implements OnModuleInit {
     };
   }
 
+  async toggleProductActiveStatus(productId: string, merchantId: string, isActive: boolean) {
+    const product = await this.merchantProductModel.findOne({
+      _id: productId,
+      merchantId,
+    });
+    if (!product) {
+      throw new NotFoundException('Product not found');
+    }
+
+    if (isActive) {
+      // Check limits
+      const merchant = await this.merchantModel.findOne({ userId: merchantId }).exec();
+      if (merchant) {
+        const planDetails = await this.SubscriptionsService.getPlanDetails(merchant);
+        if (planDetails.planFeatures.maxProducts !== -1) {
+          const activeProducts = await this.merchantProductModel.countDocuments({
+            merchantId,
+            isActive: { $ne: false },
+          });
+          if (activeProducts >= planDetails.planFeatures.maxProducts) {
+            throw new ForbiddenException({
+              success: false,
+              statusCode: 403,
+              errorCode: 'PRODUCT_LIMIT_REACHED',
+              message: `You can only have up to ${planDetails.planFeatures.maxProducts} active products on your current plan.`,
+            });
+          }
+        }
+      }
+      product.lastActivatedAt = new Date();
+    } else {
+      if (product.lastActivatedAt) {
+        const freezePeriodMs = 30 * 24 * 60 * 60 * 1000;
+        const timeSinceActivation = Date.now() - new Date(product.lastActivatedAt).getTime();
+        if (timeSinceActivation < freezePeriodMs) {
+          throw new BadRequestException('Product cannot be deactivated until the 30-day freeze period expires.');
+        }
+      }
+    }
+
+    product.isActive = isActive;
+    await product.save();
+    await this.invalidateMerchantProductCache(merchantId);
+
+    return {
+      success: true,
+      message: `Product ${isActive ? 'activated' : 'deactivated'} successfully`,
+      data: this.mapProduct(product as any),
+    };
+  }
+
   private mapProduct(product: MerchantProductDocument) {
     return {
       id: String(product._id),
@@ -574,8 +632,10 @@ export class MerchantProductsService implements OnModuleInit {
       price: product.price,
       priceLabel: `₹${product.price}`,
       status: product.status,
+      isActive: product.isActive !== false,
       image: product.images?.[0] || null,
       images: product.images || [],
+      lastActivatedAt: product.lastActivatedAt || null,
       createdAt: product.createdAt,
       updatedAt: product.updatedAt,
     };
