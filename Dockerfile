@@ -38,8 +38,6 @@ RUN npm ci --omit=dev && npm cache clean --force
 # Copy built output and scripts from builder
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/scripts ./scripts
-COPY --from=builder /app/update-merchant-categories.js ./
-COPY --from=builder /app/check-merchants.js ./
 
 # Adjust ownership and switch to unprivileged user
 RUN chown -R app:app /app
