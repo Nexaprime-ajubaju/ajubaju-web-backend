@@ -323,12 +323,17 @@ export class OrdersService {
       const planDetails =
         await this.SubscriptionsService.getPlanDetails(merchant);
       const allowedStatuses = planDetails.planFeatures.ordersStatusAllowed;
-      if (!allowedStatuses.includes(status)) {
+      // Always allow accepting or rejecting offers regardless of the subscription plan
+      if (
+        !allowedStatuses.includes(status) &&
+        status !== OrderStatus.ACCEPTED &&
+        status !== OrderStatus.REJECTED
+      ) {
         throw new ForbiddenException({
           success: false,
           statusCode: 403,
           errorCode: 'PLAN_RESTRICTION',
-          message: `Free Tier merchants can only change order status to: ${allowedStatuses.join(', ')}. Please upgrade to Premium.`,
+          message: `${planDetails.name} merchants can only change order status to: ${allowedStatuses.join(', ')}. Please upgrade to a higher plan.`,
         });
       }
     }
