@@ -84,6 +84,10 @@ export class SubmitOfferPromotionDto {
   })
   imageUrl: string;
 
+  @IsOptional()
+  @IsString()
+  videoUrl?: string;
+
   @IsArray()
   @IsString({ each: true })
   selectedDates: string[];

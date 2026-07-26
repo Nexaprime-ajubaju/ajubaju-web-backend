@@ -260,6 +260,43 @@ export class OffersService implements OnModuleInit {
     }
   }
 
+  private async moderateVideo(videoUrl: string, merchantId: string): Promise<void> {
+    if (!videoUrl || !this.moderationService || !this.moderationSecurityService) return;
+
+    try {
+      if (videoUrl.includes('cloudinary.com') && videoUrl.includes('/video/upload/')) {
+        const baseUrl = videoUrl.substring(0, videoUrl.lastIndexOf('.')); // removes .mp4 or .webm
+        const urlWithoutExt = baseUrl;
+        
+        // Split around /upload/
+        const parts = urlWithoutExt.split('/upload/');
+        if (parts.length === 2) {
+          const prefix = parts[0];
+          const suffix = parts[1];
+          
+          const frame0 = `${prefix}/upload/so_0/${suffix}.jpg`;
+          const frame30 = `${prefix}/upload/so_30p/${suffix}.jpg`;
+          const frame70 = `${prefix}/upload/so_70p/${suffix}.jpg`;
+
+          const frames = [frame0, frame30, frame70];
+
+          for (const frame of frames) {
+            const isSafe = await this.moderationService.isImageSafe(frame, merchantId);
+            if (!isSafe) {
+              await this.moderationSecurityService.handleFailure(merchantId, 'new_offer', frame, 'INAPPROPRIATE_CONTENT', 'multi');
+              throw new BadRequestException('The uploaded video contains inappropriate content and cannot be published.');
+            }
+          }
+        }
+      }
+    } catch (error) {
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+      this.logger.error('Failed to moderate video:', error);
+    }
+  }
+
   async submitOfferPromotionRequest(merchantId: string, payload: any) {
     try {
       if (!payload || typeof payload !== 'object') {
@@ -297,6 +334,10 @@ export class OffersService implements OnModuleInit {
           }
           throw new BadRequestException('One or more images contain inappropriate content and cannot be uploaded.');
         }
+      }
+
+      if (payload.videoUrl) {
+        await this.moderateVideo(payload.videoUrl, merchantId);
       }
 
       const latitude = Number(merchantProfile?.storeLocationLatitude);
@@ -337,6 +378,7 @@ export class OffersService implements OnModuleInit {
         promotionType: payload.promoTag || '',
         description: payload.description || '',
         imageUrl: payload.imageUrl,
+        videoUrl: payload.videoUrl || null,
         recommendedSize: payload.recommendedSize || '1920 x 520 px',
         selectedDates,
         startDate,
@@ -563,6 +605,7 @@ export class OffersService implements OnModuleInit {
       title: rowAny.title || '',
       category: rowAny.category || '',
       imageUrl: rowAny.imageUrl || '',
+      videoUrl: rowAny.videoUrl || null,
       totalPrice: Number(row.totalPrice || 0),
       displayPrice: this.computeOfferPricing(row).displayPrice,
       discountPercent: this.computeOfferPricing(row).discountPercent,
@@ -740,7 +783,7 @@ export class OffersService implements OnModuleInit {
         .find({
           status: { $in: ['under_review', 'approved', 'active'] },
         })
-        .select('requestId merchantId merchantName title category businessCategory businessSubCategory totalPrice startDate endDate status createdAt imageUrl selectedProducts')
+        .select('requestId merchantId merchantName title category businessCategory businessSubCategory totalPrice startDate endDate status createdAt imageUrl videoUrl selectedProducts')
         .limit(prefetchLimit)
         .maxTimeMS(7000)
         .lean()
@@ -810,6 +853,7 @@ export class OffersService implements OnModuleInit {
           businessSubCategory: row.businessSubCategory || '',
           // Bug Fix #4: Use default image if missing
           imageUrl: row.imageUrl || DEFAULT_OFFER_IMAGE,
+          videoUrl: row.videoUrl || null,
           totalPrice: Number(row.totalPrice || 0),
           displayPrice: pricing.displayPrice,
           discountPercent: pricing.discountPercent,
@@ -899,6 +943,7 @@ export class OffersService implements OnModuleInit {
         businessSubCategory: row.businessSubCategory || '',
         // Bug Fix #4: Use default image if missing
         imageUrl: row.imageUrl || DEFAULT_OFFER_IMAGE,
+        videoUrl: row.videoUrl || null,
         totalPrice: Number(row.totalPrice || 0),
         displayPrice: pricing.displayPrice,
         discountPercent: pricing.discountPercent,
