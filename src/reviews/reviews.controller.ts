@@ -7,6 +7,7 @@ import {
   Post,
   Query,
   UseGuards,
+  Headers,
 } from '@nestjs/common';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
@@ -99,11 +100,23 @@ export class ReviewsController {
     @Body('rating') rating: number,
     @Body('content') content: string,
     @Body('source') source: string,
+    @Headers('user-agent') userAgent?: string,
   ) {
+    let finalSource = source;
+    
+    // If source is not provided, or if it's 'website' but userAgent implies app,
+    // we can override it to 'app'.
+    if (!finalSource || finalSource === 'website') {
+      const ua = (userAgent || '').toLowerCase();
+      if (ua.includes('dart') || ua.includes('android') || ua.includes('iphone') || ua.includes('okhttp')) {
+        finalSource = 'app';
+      }
+    }
+
     return this.reviewsService.submitPlatformReview(userId, {
       rating,
       content,
-      source,
+      source: finalSource || 'website',
     });
   }
 

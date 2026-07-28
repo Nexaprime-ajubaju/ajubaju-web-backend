@@ -59,6 +59,9 @@ export class OfferPromotion {
   @Prop({})
   imageUrl: string;
 
+  @Prop({ type: String, default: null })
+  videoUrl: string;
+
   @Prop({ default: '1920 x 520 px' })
   recommendedSize: string;
 
