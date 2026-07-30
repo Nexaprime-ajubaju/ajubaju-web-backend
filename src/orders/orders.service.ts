@@ -323,7 +323,12 @@ export class OrdersService {
       const planDetails =
         await this.SubscriptionsService.getPlanDetails(merchant);
       const allowedStatuses = planDetails.planFeatures.ordersStatusAllowed;
-      if (!allowedStatuses.includes(status)) {
+      // Always allow accepting or rejecting offers regardless of the subscription plan
+      if (
+        !allowedStatuses.includes(status) &&
+        status !== OrderStatus.ACCEPTED &&
+        status !== OrderStatus.REJECTED
+      ) {
         throw new ForbiddenException({
           success: false,
           statusCode: 403,

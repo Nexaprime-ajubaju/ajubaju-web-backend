@@ -9,6 +9,7 @@ import {
   Matches,
   Min,
   ValidateNested,
+  ArrayMaxSize,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
@@ -88,6 +89,7 @@ export class SubmitBannerPromotionDto {
 
   @IsArray()
   @IsString({ each: true })
+  @ArrayMaxSize(7, { message: 'A banner can be active for a maximum of 7 days' })
   selectedDates: string[];
 
   @IsNumber()

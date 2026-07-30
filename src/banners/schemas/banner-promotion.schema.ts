@@ -4,6 +4,7 @@ import { Document } from 'mongoose';
 export type BannerPromotionDocument = BannerPromotion & Document;
 
 export enum BannerPromotionStatus {
+  PENDING = 'pending',
   UNDER_REVIEW = 'under_review',
   APPROVED = 'approved',
   REJECTED = 'rejected',

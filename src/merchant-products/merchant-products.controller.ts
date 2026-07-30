@@ -4,6 +4,7 @@ import {
   Delete,
   Get,
   Param,
+  Patch,
   Post,
   Put,
   Query,
@@ -97,5 +98,19 @@ export class MerchantProductsController {
     @Param('productId') productId: string,
   ) {
     return this.merchantProductsService.deleteProduct(user.id, productId);
+  }
+  @Patch(':productId/toggle-active')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.MERCHANT, UserRole.ADMIN)
+  async toggleActive(
+    @CurrentUser() user: CurrentUserPayload,
+    @Param('productId') productId: string,
+    @Body('isActive') isActive: boolean,
+  ) {
+    return this.merchantProductsService.toggleProductActiveStatus(
+      productId,
+      user.id,
+      isActive,
+    );
   }
 }

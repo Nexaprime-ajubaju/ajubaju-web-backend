@@ -32,6 +32,12 @@ export class MerchantProduct {
   @Prop({ required: true, enum: ['In Stock', 'Low Stock', 'Out of Stock'] })
   status: 'In Stock' | 'Low Stock' | 'Out of Stock';
 
+  @Prop({ default: true })
+  isActive: boolean;
+
+  @Prop({ type: Date, default: null })
+  lastActivatedAt: Date;
+
   @Prop()
   createdAt: Date;
 
