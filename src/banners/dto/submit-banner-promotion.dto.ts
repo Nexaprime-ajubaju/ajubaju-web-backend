@@ -48,9 +48,12 @@ class OfferSelectedProductDto {
   stockQuantity?: number;
 }
 
-export enum PromotionTypeDto {
-  BANNER = 'banner',
-  OFFER = 'offer',
+import { BannerPromotionType } from '../schemas/banner-promotion.schema';
+
+export enum BannerCoverageType {
+  TOWN = 'Town',
+  CITY = 'City',
+  DISTRICT = 'District',
 }
 
 export class SubmitBannerPromotionDto {
@@ -77,8 +80,8 @@ export class SubmitBannerPromotionDto {
   description?: string;
 
   @IsOptional()
-  @IsEnum(PromotionTypeDto)
-  promotionType?: PromotionTypeDto;
+  @IsEnum(BannerPromotionType)
+  promotionType?: BannerPromotionType;
 
   @IsString()
   @IsNotEmpty()
@@ -145,6 +148,14 @@ export class SubmitBannerPromotionDto {
   @IsOptional()
   @IsString()
   exampleUsage?: string;
+
+  @IsOptional()
+  @IsEnum(BannerCoverageType)
+  coverageType?: BannerCoverageType;
+
+  @IsOptional()
+  @IsString()
+  coverageRegion?: string;
 
   @IsOptional()
   @IsArray()

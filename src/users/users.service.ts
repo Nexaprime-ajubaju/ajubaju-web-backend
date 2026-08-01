@@ -2,7 +2,7 @@
 
 import { Injectable, ConflictException, UnauthorizedException, NotFoundException, BadRequestException, ForbiddenException, Logger, InternalServerErrorException, Optional, forwardRef, Inject, OnModuleInit } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { isValidObjectId, Model } from 'mongoose';
+import { isValidObjectId, Model, Types } from 'mongoose';
 import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
 import { User, UserDocument, UserRole } from './schemas/user.schema';
@@ -914,19 +914,22 @@ export class UsersService implements OnModuleInit {
     this.logger.log(`Updating profile for user: ${userId}`);
     this.logger.debug(`Update data received: ${JSON.stringify(updateData).substring(0, 200)}...`);
 
+    const currentUser = await this.userModel.findById(userId).exec();
+    
     // Check if email is being changed and if it's already taken
-    if (updateData.email) {
+    if (updateData.email && currentUser) {
       this.logger.log(`Checking if email ${updateData.email} is already in use`);
       const existingUser = await this.userModel.findOne({
         email: updateData.email,
-        _id: { $ne: userId }
+        _id: { $ne: new Types.ObjectId(userId) },
+        accountType: currentUser.accountType
       }).exec();
 
       if (existingUser) {
         throw new ConflictException('Email is already in use');
       }
 
-      const currentUser = await this.userModel.findById(userId).exec();
+
       const normalizedNewEmail = updateData.email.trim().toLowerCase();
       if (currentUser && currentUser.email.trim().toLowerCase() !== normalizedNewEmail) {
         // Email is actually changing! Verify OTP.
@@ -1399,7 +1402,15 @@ export class UsersService implements OnModuleInit {
       if (!userId) {
         throw new BadRequestException('User ID is required for profile OTP verification');
       }
-      const existingUser = await this.userModel.findOne({ email: normalizedEmail, _id: { $ne: userId } }).exec();
+      const currentUser = await this.userModel.findById(userId).exec();
+      if (!currentUser) throw new NotFoundException('User not found');
+      
+      const existingUser = await this.userModel.findOne({ 
+        email: normalizedEmail, 
+        _id: { $ne: new Types.ObjectId(userId) },
+        accountType: currentUser.accountType
+      }).exec();
+      
       if (existingUser) {
         throw new ConflictException('Email is already in use by another account');
       }

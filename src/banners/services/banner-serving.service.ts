@@ -17,8 +17,9 @@ export class BannerServingService {
    * Fast Redis-first homepage banner serving endpoint (<10ms latency)
    * With automatic Mongo fallback and Redis auto-healing
    */
-  async getActiveHomepageBanners(city?: string, limit: number = 9): Promise<any[]> {
-    const cityNormalized = (city || 'global').trim().toLowerCase();
+  async getActiveHomepageBanners(city?: string, limit: number = 10): Promise<any[]> {
+    const rawCity = (city || 'global').trim().toLowerCase();
+    const cityNormalized = rawCity.split(',')[0].trim();
 
     // 1. Try reading from Redis Hash slots
     let slotsMap = await this.cacheService.getAllSlots(cityNormalized);

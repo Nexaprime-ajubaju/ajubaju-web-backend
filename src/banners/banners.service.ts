@@ -1,3 +1,4 @@
+// Ultra Mega Final Cache reset
 import {
   BadRequestException,
   ForbiddenException,
@@ -18,6 +19,8 @@ import { ModerationSecurityService } from '../security/moderation/moderation-sec
 import { User, UserDocument } from '../users/schemas/user.schema';
 import { Merchant, MerchantDocument } from '../users/schemas/merchant.schema';
 import { SubscriptionsService } from '../subscriptions/subscriptions.service';
+import { BannerPricingService } from './services/banner-pricing.service';
+import axios from 'axios';
 import {
   BannerPromotionType,
   BannerPaymentStatus,
@@ -26,7 +29,6 @@ import {
   BannerPromotionStatus,
 } from './schemas/banner-promotion.schema';
 import {
-  PromotionTypeDto,
   SubmitBannerPromotionDto,
 } from './dto/submit-banner-promotion.dto';
 import { UpdateBannerPromotionDto } from './dto/update-banner-promotion.dto';
@@ -57,6 +59,7 @@ export class BannersService implements OnModuleInit {
     private readonly moderationService: ModerationService,
     private readonly moderationSecurityService: ModerationSecurityService,
     private readonly subscriptionsService: SubscriptionsService,
+    private readonly pricingService: BannerPricingService,
     @Optional() private readonly queueService?: BannerQueueService,
     @Optional() private readonly servingService?: BannerServingService,
     @Optional() private readonly kafkaService?: KafkaService,
@@ -323,31 +326,11 @@ export class BannersService implements OnModuleInit {
     }
 
     const promotionType =
-      payload.promotionType === PromotionTypeDto.OFFER
+      payload.promotionType === BannerPromotionType.OFFER
         ? BannerPromotionType.OFFER
         : BannerPromotionType.BANNER;
 
     let isFreeBanner = false;
-    if (promotionType === BannerPromotionType.BANNER) {
-      // Enforce subscription plan limits for banners
-      const plan = await this.subscriptionsService.getActivePlan(merchantId);
-      if (plan && plan.features && plan.features.banner) {
-        const activeBannersCount = await this.bannerPromotionModel.countDocuments({
-          merchantId,
-          promotionType: BannerPromotionType.BANNER,
-          status: { $in: [BannerPromotionStatus.ACTIVE, BannerPromotionStatus.APPROVED, BannerPromotionStatus.UNDER_REVIEW] }
-        });
-
-        const limit = plan.features.banner.monthlyCredits;
-        if (activeBannersCount < limit) {
-          isFreeBanner = true;
-        } else if (!plan.features.banner.payAsYouGo) {
-          throw new BadRequestException(
-            `Your current subscription plan limits you to ${limit} banner(s). You have already reached this limit.`
-          );
-        }
-      }
-    }
 
     const merchantProfile = await this.merchantModel
       .findOne({ userId: merchantId })
@@ -393,11 +376,30 @@ export class BannersService implements OnModuleInit {
     endDate.setHours(23, 59, 59, 999);
 
     const selectedDays = normalizedDates.length;
-    const dailyRate = Number(payload.dailyRate ?? 240);
-    const platformFee = Number(
-      payload.platformFee ?? (selectedDays > 0 ? 49 : 0),
-    );
-    const computedTotal = dailyRate * selectedDays + platformFee;
+    // Extract Scale and Location
+    const scale = payload.coverageType || 'City'; // Fallback
+    
+    // Verify Population via GeoNames
+    let verifiedPopulation = 0;
+    try {
+      let url = `http://api.geonames.org/searchJSON?name_equals=${encodeURIComponent(targetCity)}&country=IN&maxRows=1&username=atharvapugade`;
+      if (scale === 'District') url += '&featureCode=ADM2';
+      else url += '&featureClass=P';
+      
+      const response = await axios.get(url);
+      const geonames = response.data?.geonames || [];
+      if (geonames.length > 0) {
+        verifiedPopulation = geonames[0].population || 0;
+      }
+    } catch (e) {
+      console.error('Failed to verify population during submission:', e.message);
+    }
+
+    const dailyRate = this.pricingService.calculateDailyRate(verifiedPopulation);
+    const subtotal = dailyRate * selectedDays;
+    const pgCharge = subtotal * 0.025; // 2.5% payment gateway charge
+    const gst = (subtotal + pgCharge) * 0.18; // 18% GST
+    const computedTotal = subtotal + pgCharge + gst;
     const selectedProducts = (payload.selectedProducts || []).map(
       (product) => ({
         productId: String(product.productId),
@@ -441,7 +443,8 @@ export class BannersService implements OnModuleInit {
             endDate,
             selectedDays,
             dailyRate,
-            platformFee,
+            pgCharge,
+            gst,
             totalPrice: isFreeBanner ? 0 : Number(payload.totalPrice || computedTotal),
             loyaltyRewardEnabled: Boolean(payload.loyaltyRewardEnabled),
             loyaltyStarsToOffer: Number(payload.loyaltyStarsToOffer || 0),
@@ -453,9 +456,9 @@ export class BannersService implements OnModuleInit {
             termsAndConditions: payload.termsAndConditions || '',
             exampleUsage: payload.exampleUsage || '',
             selectedProducts,
-            status: isFreeBanner ? BannerPromotionStatus.UNDER_REVIEW : BannerPromotionStatus.PENDING,
+            status: isFreeBanner ? BannerPromotionStatus.ACTIVE : BannerPromotionStatus.PENDING,
             paymentStatus: isFreeBanner ? BannerPaymentStatus.PAID : BannerPaymentStatus.PENDING,
-            isHomepageVisible: false,
+            isHomepageVisible: isFreeBanner ? true : false,
           },
         ],
         { session },
@@ -618,8 +621,8 @@ export class BannersService implements OnModuleInit {
     request.paymentStatus = BannerPaymentStatus.PAID;
     request.paidAt = new Date();
     request.paymentReference = paymentReference || '';
-    request.status = BannerPromotionStatus.UNDER_REVIEW;
-    request.isHomepageVisible = false;
+    request.status = BannerPromotionStatus.ACTIVE;
+    request.isHomepageVisible = true;
 
     await request.save();
     await this.enforceActiveBannerLimit(5);

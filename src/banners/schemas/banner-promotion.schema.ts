@@ -23,6 +23,12 @@ export enum BannerPromotionType {
   OFFER = 'offer',
 }
 
+export enum BannerCoverageType {
+  TOWN = 'Town',
+  CITY = 'City',
+  DISTRICT = 'District',
+}
+
 @Schema({ timestamps: true, collection: 'banner_promotions' })
 export class BannerPromotion {
   @Prop({ required: true, unique: true, index: true })
@@ -58,6 +64,12 @@ export class BannerPromotion {
 
   @Prop({ default: '1920 x 520 px' })
   recommendedSize: string;
+
+  @Prop({ enum: BannerCoverageType, required: false })
+  coverageType: BannerCoverageType;
+
+  @Prop({ required: false })
+  coverageRegion: string;
 
   @Prop({ type: [Date], required: true, default: [] })
   selectedDates: Date[];

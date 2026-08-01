@@ -4,6 +4,7 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { KafkaModule } from '../kafka/kafka.module';
 import { ModerationModule } from '../moderation/moderation.module';
 import { SecurityModule } from '../security/security.module';
+import { RegionsModule } from '../regions/regions.module';
 import { SubscriptionsModule } from '../subscriptions/subscriptions.module';
 import { User, UserSchema } from '../users/schemas/user.schema';
 import { Merchant, MerchantSchema } from '../users/schemas/merchant.schema';
@@ -25,6 +26,7 @@ import { BannerServingService } from './services/banner-serving.service';
 import { BannerTrackingService } from './services/banner-tracking.service';
 import { BannerAnalyticsService } from './services/banner-analytics.service';
 import { BannerAdminService } from './services/banner-admin.service';
+import { BannerPricingService } from './services/banner-pricing.service';
 import { TransactionModule } from '../common/services/transaction.module';
 
 @Module({
@@ -45,6 +47,7 @@ import { TransactionModule } from '../common/services/transaction.module';
     ModerationModule,
     SecurityModule,
     SubscriptionsModule,
+    forwardRef(() => RegionsModule),
   ],
   controllers: [BannersController],
   providers: [
@@ -58,6 +61,7 @@ import { TransactionModule } from '../common/services/transaction.module';
     BannerTrackingService,
     BannerAnalyticsService,
     BannerAdminService,
+    BannerPricingService,
   ],
   exports: [
     BannersService,
@@ -70,6 +74,7 @@ import { TransactionModule } from '../common/services/transaction.module';
     BannerTrackingService,
     BannerAnalyticsService,
     BannerAdminService,
+    BannerPricingService,
   ],
 })
 export class BannersModule {}

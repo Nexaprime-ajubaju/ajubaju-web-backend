@@ -12,9 +12,21 @@ export class BannerSchedulerState {
   pointer: number;
 
   @Prop({ required: true, default: 0 })
+  districtPointer: number;
+
+  @Prop({ required: true, default: 0 })
+  cityPointer: number;
+
+  @Prop({ required: true, default: 0 })
+  townPointer: number;
+
+  @Prop({ required: true, default: 0 })
+  globalPointer: number;
+
+  @Prop({ required: true, default: 0 })
   generation: number;
 
-  @Prop({ required: true, enum: ['A', 'B', 'C'], default: 'A' })
+  @Prop({ required: true, enum: ['A', 'B', 'C', 'active'], default: 'A' })
   activeGroup: string;
 
   @Prop({ required: true, default: 1 })

@@ -11,6 +11,15 @@ export class BannerQueue {
   @Prop({ type: [String], default: [] })
   queue: string[];
 
+  @Prop({ type: [String], default: [] })
+  districtQueue: string[];
+
+  @Prop({ type: [String], default: [] })
+  cityQueue: string[];
+
+  @Prop({ type: [String], default: [] })
+  townQueue: string[];
+
   @Prop({ required: true, default: 1 })
   version: number;
 

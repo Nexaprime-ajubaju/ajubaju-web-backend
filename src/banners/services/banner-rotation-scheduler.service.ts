@@ -15,17 +15,18 @@ export class BannerRotationSchedulerService implements OnModuleInit {
   private readonly logger = new Logger(BannerRotationSchedulerService.name);
   private readonly instanceId = randomUUID();
 
-  // Group Slot Mappings
   private readonly GROUPS: Record<string, number[]> = {
     A: [1, 5, 9],
-    B: [2, 6, 8],
-    C: [3, 4, 7],
+    B: [2, 6, 10],
+    C: [3, 7],
+    D: [4, 8],
   };
 
   private readonly NEXT_GROUP: Record<string, string> = {
     A: 'B',
     B: 'C',
-    C: 'A',
+    C: 'D',
+    D: 'A',
   };
 
   constructor(
@@ -107,7 +108,7 @@ export class BannerRotationSchedulerService implements OnModuleInit {
   /**
    * Run rotation cron every 4 minutes across cities (3 slots change per rotation)
    */
-  @Cron('0 */4 * * * *')
+  @Cron('0 * * * * *')
   async handleScheduledRotation() {
     try {
       let states: BannerSchedulerStateDocument[] = await this.schedulerStateModel.find({ isRunning: true }).exec();
@@ -141,9 +142,24 @@ export class BannerRotationSchedulerService implements OnModuleInit {
     const cityNormalized = (city || 'global').trim().toLowerCase();
     const state = await this.getOrCreateState(cityNormalized);
     const queueDoc = await this.queueService.getCityQueue(cityNormalized);
+    
+    // Fetch global queue for ultimate fallback
+    const globalQueueDoc = cityNormalized !== 'global' ? await this.queueService.getCityQueue('global') : queueDoc;
 
-    const queue = queueDoc?.queue || [];
-    if (queue.length === 0) {
+    const districtQueue = queueDoc?.districtQueue || [];
+    const cityQueue = queueDoc?.cityQueue || [];
+    const townQueue = queueDoc?.townQueue || [];
+    
+    // Fallback logic for legacy queue format
+    const legacyGlobalQueue = globalQueueDoc?.queue || [];
+    const globalQueue = globalQueueDoc?.districtQueue?.length ? 
+        globalQueueDoc.districtQueue.concat(globalQueueDoc.cityQueue || [], globalQueueDoc.townQueue || []) : 
+        legacyGlobalQueue;
+
+    // Collect all campaigns
+    const allRequestIds = [...new Set([...districtQueue, ...cityQueue, ...townQueue, ...globalQueue])];
+    
+    if (allRequestIds.length === 0) {
       state.lastHeartbeat = new Date();
       await state.save();
       return;
@@ -152,12 +168,11 @@ export class BannerRotationSchedulerService implements OnModuleInit {
     const currentGroup = state.activeGroup || 'A';
     let activeSlots = (await this.cacheService.getAllSlots(cityNormalized)) || {};
 
-    const slotsToRotate = Object.keys(activeSlots).length < Math.min(queue.length, 9)
-      ? [1, 2, 3, 4, 5, 6, 7, 8, 9]
+    const slotsToRotate = Object.keys(activeSlots).length < 10
+      ? [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
       : (this.GROUPS[currentGroup] || [1, 5, 9]);
 
     let duplicateSkips = 0;
-
     const displayedMerchants = new Set<string>();
     const displayedBanners = new Set<string>();
 
@@ -168,14 +183,10 @@ export class BannerRotationSchedulerService implements OnModuleInit {
       }
     }
 
-    let pointer = state.pointer % queue.length;
-    let attempts = 0;
-    const maxAttempts = queue.length * 3;
-
     this.logger.log('Starting rotateCitySlots Mongoose query...');
     const queryStart = Date.now();
     const candidateCampaigns = await this.bannerPromotionModel
-      .find({ requestId: { $in: queue } })
+      .find({ requestId: { $in: allRequestIds } })
       .select('requestId merchantId merchantName bannerTitle imageUrl recommendedSize bannerCategory')
       .lean()
       .exec();
@@ -184,33 +195,30 @@ export class BannerRotationSchedulerService implements OnModuleInit {
     const campaignMap = new Map<string, any>();
     candidateCampaigns.forEach((c: any) => campaignMap.set(c.requestId, c));
 
-    for (const slotNum of slotsToRotate) {
+    // Helper to find a banner from a specific queue
+    const tryAssignFromQueue = async (q: string[], pointerKey: 'districtPointer' | 'cityPointer' | 'townPointer' | 'globalPointer', slotNum: number, forceFallback = false) => {
+      if (!q || q.length === 0) return false;
+      let attempts = 0;
       let assigned = false;
-
+      const maxAttempts = q.length * 2;
+      
       while (attempts < maxAttempts) {
-        const requestId = queue[pointer];
-        pointer = (pointer + 1) % queue.length;
+        state[pointerKey] = state[pointerKey] % q.length;
+        const requestId = q[state[pointerKey]];
+        state[pointerKey] = (state[pointerKey] + 1) % q.length;
         attempts++;
 
         const campaign = campaignMap.get(requestId);
         if (!campaign) continue;
 
-        const isDuplicate = this.policyService.checkDuplicateSlot(
-          requestId,
-          campaign.merchantId,
-          displayedBanners,
-          displayedMerchants,
-          queue.length,
-        );
-
-        const inCooldown = await this.policyService.isMerchantInCooldown(campaign.merchantId, cityNormalized, queue.length);
+        const isDuplicate = this.policyService.checkDuplicateSlot(requestId, campaign.merchantId, displayedBanners, displayedMerchants, q.length);
+        const inCooldown = await this.policyService.isMerchantInCooldown(campaign.merchantId, cityNormalized, q.length);
 
         if (isDuplicate || inCooldown) {
           duplicateSkips++;
           continue;
         }
 
-        // Slot Assignment
         activeSlots[slotNum] = {
           requestId: campaign.requestId,
           merchantId: campaign.merchantId,
@@ -230,11 +238,10 @@ export class BannerRotationSchedulerService implements OnModuleInit {
         assigned = true;
         break;
       }
-
-      // Fallback assignment to ensure empty slots are populated
-      if (!assigned && queue.length > 0) {
-        const fallbackIndex = (state.pointer + slotNum - 1) % queue.length;
-        const fallbackId = queue[fallbackIndex];
+      
+      // Fallback if no valid banner without cooldown (only if forceFallback is true)
+      if (!assigned && forceFallback && q.length > 0) {
+        const fallbackId = q[0];
         const campaign = campaignMap.get(fallbackId);
         if (campaign) {
           activeSlots[slotNum] = {
@@ -249,23 +256,54 @@ export class BannerRotationSchedulerService implements OnModuleInit {
             generation: state.generation + 1,
             expiresAt: new Date(Date.now() + 300 * 1000),
           };
+          assigned = true;
         }
+      }
+      return assigned;
+    };
+
+    for (const slotNum of slotsToRotate) {
+      let assigned = false;
+
+      if (slotNum >= 1 && slotNum <= 5) {
+        // District preferred
+        assigned = await tryAssignFromQueue(districtQueue, 'districtPointer', slotNum);
+        if (!assigned) assigned = await tryAssignFromQueue(cityQueue, 'cityPointer', slotNum);
+        if (!assigned) assigned = await tryAssignFromQueue(townQueue, 'townPointer', slotNum);
+      } else if (slotNum >= 6 && slotNum <= 8) {
+        // City preferred
+        assigned = await tryAssignFromQueue(cityQueue, 'cityPointer', slotNum);
+        if (!assigned) assigned = await tryAssignFromQueue(townQueue, 'townPointer', slotNum);
+        if (!assigned) assigned = await tryAssignFromQueue(districtQueue, 'districtPointer', slotNum);
+      } else if (slotNum >= 9 && slotNum <= 10) {
+        // Town preferred
+        assigned = await tryAssignFromQueue(townQueue, 'townPointer', slotNum);
+        if (!assigned) assigned = await tryAssignFromQueue(cityQueue, 'cityPointer', slotNum);
+        if (!assigned) assigned = await tryAssignFromQueue(districtQueue, 'districtPointer', slotNum);
+      }
+
+      // Global Fallback
+      if (!assigned) {
+        assigned = await tryAssignFromQueue(globalQueue, 'globalPointer', slotNum);
+      }
+
+      // Last resort forced fallback removed as per user request.
+      // If we cannot find a unique banner, we leave the slot empty so the frontend can fill it with platform banners.
+      if (!assigned) {
+        delete activeSlots[slotNum];
       }
     }
 
     // Save updated slots to Redis Hash and In-Memory fallback (Includes HMAC Signatures)
     await this.cacheService.setAllSlots(cityNormalized, activeSlots);
 
-    if (pointer === 0) {
-      await this.queueService.commitActiveVersion(cityNormalized);
-    }
+    await this.queueService.commitActiveVersion(cityNormalized);
 
     const durationMs = Date.now() - startTime;
 
-    state.pointer = pointer;
     state.generation += 1;
     state.activeGroup = this.NEXT_GROUP[currentGroup] || 'B';
-    state.queueVersion = queueDoc.activeVersion || 1;
+    state.queueVersion = queueDoc?.activeVersion || 1;
     state.lastRotation = new Date();
     state.nextRotation = new Date(Date.now() + 240000); // 4 minutes rotation interval
     state.lastHeartbeat = new Date();
