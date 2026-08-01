@@ -17,26 +17,49 @@ export class TransactionService {
 
     while (retries < maxRetries) {
       const shouldManageSession = !existingSession;
-      const session = existingSession ?? (await this.connection.startSession());
+      let session: ClientSession | null = existingSession ?? null;
 
       try {
         if (shouldManageSession) {
-          session.startTransaction({
-            readConcern: { level: 'snapshot' },
-            writeConcern: { w: 'majority' },
-          });
+          try {
+            session = await this.connection.startSession();
+            session.startTransaction({
+              readConcern: { level: 'snapshot' },
+              writeConcern: { w: 'majority' },
+            });
+          } catch (sessionErr: any) {
+            // If standalone local MongoDB without replica set, fall back to non-transaction execution
+            this.logger.warn(
+              'Standalone MongoDB detected (no replica set); executing operation without transaction session.',
+            );
+            return await work(null as any);
+          }
         }
 
-        const result = await work(session);
+        const result = await work(session as ClientSession);
 
-        if (shouldManageSession) {
+        if (shouldManageSession && session) {
           await session.commitTransaction();
         }
 
         return result;
-      } catch (error) {
-        if (shouldManageSession && session.inTransaction()) {
-          await session.abortTransaction();
+      } catch (error: any) {
+        if (shouldManageSession && session && session.inTransaction()) {
+          try {
+            await session.abortTransaction();
+          } catch (e) {}
+        }
+
+        const isStandaloneError =
+          error?.message?.includes('replica set member') ||
+          error?.message?.includes('Transaction numbers') ||
+          error?.code === 20;
+
+        if (isStandaloneError) {
+          this.logger.warn(
+            'Standalone MongoDB detected (no replica set); executing operation without transaction session.',
+          );
+          return await work(null as any);
         }
 
         if (
@@ -55,8 +78,10 @@ export class TransactionService {
           throw error;
         }
       } finally {
-        if (shouldManageSession) {
-          await session.endSession();
+        if (shouldManageSession && session) {
+          try {
+            await session.endSession();
+          } catch (e) {}
         }
       }
     }

@@ -68,6 +68,10 @@ export class UpdateOfferPromotionDto {
   imageUrl?: string;
 
   @IsOptional()
+  @IsString()
+  videoUrl?: string;
+
+  @IsOptional()
   @IsArray()
   @IsString({ each: true })
   selectedDates?: string[];

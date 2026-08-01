@@ -52,6 +52,21 @@ export class SubscriptionsService {
       }
     }
 
+    // Resolve Paid Plan Expiry
+    if (merchant.subscription.status === 'ACTIVE' && merchant.subscription.expiresAt && planId !== 'Free Tier') {
+      if (moment().isAfter(moment(merchant.subscription.expiresAt))) {
+        // Paid plan expired, fallback to Free Tier
+        const freeTier = await this.subscriptionPlanModel.findOne({ name: 'Free Tier' }).exec();
+        if (freeTier) {
+          planId = (freeTier as any).name;
+          merchant.subscription.planId = planId;
+          merchant.subscription.status = 'ACTIVE';
+          merchant.subscription.expiresAt = null;
+          await merchant.save();
+        }
+      }
+    }
+
     // Resolve plan by planId (which we will assume is the unique `name` string for easy readability)
     let plan = await this.subscriptionPlanModel.findOne({ name: planId }).exec();
     if (!plan) {
@@ -123,7 +138,8 @@ export class SubscriptionsService {
         description: plan.description || "Start scaling your business",
         isPopular: plan.name.toLowerCase().includes('pro'),
         isActive: plan.isActive !== false,
-        displayFeatures
+        displayFeatures,
+        features: plan.features
       };
     });
   }
@@ -211,14 +227,19 @@ export class SubscriptionsService {
         } else {
           trials++;
         }
+      } else if (status === 'ACTIVE' && merchant.subscription?.expiresAt && planId !== 'Free Tier') {
+        if (moment().isAfter(moment(merchant.subscription.expiresAt))) {
+          status = 'ACTIVE';
+          planId = 'Free Tier';
+        }
       } else if (status === 'EXPIRED') {
         expired++;
       }
 
-      if (status === 'ACTIVE' && planId) {
+      if ((status === 'ACTIVE' || status === 'TRIAL') && planId) {
         activeMerchantsByPlan[planId] = (activeMerchantsByPlan[planId] || 0) + 1;
         
-        if (planId !== 'Free Tier' && planId.toLowerCase() !== 'free tier') {
+        if (planId !== 'Free Tier' && planId.toLowerCase() !== 'free tier' && status === 'ACTIVE') {
           paid++;
         }
       }
@@ -395,15 +416,21 @@ export class SubscriptionsService {
       .populate({ path: 'userId', select: 'firstName lastName email phoneNumber' })
       .exec();
 
-    return merchants.map(m => ({
-      _id: m._id,
-      merchantId: m.userId, // Send back userId as merchantId for admin panel
-      businessName: (m as any).storeName, // Store name used as business name
-      status: m.subscription?.status,
-      trialEndsAt: m.subscription?.trialEndsAt,
-      startedAt: m.subscription?.startedAt,
-      expiresAt: m.subscription?.expiresAt,
-    }));
+    return merchants.map(m => {
+      const user = m.userId as any;
+      return {
+        id: m._id, // Maps to merchant.id for React keys
+        _id: m._id,
+        merchantId: user?._id || m.userId, 
+        name: (m as any).storeName || 'Unknown Store', // Maps to merchant.name in UI
+        email: (m as any).storeEmail || user?.email || 'N/A', // Maps to merchant.email in UI
+        status: m.subscription?.status,
+        billingCycle: m.subscription?.billingCycle || 'monthly', // Maps to merchant.billingCycle in UI
+        trialEndsAt: m.subscription?.trialEndsAt,
+        startedAt: m.subscription?.startedAt,
+        expiresAt: m.subscription?.expiresAt,
+      };
+    });
   }
 
   async getMerchantSubscription(merchantId: string) {

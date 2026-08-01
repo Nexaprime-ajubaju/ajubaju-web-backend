@@ -305,8 +305,8 @@ export class UsersController {
   @UseGuards(JwtAuthGuard)
   async syncPendingMerchantLocation(@CurrentUser() user: any) {
     const res = await this.usersService.syncPendingMerchantLocation(
-      user.id,
-      user.email,
+      user?.id || user?._id,
+      user?.email,
     );
     return { success: true, data: res };
   }
@@ -315,8 +315,9 @@ export class UsersController {
   @UseGuards(JwtAuthGuard)
   async updateProfile(@CurrentUser() user: any, @Body() data: any) {
     try {
+      const userId = user?.id || user?._id;
       console.log(
-        `[Controller] Updating profile for user ${user.id} with data:`,
+        `[Controller] Updating profile for user ${userId} with data:`,
         {
           hasName: !!data.name,
           hasEmail: !!data.email,
@@ -332,7 +333,7 @@ export class UsersController {
         },
       );
 
-      const profile = await this.usersService.updateProfile(user.id, data);
+      const profile = await this.usersService.updateProfile(userId, data);
 
       console.log(`[Controller] Profile updated successfully:`, {
         hasPhoto: !!profile.profilePhoto,

@@ -1,3 +1,4 @@
+// Ultra Mega Final Cache reset
 import {
   BadRequestException,
   ForbiddenException,
@@ -17,6 +18,9 @@ import { ModerationService } from '../moderation/moderation.service';
 import { ModerationSecurityService } from '../security/moderation/moderation-security.service';
 import { User, UserDocument } from '../users/schemas/user.schema';
 import { Merchant, MerchantDocument } from '../users/schemas/merchant.schema';
+import { SubscriptionsService } from '../subscriptions/subscriptions.service';
+import { BannerPricingService } from './services/banner-pricing.service';
+import axios from 'axios';
 import {
   BannerPromotionType,
   BannerPaymentStatus,
@@ -25,11 +29,12 @@ import {
   BannerPromotionStatus,
 } from './schemas/banner-promotion.schema';
 import {
-  PromotionTypeDto,
   SubmitBannerPromotionDto,
 } from './dto/submit-banner-promotion.dto';
 import { UpdateBannerPromotionDto } from './dto/update-banner-promotion.dto';
 import { TransactionService } from '../common/services/transaction.service';
+import { BannerQueueService } from './services/banner-queue.service';
+import { BannerServingService } from './services/banner-serving.service';
 
 @Injectable()
 export class BannersService implements OnModuleInit {
@@ -53,8 +58,12 @@ export class BannersService implements OnModuleInit {
     private readonly transactionService: TransactionService,
     private readonly moderationService: ModerationService,
     private readonly moderationSecurityService: ModerationSecurityService,
+    private readonly subscriptionsService: SubscriptionsService,
+    private readonly pricingService: BannerPricingService,
+    @Optional() private readonly queueService?: BannerQueueService,
+    @Optional() private readonly servingService?: BannerServingService,
     @Optional() private readonly kafkaService?: KafkaService,
-  ) {}
+  ) { }
 
   private toRadians(value: number): number {
     return (value * Math.PI) / 180;
@@ -73,9 +82,9 @@ export class BannersService implements OnModuleInit {
     const a =
       Math.sin(dLat / 2) * Math.sin(dLat / 2) +
       Math.cos(this.toRadians(latitudeA)) *
-        Math.cos(this.toRadians(latitudeB)) *
-        Math.sin(dLon / 2) *
-        Math.sin(dLon / 2);
+      Math.cos(this.toRadians(latitudeB)) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
 
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     return earthRadiusKm * c;
@@ -232,11 +241,73 @@ export class BannersService implements OnModuleInit {
     return { cleared: true };
   }
 
+  async checkBannerAvailability(city?: string): Promise<{ available: boolean; currentCount: number; maxCapacity: number; message: string }> {
+    const MAX_CAPACITY = 200;
+    const now = new Date();
+
+    const query: any = {
+      status: { $in: [BannerPromotionStatus.ACTIVE, BannerPromotionStatus.APPROVED] },
+      isHomepageVisible: true,
+      startDate: { $lte: now },
+      endDate: { $gte: now },
+    };
+
+    if (city && city !== 'global') {
+      const cityNormalized = city.trim().toLowerCase();
+      query.$or = [
+        { targetCities: { $regex: new RegExp(`^${cityNormalized}$`, 'i') } },
+        { targetCities: 'global' },
+        { targetCities: { $size: 0 } },
+        { targetCities: { $exists: false } },
+      ];
+    }
+
+    const currentCount = await this.bannerPromotionModel.countDocuments(query).exec();
+    const available = currentCount < MAX_CAPACITY;
+
+    return {
+      available,
+      currentCount,
+      maxCapacity: MAX_CAPACITY,
+      message: available
+        ? `Slots are available (${currentCount}/${MAX_CAPACITY} used)`
+        : `Slots are full for the day! The maximum capacity of ${MAX_CAPACITY} active banner slots has been reached. Please choose another date or city.`,
+    };
+  }
+
   async submitBannerPromotionRequest(
     merchantId: string,
     payload: SubmitBannerPromotionDto,
   ): Promise<BannerPromotion> {
     await this.moderationSecurityService.checkRestriction(merchantId);
+    const targetCity = (payload.targetCities && payload.targetCities[0]) || 'global';
+    
+    // Image URL Validation
+    if (!payload.imageUrl) {
+      throw new BadRequestException('Image URL is required');
+    }
+    
+    if (payload.imageUrl.startsWith('data:image')) {
+      throw new BadRequestException('Base64 images are not allowed. Image must be uploaded to Cloudinary.');
+    }
+    
+    if (payload.imageUrl.length > 2048) {
+      throw new BadRequestException('Image URL is too long. Image must be uploaded to Cloudinary.');
+    }
+    
+    try {
+      const url = new URL(payload.imageUrl);
+      if (url.protocol !== 'https:' && url.protocol !== 'http:') {
+        throw new Error();
+      }
+    } catch {
+      throw new BadRequestException('Invalid image URL format.');
+    }
+
+    const availability = await this.checkBannerAvailability(targetCity);
+    if (!availability.available) {
+      throw new BadRequestException(availability.message);
+    }
 
     const merchant = await this.userModel
       .findById(merchantId)
@@ -253,6 +324,13 @@ export class BannersService implements OnModuleInit {
         'Only merchants can submit banner promotion requests',
       );
     }
+
+    const promotionType =
+      payload.promotionType === BannerPromotionType.OFFER
+        ? BannerPromotionType.OFFER
+        : BannerPromotionType.BANNER;
+
+    let isFreeBanner = false;
 
     const merchantProfile = await this.merchantModel
       .findOne({ userId: merchantId })
@@ -298,11 +376,30 @@ export class BannersService implements OnModuleInit {
     endDate.setHours(23, 59, 59, 999);
 
     const selectedDays = normalizedDates.length;
-    const dailyRate = Number(payload.dailyRate ?? 240);
-    const platformFee = Number(
-      payload.platformFee ?? (selectedDays > 0 ? 49 : 0),
-    );
-    const computedTotal = dailyRate * selectedDays + platformFee;
+    // Extract Scale and Location
+    const scale = payload.coverageType || 'City'; // Fallback
+    
+    // Verify Population via GeoNames
+    let verifiedPopulation = 0;
+    try {
+      let url = `http://api.geonames.org/searchJSON?name_equals=${encodeURIComponent(targetCity)}&country=IN&maxRows=1&username=atharvapugade`;
+      if (scale === 'District') url += '&featureCode=ADM2';
+      else url += '&featureClass=P';
+      
+      const response = await axios.get(url);
+      const geonames = response.data?.geonames || [];
+      if (geonames.length > 0) {
+        verifiedPopulation = geonames[0].population || 0;
+      }
+    } catch (e) {
+      console.error('Failed to verify population during submission:', e.message);
+    }
+
+    const dailyRate = this.pricingService.calculateDailyRate(verifiedPopulation);
+    const subtotal = dailyRate * selectedDays;
+    const pgCharge = subtotal * 0.025; // 2.5% payment gateway charge
+    const gst = (subtotal + pgCharge) * 0.18; // 18% GST
+    const computedTotal = subtotal + pgCharge + gst;
     const selectedProducts = (payload.selectedProducts || []).map(
       (product) => ({
         productId: String(product.productId),
@@ -313,11 +410,6 @@ export class BannersService implements OnModuleInit {
         stockQuantity: Number(product.stockQuantity || 0),
       }),
     );
-
-    const promotionType =
-      payload.promotionType === PromotionTypeDto.OFFER
-        ? BannerPromotionType.OFFER
-        : BannerPromotionType.BANNER;
 
     if (payload.imageUrl && this.moderationService) {
       const isSafe = await this.moderationService.isImageSafe(payload.imageUrl);
@@ -351,8 +443,9 @@ export class BannersService implements OnModuleInit {
             endDate,
             selectedDays,
             dailyRate,
-            platformFee,
-            totalPrice: Number(payload.totalPrice || computedTotal),
+            pgCharge,
+            gst,
+            totalPrice: isFreeBanner ? 0 : Number(payload.totalPrice || computedTotal),
             loyaltyRewardEnabled: Boolean(payload.loyaltyRewardEnabled),
             loyaltyStarsToOffer: Number(payload.loyaltyStarsToOffer || 0),
             loyaltyStarsPerPurchase: Number(
@@ -363,9 +456,9 @@ export class BannersService implements OnModuleInit {
             termsAndConditions: payload.termsAndConditions || '',
             exampleUsage: payload.exampleUsage || '',
             selectedProducts,
-            status: BannerPromotionStatus.APPROVED,
-            paymentStatus: BannerPaymentStatus.PENDING,
-            isHomepageVisible: false,
+            status: isFreeBanner ? BannerPromotionStatus.ACTIVE : BannerPromotionStatus.PENDING,
+            paymentStatus: isFreeBanner ? BannerPaymentStatus.PAID : BannerPaymentStatus.PENDING,
+            isHomepageVisible: isFreeBanner ? true : false,
           },
         ],
         { session },
@@ -482,7 +575,7 @@ export class BannersService implements OnModuleInit {
         request.adminNotes = adminNotes || '';
 
         if (decision === 'approve') {
-          request.status = BannerPromotionStatus.APPROVED;
+          request.status = BannerPromotionStatus.ACTIVE;
           request.isHomepageVisible = true;
         } else {
           request.status = BannerPromotionStatus.REJECTED;
@@ -519,9 +612,9 @@ export class BannersService implements OnModuleInit {
       throw new NotFoundException('Banner promotion request not found');
     }
 
-    if (request.status !== BannerPromotionStatus.APPROVED) {
+    if (request.status !== BannerPromotionStatus.PENDING) {
       throw new BadRequestException(
-        'Only approved requests can be paid and activated',
+        'Only pending requests can be paid',
       );
     }
 
@@ -668,59 +761,14 @@ export class BannersService implements OnModuleInit {
   }
 
   async getActiveHomepageBanners(
-    limit = 5,
+    limit = 9,
     city?: string,
     location?: { lat: number; lng: number; radius: number }
-  ): Promise<BannerPromotion[]> {
-    const cacheKey = this.activeBannersCacheKey(limit, city, location);
-    const cached = await this.redisService.get<BannerPromotion[]>(cacheKey);
-    if (cached) {
-      return cached;
+  ): Promise<any[]> {
+    if (this.servingService) {
+      return this.servingService.getActiveHomepageBanners(city, limit);
     }
-
-    await this.expireBannerPromotions();
-
-    const now = new Date();
-
-    const query: any = {
-      promotionType: BannerPromotionType.BANNER,
-      status: {
-        $in: [BannerPromotionStatus.APPROVED, BannerPromotionStatus.ACTIVE],
-      },
-      isHomepageVisible: true,
-      startDate: { $lte: now },
-      endDate: { $gte: now },
-    };
-
-    if (city) {
-      query.targetCities = city;
-    }
-    
-    if (location && location.lat && location.lng && location.radius) {
-      query.targetLocations = {
-        $near: {
-          $geometry: {
-            type: 'Point',
-            coordinates: [location.lng, location.lat],
-          },
-          $maxDistance: location.radius,
-        },
-      };
-    }
-
-    const rows = await this.bannerPromotionModel
-      .find(query)
-      .sort({
-        status: 1,
-        paidAt: -1,
-        createdAt: -1,
-      })
-      .limit(limit)
-      .lean()
-      .exec();
-
-    await this.redisService.set(cacheKey, rows, 60);
-    return rows;
+    return [];
   }
 
   async deleteBannerPromotion(requestId: string): Promise<BannerPromotion> {
@@ -743,6 +791,9 @@ export class BannersService implements OnModuleInit {
     }
 
     await this.invalidateBannerCache(bannerPromotion.merchantId);
+    if (this.queueService) {
+      await this.queueService.rebuildCityQueue('global');
+    }
 
     return bannerPromotion;
   }
@@ -761,6 +812,9 @@ export class BannersService implements OnModuleInit {
 
     await this.bannerPromotionModel.deleteOne({ requestId, merchantId }).exec();
     await this.invalidateBannerCache(merchantId);
+    if (this.queueService) {
+      await this.queueService.rebuildCityQueue('global');
+    }
     return bannerPromotion;
   }
 

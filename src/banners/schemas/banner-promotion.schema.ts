@@ -4,6 +4,7 @@ import { Document } from 'mongoose';
 export type BannerPromotionDocument = BannerPromotion & Document;
 
 export enum BannerPromotionStatus {
+  PENDING = 'pending',
   UNDER_REVIEW = 'under_review',
   APPROVED = 'approved',
   REJECTED = 'rejected',
@@ -20,6 +21,12 @@ export enum BannerPaymentStatus {
 export enum BannerPromotionType {
   BANNER = 'banner',
   OFFER = 'offer',
+}
+
+export enum BannerCoverageType {
+  TOWN = 'Town',
+  CITY = 'City',
+  DISTRICT = 'District',
 }
 
 @Schema({ timestamps: true, collection: 'banner_promotions' })
@@ -57,6 +64,12 @@ export class BannerPromotion {
 
   @Prop({ default: '1920 x 520 px' })
   recommendedSize: string;
+
+  @Prop({ enum: BannerCoverageType, required: false })
+  coverageType: BannerCoverageType;
+
+  @Prop({ required: false })
+  coverageRegion: string;
 
   @Prop({ type: [Date], required: true, default: [] })
   selectedDates: Date[];

@@ -18,6 +18,7 @@ import { AuditLogsModule } from './audit-logs/audit-logs.module';
 import { MerchantProductsModule } from './merchant-products/merchant-products.module';
 import { MerchantDashboardModule } from './merchant-dashboard/merchant-dashboard.module';
 import { BannersModule } from './banners/banners.module';
+import { RegionsModule } from './regions/regions.module';
 import { OffersModule } from './offers/offers.module';
 import { MerchantsModule } from './merchants/merchants.module';
 import { OrdersModule } from './orders/orders.module';
@@ -177,6 +178,7 @@ const logger = new Logger('MongoDB');
     MerchantProductsModule,
     MerchantDashboardModule,
     BannersModule,
+    RegionsModule,
     OffersModule,
     OrdersModule,
     VouchersModule,
