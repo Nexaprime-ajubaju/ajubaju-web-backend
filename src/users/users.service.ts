@@ -907,11 +907,7 @@ export class UsersService implements OnModuleInit {
         subscription: subscriptionData,
       });
     }
-    const result: any = merchant.toObject ? merchant.toObject() : merchant;
-    result.security = result.security || {};
-    result.security.contentUploadRestrictionUntil = user.security?.contentUploadRestrictionUntil || result.security?.contentUploadRestrictionUntil || null;
-    result.contentUploadRestrictionUntil = user.security?.contentUploadRestrictionUntil || result.security?.contentUploadRestrictionUntil || null;
-    return result;
+    return merchant.toObject ? merchant.toObject() : merchant;
   }
 
   async updateProfile(userId: string, updateData: any): Promise<UserResponseDto> {
@@ -2555,10 +2551,6 @@ export class UsersService implements OnModuleInit {
       loyaltyPoints: user.loyaltyPoints || 0,
       merchantLoyaltyPoints: user.merchantLoyaltyPoints || {},
       loyaltyTier,
-      contentUploadRestrictionUntil: user.security?.contentUploadRestrictionUntil || null,
-      security: {
-        contentUploadRestrictionUntil: user.security?.contentUploadRestrictionUntil || null,
-      },
     };
   }
 
