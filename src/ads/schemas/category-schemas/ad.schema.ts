@@ -228,6 +228,15 @@ export class Ad {
   @Prop({ default: 1 })
   templateId: number; // Template ID (1, 2, or 3)
 
+  @Prop({ default: 0 })
+  adDailyRate: number; // The computed per-day rate (₹) at the time of posting
+
+  @Prop({ default: 0 })
+  cityPopulation: number; // Population of the primary selected city
+
+  @Prop({ type: [{ lat: Number, lng: Number }], default: [] })
+  cityCoordinates: { lat: number; lng: number }[]; // Coordinates for each selected city
+
   @Prop({
     default: 'active',
     enum: ['active', 'expired', 'deleted', 'pending', 'rejected'],

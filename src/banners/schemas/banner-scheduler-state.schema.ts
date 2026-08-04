@@ -26,7 +26,7 @@ export class BannerSchedulerState {
   @Prop({ required: true, default: 0 })
   generation: number;
 
-  @Prop({ required: true, enum: ['A', 'B', 'C', 'active'], default: 'A' })
+  @Prop({ required: true, default: 'A' })
   activeGroup: string;
 
   @Prop({ required: true, default: 1 })

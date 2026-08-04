@@ -766,7 +766,7 @@ export class BannersService implements OnModuleInit {
     location?: { lat: number; lng: number; radius: number }
   ): Promise<any[]> {
     if (this.servingService) {
-      return this.servingService.getActiveHomepageBanners(city, limit);
+      return this.servingService.getActiveHomepageBanners(city, undefined, limit);
     }
     return [];
   }

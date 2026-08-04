@@ -17,34 +17,62 @@ export class BannerServingService {
    * Fast Redis-first homepage banner serving endpoint (<10ms latency)
    * With automatic Mongo fallback and Redis auto-healing
    */
-  async getActiveHomepageBanners(city?: string, limit: number = 10): Promise<any[]> {
-    const rawCity = (city || 'global').trim().toLowerCase();
-    const cityNormalized = rawCity.split(',')[0].trim();
+  async getActiveHomepageBanners(city?: string, fullLocationStr?: string, limit: number = 10): Promise<any[]> {
+    const locationsToTry: string[] = [];
 
-    // 1. Try reading from Redis Hash slots
-    let slotsMap = await this.cacheService.getAllSlots(cityNormalized);
-
-    // 2. Redis Miss / Connection Glitch / First-run Fallback & Auto-Healing
-    if (!slotsMap || Object.keys(slotsMap).length === 0) {
-      this.logger.warn(`Redis cache miss or fallback triggered for city [${cityNormalized}]. Initiating auto-healing rotation.`);
-      
-      // Trigger auto-healing rotation
-      await this.rotationScheduler.rotateCitySlots(cityNormalized);
-      slotsMap = await this.cacheService.getAllSlots(cityNormalized);
+    // Parse the full location string from most specific to least specific
+    if (fullLocationStr) {
+      const parts = fullLocationStr.split(',').map(p => p.trim().toLowerCase()).filter(Boolean);
+      for (const p of parts) {
+        if (!locationsToTry.includes(p)) locationsToTry.push(p);
+      }
     }
 
-    if (!slotsMap) {
-      this.logger.error(`Unable to serve Redis slots for city [${cityNormalized}] after auto-healing fallback.`);
-      return [];
+    if (city) {
+      const rawCity = city.trim().toLowerCase();
+      const cityNormalized = rawCity.split(',')[0].trim();
+      if (!locationsToTry.includes(cityNormalized)) locationsToTry.push(cityNormalized);
     }
 
-    // Convert 1..9 slots map to array ordered by slot number
-    const bannerList = Object.keys(slotsMap)
-      .map((k) => parseInt(k, 10))
-      .sort((a, b) => a - b)
-      .map((slotNum) => slotsMap![slotNum])
-      .filter(Boolean);
+    if (!locationsToTry.includes('global')) locationsToTry.push('global');
 
-    return bannerList.slice(0, limit);
+    const finalBanners = [];
+    const seenBannerIds = new Set();
+
+    for (const loc of locationsToTry) {
+      if (finalBanners.length >= limit) break;
+
+      // 1. Try reading from Redis Hash slots
+      let slotsMap = await this.cacheService.getAllSlots(loc);
+
+      // 2. Redis Miss / Connection Glitch / First-run Fallback & Auto-Healing
+      if (!slotsMap || Object.keys(slotsMap).length === 0) {
+        this.logger.log(`Redis cache miss for location [${loc}]. Initiating auto-healing rotation.`);
+        
+        // Trigger auto-healing rotation
+        await this.rotationScheduler.rotateCitySlots(loc);
+        slotsMap = await this.cacheService.getAllSlots(loc);
+      }
+
+      if (slotsMap) {
+        // Convert slots map to array ordered by slot number
+        const bannerList = Object.keys(slotsMap)
+          .map((k) => parseInt(k, 10))
+          .sort((a, b) => a - b)
+          .map((slotNum) => slotsMap![slotNum])
+          .filter(Boolean);
+
+        for (const banner of bannerList) {
+          const bannerId = String(banner.id || banner._id);
+          if (!seenBannerIds.has(bannerId)) {
+            seenBannerIds.add(bannerId);
+            finalBanners.push(banner);
+            if (finalBanners.length >= limit) break;
+          }
+        }
+      }
+    }
+
+    return finalBanners;
   }
 }
