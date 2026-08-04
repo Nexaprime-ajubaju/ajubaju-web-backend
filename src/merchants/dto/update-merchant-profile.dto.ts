@@ -6,7 +6,7 @@ export class UpdateMerchantProfileDto {
   storeName?: string;
 
   @IsOptional()
-  @IsString()
+  @IsEmail()
   storeEmail?: string;
 
   @IsOptional()

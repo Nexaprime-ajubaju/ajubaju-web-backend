@@ -917,10 +917,14 @@ export class UsersService implements OnModuleInit {
     const currentUser = await this.userModel.findById(userId).exec();
     
     // Check if email is being changed and if it's already taken
+    let normalizedNewEmail: string | null = null;
+    let isEmailChanging = false;
+
     if (updateData.email && currentUser) {
-      this.logger.log(`Checking if email ${updateData.email} is already in use`);
+      normalizedNewEmail = updateData.email.trim().toLowerCase();
+      this.logger.log(`Checking if email ${normalizedNewEmail} is already in use`);
       const existingUser = await this.userModel.findOne({
-        email: updateData.email,
+        email: normalizedNewEmail,
         _id: { $ne: new Types.ObjectId(userId) },
         accountType: currentUser.accountType
       }).exec();
@@ -929,9 +933,8 @@ export class UsersService implements OnModuleInit {
         throw new ConflictException('Email is already in use');
       }
 
-
-      const normalizedNewEmail = updateData.email.trim().toLowerCase();
       if (currentUser && currentUser.email.trim().toLowerCase() !== normalizedNewEmail) {
+        isEmailChanging = true;
         // Email is actually changing! Verify OTP.
         const verifiedOtp = await this.otpModel.findOne({
           email: normalizedNewEmail,
