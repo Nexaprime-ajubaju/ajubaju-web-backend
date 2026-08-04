@@ -1,58 +1,67 @@
 import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
 import axios from 'axios';
 import { BannerPricingService } from '../banners/services/banner-pricing.service';
+import { AdPricingService } from '../ads/services/ad-pricing.service';
 
 @Injectable()
 export class RegionsService {
-  constructor(private readonly pricingService: BannerPricingService) {}
+  constructor(
+    private readonly pricingService: BannerPricingService,
+    private readonly adPricingService: AdPricingService,
+  ) {}
 
-  async searchLocations(query: string, scale: string) {
+  async searchLocations(query: string, scale: string, mode?: string) {
     if (!query) {
       return [];
     }
 
     try {
-      // Base GeoNames API URL
+      const isAdMode = mode === 'ad';
+
+      // Base GeoNames API URL — always search populated places for ad mode
       let url = `http://api.geonames.org/searchJSON?name_startsWith=${encodeURIComponent(query)}&country=IN&maxRows=50&username=atharvapugade`;
 
-      // If scale is District, search for ADM2 feature code (Districts in India)
-      if (scale === 'District') {
+      if (!isAdMode && scale === 'District') {
+        // Banner: District search uses ADM2 feature code
         url += '&featureCode=ADM2';
       } else {
-        // For Town or City, we look for populated places
+        // Ad mode or banner Town/City: populated places
         url += '&featureClass=P';
       }
 
       const response = await axios.get(url);
       const geonames = response.data?.geonames || [];
 
-      // Filter and map results based on scale
       const results = [];
 
       for (const place of geonames) {
         const population = place.population || 0;
 
-        // Apply scale filters
-        if (scale === 'Town') {
-          // Town: Must have population less than 100k (but also filter out 0 population if possible, but some small towns might have 0 in DB)
-          if (population >= 100000) continue;
-        } else if (scale === 'City') {
-          // City: Must have population 100k or more
-          if (population < 100000) continue;
+        if (!isAdMode) {
+          // Apply banner scale filters
+          if (scale === 'Town' && population >= 100000) continue;
+          if (scale === 'City' && population < 100000) continue;
         }
 
-        // Calculate dynamic daily rate based on population
+        // Banner daily rate (existing behaviour)
         const dailyRate = this.pricingService.calculateDailyRate(population);
 
-        results.push({
+        const resultItem: any = {
           name: place.name,
           displayName: `${place.name}, ${place.adminName1 || 'India'}`,
           lat: parseFloat(place.lat),
           lng: parseFloat(place.lng),
           population: population,
           dailyRate: dailyRate,
-          type: scale
-        });
+          type: isAdMode ? 'area' : scale,
+        };
+
+        if (isAdMode) {
+          // Return per-template ad pricing for all 3 templates
+          resultItem.adDailyRates = this.adPricingService.getAllTemplateRates(population);
+        }
+
+        results.push(resultItem);
 
         // Limit results to 10 max after filtering
         if (results.length >= 10) break;

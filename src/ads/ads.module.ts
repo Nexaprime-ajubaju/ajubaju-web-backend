@@ -2,6 +2,7 @@ import { Module, forwardRef } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { AdsService } from './ads.service';
+import { AdPricingService } from './services/ad-pricing.service';
 import { AdsController } from './ads.controller';
 import { AdsKafkaController } from './ads.kafka.controller';
 import { Ad, AdSchema } from './schemas/category-schemas/ad.schema';
@@ -24,7 +25,7 @@ import { SecurityModule } from '../security/security.module';
     SecurityModule,
   ],
   controllers: [AdsController, AdsKafkaController],
-  providers: [AdsService],
-  exports: [AdsService],
+  providers: [AdsService, AdPricingService],
+  exports: [AdsService, AdPricingService],
 })
 export class AdsModule {}

@@ -207,6 +207,7 @@ export class BannersController {
     const safeLimit = Number(limit) || 9;
     const rows = await this.bannerServingService.getActiveHomepageBanners(
       city,
+      fullLocationStr,
       safeLimit,
     );
 

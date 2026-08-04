@@ -898,8 +898,23 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
           'karveer',
           'karveer taluka',
           'karvir taluka',
+          'kolhapur district',
+          'tarabai park',
+          'shivaji park',
+          'rajarampuri',
+          'ichalkaranji',
+          'kagal',
         ],
-        sangli: ['sangli'],
+        sangli: [
+          'sangli',
+          'sangli district',
+          'miraj',
+          'sangli-miraj-kupwad',
+          'sangli miraj kupwad',
+          'kupwad',
+          'ashta',
+          'walwa',
+        ],
         mumbai: ['mumbai', 'bombay', 'navi mumbai'],
         pune: ['pune', 'poona'],
       };
@@ -1022,8 +1037,9 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
 
       if (searchOr.length) {
         if (mongoQuery.$or) {
-          mongoQuery.$and = [{ $or: mongoQuery.$or }, { $or: searchOr }];
+          const existingOr = mongoQuery.$or;
           delete mongoQuery.$or;
+          mongoQuery.$and = [{ $or: existingOr }, { $or: searchOr }];
         } else {
           mongoQuery.$or = searchOr;
         }
@@ -1050,8 +1066,33 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
 
         // Infer city name from known city/coordinate lookup (reverse lookup by proximity)
         const CITY_COORDS: Record<string, { lat: number; lng: number; aliases: string[] }> = {
-          kolhapur: { lat: 16.7058, lng: 74.2437, aliases: ['kolhapur', 'karvir', 'karveer'] },
-          sangli: { lat: 16.8552, lng: 74.5673, aliases: ['sangli'] },
+          kolhapur: {
+            lat: 16.7058,
+            lng: 74.2437,
+            aliases: [
+              'kolhapur',
+              'karvir',
+              'karveer',
+              'kolhapur district',
+              'tarabai park',
+              'shivaji park',
+              'rajarampuri',
+              'ichalkaranji',
+              'kagal',
+            ],
+          },
+          sangli: {
+            lat: 16.8552,
+            lng: 74.5673,
+            aliases: [
+              'sangli',
+              'sangli district',
+              'miraj',
+              'sangli-miraj-kupwad',
+              'sangli miraj kupwad',
+              'kupwad',
+            ],
+          },
           mumbai: { lat: 19.0760, lng: 72.8777, aliases: ['mumbai', 'bombay', 'navi mumbai'] },
           pune: { lat: 18.5204, lng: 73.8567, aliases: ['pune', 'poona'] },
           ashta: { lat: 17.0333, lng: 74.4167, aliases: ['ashta', 'walwa'] },
@@ -1103,19 +1144,29 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
 
         if (mongoQuery.$or) {
           // Wrap existing $or (location text filter) with the boundary conditions
+          const existingOr = mongoQuery.$or;
+          delete mongoQuery.$or;
           mongoQuery.$and = [
             ...(mongoQuery.$and || []),
-            { $or: mongoQuery.$or },
+            { $or: existingOr },
             { $or: boundaryConditions },
           ];
-          delete mongoQuery.$or;
         } else if (mongoQuery.$and) {
           mongoQuery.$and.push({ $or: boundaryConditions });
         } else {
           mongoQuery.$or = boundaryConditions;
         }
-        countQuery.$or = mongoQuery.$or;
-        if (mongoQuery.$and) countQuery.$and = mongoQuery.$and;
+
+        if (mongoQuery.$or) {
+          countQuery.$or = mongoQuery.$or;
+        } else {
+          delete countQuery.$or;
+        }
+        if (mongoQuery.$and) {
+          countQuery.$and = mongoQuery.$and;
+        } else {
+          delete countQuery.$and;
+        }
         sort[sortBy] = sortOrder === 'desc' ? -1 : 1;
       }
     } else {

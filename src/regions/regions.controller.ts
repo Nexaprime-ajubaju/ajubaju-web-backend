@@ -8,9 +8,11 @@ export class RegionsController {
   @Get('search')
   async searchRegions(
     @Query('q') query: string,
-    @Query('scale') scale: string
+    @Query('scale') scale: string,
+    @Query('mode') mode: string,
   ) {
-    // scale should be 'Town', 'City', or 'District'
-    return this.regionsService.searchLocations(query, scale);
+    // scale: 'Town', 'City', 'District' (banner mode)
+    // mode: 'ad' (Choja ad mode — returns adDailyRates per template)
+    return this.regionsService.searchLocations(query, scale, mode);
   }
 }

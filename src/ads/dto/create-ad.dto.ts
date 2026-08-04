@@ -252,4 +252,18 @@ export class CreateAdDto {
   @ValidateNested()
   @Type(() => MetadataDto)
   metadata?: MetadataDto;
+
+  // ==================== AD PRICING METADATA ====================
+
+  @IsOptional()
+  @IsNumber()
+  adDailyRate?: number; // Computed per-day rate at time of posting
+
+  @IsOptional()
+  @IsNumber()
+  cityPopulation?: number; // Population of the primary chosen city
+
+  @IsOptional()
+  @IsArray()
+  cityCoordinates?: Array<{ lat: number; lng: number }>; // Coordinates for each selected city
 }
