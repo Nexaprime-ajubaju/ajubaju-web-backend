@@ -134,6 +134,9 @@ export class Merchant {
     lastRestrictionAt: Date | null;
   };
 
+  @Prop({ type: Boolean, default: false })
+  hasSelectedActiveProducts?: boolean;
+
   @Prop()
   createdAt: Date;
 

@@ -40,6 +40,16 @@ export class ModerationService {
    * @param imageUrl URL of the image to moderate.
    */
   async isImageSafe(imageUrl: string, merchantId?: string): Promise<boolean> {
+    if (process.env.IMAGE_MODERATION === 'disable' || process.env.IMAGE_MODERATION === 'mock-safe') {
+      this.logger.log(`[BYPASS] Image moderation is disabled. Approving image automatically.`);
+      return true;
+    }
+
+    if (process.env.IMAGE_MODERATION === 'mock-unsafe' || process.env.IMAGE_MODERATION === 'mock-reject') {
+      this.logger.log(`[BYPASS] Image moderation mock-unsafe active. Rejecting image automatically.`);
+      return false;
+    }
+
     // Development bypass
     if (process.env.MOCK_VISION_API === 'true') {
       this.logger.log(`[MOCK] Moderating image: ${imageUrl}`);

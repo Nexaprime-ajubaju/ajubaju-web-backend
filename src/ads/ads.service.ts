@@ -31,6 +31,7 @@ import { RedisService } from '../common/services/redis.service';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import { ModerationService } from '../moderation/moderation.service';
 import { ModerationSecurityService } from '../security/moderation/moderation-security.service';
+import { TextModerationService } from '../moderation/text-moderation.service';
 import * as crypto from 'crypto';
 
 @Injectable()
@@ -333,9 +334,10 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
     // ✅ Kafka OPTIONAL
     @Optional() private readonly kafkaService?: KafkaService,
 
-    // Image Moderation
+     // Image Moderation
     private readonly moderationService?: ModerationService,
     private readonly moderationSecurityService?: ModerationSecurityService,
+    @Optional() private readonly textModerationService?: TextModerationService,
   ) {
     // Initialize email transporter
     this.emailEnabled = !!this.configService.get('EMAIL_USER');
@@ -580,6 +582,16 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
       }
     }
     // ------------------------------
+
+    // --- Text Moderation Check ---
+    if (this.textModerationService) {
+      const textCheck = await this.textModerationService.moderatePayload(createAdDto);
+      if (!textCheck.isSafe) {
+        throw new BadRequestException(
+          'Your ad contains prohibited or inappropriate content. Please review your input.',
+        );
+      }
+    }
 
     let categorySpecificData: any = {};
     const payload: any = createAdDto as any;
@@ -1749,6 +1761,16 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
       }
     }
     // ------------------------------
+
+    // --- Text Moderation Check ---
+    if (this.textModerationService) {
+      const textCheck = await this.textModerationService.moderatePayload(updateData);
+      if (!textCheck.isSafe) {
+        throw new BadRequestException(
+          'Your ad contains prohibited or inappropriate content. Please review your input.',
+        );
+      }
+    }
 
     const updatedAd = await this.adModel
       .findOneAndUpdate(

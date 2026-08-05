@@ -387,6 +387,7 @@ export class SubscriptionsService {
       assignedAt: new Date()
     };
 
+    merchant.hasSelectedActiveProducts = false;
     await merchant.save();
     return { success: true, plan: planName, expiresAt };
   }
@@ -467,6 +468,7 @@ export class SubscriptionsService {
       assignedAt: new Date()
     };
 
+    merchant.hasSelectedActiveProducts = false;
     await merchant.save();
 
     // Log history

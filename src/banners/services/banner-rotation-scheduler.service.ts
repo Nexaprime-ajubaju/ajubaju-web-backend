@@ -162,11 +162,20 @@ export class BannerRotationSchedulerService implements OnModuleInit {
     if (allRequestIds.length === 0) {
       state.lastHeartbeat = new Date();
       await state.save();
+      // Clear Redis cache slots since there are no active promotions
+      await this.cacheService.setAllSlots(cityNormalized, {});
       return;
     }
 
     const currentGroup = state.activeGroup || 'A';
     let activeSlots = (await this.cacheService.getAllSlots(cityNormalized)) || {};
+
+    // Remove any existing slots whose banner is no longer active/eligible
+    for (const [slotNum, slotData] of Object.entries(activeSlots)) {
+      if (slotData && slotData.requestId && !allRequestIds.includes(slotData.requestId)) {
+        delete activeSlots[slotNum];
+      }
+    }
 
     const slotsToRotate = Object.keys(activeSlots).length < 10
       ? [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
