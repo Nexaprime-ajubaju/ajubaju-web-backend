@@ -25,7 +25,7 @@ export class Message {
   @Prop({ required: true, index: true })
   conversationId: string;
 
-  @Prop({ required: true })
+  @Prop({ required: false, default: '' })
   adId: string;
 
   @Prop()
@@ -43,7 +43,7 @@ export class Message {
   @Prop({ required: true })
   senderId: string;
 
-  @Prop({ required: true })
+  @Prop({ required: false, default: '' })
   text: string;
 
   @Prop({ type: [MessageAttachment], default: [] })

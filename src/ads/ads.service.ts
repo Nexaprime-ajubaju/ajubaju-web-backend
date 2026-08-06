@@ -2755,4 +2755,70 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
   private validateCategoryData(category: string, data: any): void {
     if (!data) return;
   }
+
+  /**
+   * Upload an image buffer to Cloudinary
+   */
+  async uploadImageToCloudinary(file: any): Promise<string> {
+    if (!file || !file.buffer) {
+      throw new BadRequestException('No image file provided');
+    }
+
+    const cloudName = process.env.CLOUDINARY_CLOUD_NAME || 'dcm1plq42';
+    const apiKey = process.env.CLOUDINARY_API_KEY;
+    const apiSecret = process.env.CLOUDINARY_API_SECRET;
+
+    if (apiKey && apiSecret) {
+      const cloudinary = require('cloudinary').v2;
+      cloudinary.config({
+        cloud_name: cloudName,
+        api_key: apiKey,
+        api_secret: apiSecret,
+      });
+
+      return new Promise<string>((resolve, reject) => {
+        const uploadStream = cloudinary.uploader.upload_stream(
+          { folder: 'golo/chat-images' },
+          (error: any, result: any) => {
+            if (error) {
+              return reject(
+                new BadRequestException(
+                  error.message || 'Cloudinary upload failed',
+                ),
+              );
+            }
+            resolve(result.secure_url);
+          },
+        );
+        uploadStream.end(file.buffer);
+      });
+    } else {
+      // Unsigned upload fallback using Cloudinary REST API
+      const FormData = require('form-data');
+      const axios = require('axios');
+
+      const formData = new FormData();
+      formData.append('file', file.buffer, {
+        filename: file.originalname || 'upload.jpg',
+        contentType: file.mimetype || 'image/jpeg',
+      });
+      formData.append(
+        'upload_preset',
+        process.env.CLOUDINARY_UPLOAD_PRESET || 'choja_preset',
+      );
+      formData.append('folder', 'golo/chat-images');
+
+      const response = await axios.post(
+        `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
+        formData,
+        { headers: formData.getHeaders() },
+      );
+
+      if (response.data && response.data.secure_url) {
+        return response.data.secure_url;
+      }
+      throw new BadRequestException('Cloudinary upload returned invalid response');
+    }
+  }
 }
+

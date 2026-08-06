@@ -279,7 +279,7 @@ export class ChatsService {
       adPrice: adContext?.price ?? null,
       adLocation: adContext?.location || null,
       senderId: String(userId),
-      text: text || '',
+      text: text || (attachments.length ? '📷 Photo' : ''),
       attachments,
       readBy: [String(userId)],
     });
@@ -287,7 +287,7 @@ export class ChatsService {
     conversation.adId = resolvedAdId;
     conversation.adTitle = resolvedAdTitle;
     conversation.lastMessageText =
-      text || (attachments.length ? '📎 Attachment' : '');
+      text || (attachments.length ? '📷 Photo' : '');
     conversation.lastMessageAdId = resolvedAdId;
     conversation.lastMessageAdTitle = resolvedAdTitle;
     conversation.lastMessageAt = new Date();

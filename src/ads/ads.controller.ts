@@ -16,7 +16,10 @@ import {
   UseGuards,
   Request,
   ForbiddenException,
+  UseInterceptors,
+  UploadedFiles,
 } from '@nestjs/common';
+import { AnyFilesInterceptor } from '@nestjs/platform-express';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
@@ -472,6 +475,41 @@ export class AdsController {
       timestamp: new Date().toISOString(),
       uptime: process.uptime(),
     };
+  }
+
+  /**
+   * Upload image endpoint (supports multipart/form-data)
+   */
+  @Post('upload/image')
+  @UseGuards(JwtAuthGuard)
+  @UseInterceptors(AnyFilesInterceptor())
+  async uploadImage(@UploadedFiles() files: any[]) {
+    this.logger.log('REST: Uploading image');
+    try {
+      const file = files?.[0];
+      if (!file) {
+        return {
+          success: false,
+          message: 'No image file provided',
+        };
+      }
+      const secureUrl = await this.adsService.uploadImageToCloudinary(file);
+      return {
+        success: true,
+        message: 'Image uploaded successfully',
+        data: {
+          url: secureUrl,
+          secure_url: secureUrl,
+          imageUrl: secureUrl,
+        },
+      };
+    } catch (error) {
+      this.logger.error(`REST: Error uploading image: ${error.message}`);
+      return {
+        success: false,
+        message: error.message || 'Failed to upload image',
+      };
+    }
   }
 
   // ==================== USER ROUTES (Any logged-in user) ====================
