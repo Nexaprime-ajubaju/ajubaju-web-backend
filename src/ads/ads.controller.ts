@@ -42,7 +42,7 @@ export class AdsController {
   constructor(
     private readonly adsService: AdsService,
     @Optional() private readonly kafkaService?: KafkaService,
-  ) {}
+  ) { }
 
   /**
    * Admin: Get real-time listing report stats for admin panel cards

@@ -21,7 +21,7 @@ import { ListMessagesDto } from './dto/list-messages.dto';
 @Controller('chats')
 @UseGuards(JwtAuthGuard)
 export class ChatsController {
-  constructor(private readonly chatsService: ChatsService) {}
+  constructor(private readonly chatsService: ChatsService) { }
 
   @Post('upload/image')
   @UseInterceptors(AnyFilesInterceptor())
