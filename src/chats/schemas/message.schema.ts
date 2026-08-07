@@ -43,8 +43,8 @@ export class Message {
   @Prop({ required: true })
   senderId: string;
 
-  @Prop({ required: true })
-  text: string;
+  @Prop()
+  text?: string;
 
   @Prop({ type: [MessageAttachment], default: [] })
   attachments: MessageAttachment[];
