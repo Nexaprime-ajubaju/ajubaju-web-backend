@@ -34,12 +34,8 @@ export class BannerEligibilityService {
     // 4. Date range check (Allow if dates not set, or if end date is still in the future)
     if (campaign.endDate) {
       const end = new Date(campaign.endDate);
-      // Give a 30-day grace period for active/approved demo campaigns if needed
       if (!isNaN(end.getTime()) && end < now) {
-        // If status is explicitly active, ignore strict past endDate for seamless demoing
-        if (campaign.status !== BannerPromotionStatus.ACTIVE) {
-          return false;
-        }
+        return false;
       }
     }
 

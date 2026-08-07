@@ -382,7 +382,8 @@ export class BannersService implements OnModuleInit {
     // Verify Population via GeoNames
     let verifiedPopulation = 0;
     try {
-      let url = `http://api.geonames.org/searchJSON?name_equals=${encodeURIComponent(targetCity)}&country=IN&maxRows=1&username=atharvapugade`;
+      const username = process.env.GEONAMES_USERNAME || 'atharvapugade';
+      let url = `http://api.geonames.org/searchJSON?name_equals=${encodeURIComponent(targetCity)}&country=IN&maxRows=1&username=${username}`;
       if (scale === 'District') url += '&featureCode=ADM2';
       else url += '&featureClass=P';
       

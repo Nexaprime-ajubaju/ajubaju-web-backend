@@ -1071,7 +1071,7 @@ export class UsersService implements OnModuleInit {
 
       // Fetch merchant profile if user is a merchant
       let merchantProfile = null;
-      if (user.accountType === 'merchant') {
+      if (user.accountType === 'merchant' || user.role === 'merchant') {
         merchantProfile = await this.merchantModel.findOne({ userId: user._id }).lean().exec();
       }
 
@@ -2488,7 +2488,7 @@ export class UsersService implements OnModuleInit {
 
     await user.save();
 
-    if (user.accountType === 'merchant' && this.emailService) {
+    if ((user.accountType === 'merchant' || user.role === 'merchant') && this.emailService) {
       const storeName = user.name || 'Merchant';
       if (kycStatus === 'Verified') {
         await this.emailService.sendMerchantApprovalEmail(user.email, storeName);

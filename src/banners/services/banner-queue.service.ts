@@ -34,6 +34,22 @@ export class BannerQueueService {
 
     const now = new Date();
 
+    // Auto-expire active promotions whose endDate is in the past
+    await this.bannerPromotionModel
+      .updateMany(
+        {
+          status: 'active',
+          endDate: { $lt: now },
+        },
+        {
+          $set: {
+            status: 'expired',
+            isHomepageVisible: false,
+          },
+        },
+      )
+      .exec();
+
     // 1. Resolve Hierarchy (Town -> City -> District)
     const hierarchy = await this.regionsService.resolveHierarchy(cityNormalized);
     const targetCities = new Set<string>();
@@ -68,7 +84,7 @@ export class BannerQueueService {
       }
       if (c.endDate) {
         const end = new Date(c.endDate);
-        if (!isNaN(end.getTime()) && end < now && c.status !== 'active') {
+        if (!isNaN(end.getTime()) && end < now) {
           return false;
         }
       }

@@ -11,6 +11,8 @@ import { OfferPromotion, OfferPromotionDocument, OfferPromotionStatus, OfferPaym
 import { User, UserDocument } from '../users/schemas/user.schema';
 import { Merchant, MerchantDocument } from '../users/schemas/merchant.schema';
 import { KAFKA_TOPICS } from '../common/constants/kafka-topics';
+import { MerchantProduct, MerchantProductDocument } from '../merchant-products/schemas/merchant-product.schema';
+import { SubscriptionsService } from '../subscriptions/subscriptions.service';
 
 // Bug Fix #4: Default placeholder image for offers without imageUrl
 const DEFAULT_OFFER_IMAGE = '/images/deal1.jpg';
@@ -29,6 +31,8 @@ export class OffersService implements OnModuleInit {
     @InjectModel(OfferPromotion.name) private readonly offerModel: Model<OfferPromotionDocument>,
     @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
     @InjectModel(Merchant.name) private readonly merchantModel: Model<MerchantDocument>,
+    @InjectModel(MerchantProduct.name) private readonly merchantProductModel: Model<MerchantProductDocument>,
+    private readonly subscriptionsService: SubscriptionsService,
     private readonly redisService: RedisService,
     @Optional() private readonly kafkaService?: KafkaService,
     @Optional() private readonly moderationService?: ModerationService,
@@ -344,6 +348,42 @@ export class OffersService implements OnModuleInit {
       const longitude = Number(merchantProfile?.storeLocationLongitude);
       const hasCoords = Number.isFinite(latitude) && Number.isFinite(longitude);
       if (!hasCoords) throw new BadRequestException('Store coordinates missing. Set store location before publishing offers.');
+
+      // Check active products finalization
+      const fullMerchantObj = await this.merchantModel.findOne({ userId: merchantId }).exec();
+      if (fullMerchantObj) {
+        const planDetails = await this.subscriptionsService.getPlanDetails(fullMerchantObj);
+        const maxProducts = planDetails.planFeatures.maxProducts;
+
+        if (maxProducts !== -1) {
+          const actualActiveCount = await this.merchantProductModel.countDocuments({
+            merchantId,
+            isActive: { $ne: false },
+          });
+
+          if (!fullMerchantObj.hasSelectedActiveProducts || actualActiveCount > maxProducts) {
+            throw new BadRequestException({
+              success: false,
+              errorCode: 'ACTIVE_PRODUCTS_NOT_FINALIZED',
+              message: `You must select the ${maxProducts} active products included in your plan before you can upload an offer.`,
+              maxActiveProducts: maxProducts,
+            });
+          }
+
+          // Verify all selectedProducts are active merchant products
+          const selectedProds = Array.isArray(payload.selectedProducts) ? payload.selectedProducts : [];
+          if (selectedProds.length > 0) {
+            const activeProductsCount = await this.merchantProductModel.countDocuments({
+              _id: { $in: selectedProds },
+              merchantId,
+              isActive: { $ne: false }
+            });
+            if (activeProductsCount !== selectedProds.length) {
+              throw new BadRequestException('All selected products for the offer must be active products in your plan.');
+            }
+          }
+        }
+      }
 
       // Determine business category from merchant profile (fallbacks to payload or generic)
       const businessCategory = (merchantProfile?.storeCategory || '').trim() || (payload.category || '').trim() || 'General';

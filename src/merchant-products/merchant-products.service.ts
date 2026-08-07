@@ -215,6 +215,30 @@ export class MerchantProductsService implements OnModuleInit {
   }
 
   async listMyProducts(merchantId: string, query: ListMerchantProductsDto) {
+    const merchant = await this.merchantModel.findOne({ userId: merchantId }).exec();
+    if (!merchant) {
+      throw new NotFoundException('Merchant not found');
+    }
+    const planDetails = await this.SubscriptionsService.getPlanDetails(merchant);
+    const maxProducts = planDetails.planFeatures.maxProducts;
+
+    const dbTotalProducts = await this.merchantProductModel.countDocuments({ merchantId });
+    if (maxProducts === -1 || dbTotalProducts <= maxProducts) {
+      const inactiveCount = await this.merchantProductModel.countDocuments({
+        merchantId,
+        isActive: false
+      });
+      if (inactiveCount > 0 || !merchant.hasSelectedActiveProducts) {
+        await this.merchantProductModel.updateMany(
+          { merchantId },
+          { isActive: true, lastActivatedAt: new Date() }
+        );
+        merchant.hasSelectedActiveProducts = true;
+        await merchant.save();
+        await this.invalidateMerchantProductCache(merchantId);
+      }
+    }
+
     const cacheKey = this.cacheListKey(merchantId, query);
     const cached = await this.redisService.get<any>(cacheKey);
     if (cached) {
@@ -232,13 +256,6 @@ export class MerchantProductsService implements OnModuleInit {
       filter.$or = [{ name: searchRegex }, { category: searchRegex }];
     }
 
-    const merchant = await this.merchantModel.findOne({ userId: merchantId }).exec();
-    if (!merchant) {
-      throw new NotFoundException('Merchant not found');
-    }
-    const planDetails = await this.SubscriptionsService.getPlanDetails(merchant);
-    const maxProducts = planDetails.planFeatures.maxProducts;
-
     const [
       products,
       total,
@@ -247,6 +264,7 @@ export class MerchantProductsService implements OnModuleInit {
       outOfStockProducts,
       inventoryAgg,
       topProducts,
+      actualActiveCount,
     ] = await Promise.all([
       this.merchantProductModel
         .find(filter)
@@ -255,7 +273,7 @@ export class MerchantProductsService implements OnModuleInit {
         .limit(limit)
         .exec(),
       this.merchantProductModel.countDocuments(filter),
-      this.merchantProductModel.countDocuments({ merchantId }),
+      Promise.resolve(dbTotalProducts),
       this.merchantProductModel.countDocuments({
         merchantId,
         stockQuantity: { $gt: 0, $lte: 10 },
@@ -284,10 +302,18 @@ export class MerchantProductsService implements OnModuleInit {
             .select('_id')
             .lean()
             .exec(),
+      this.merchantProductModel.countDocuments({
+        merchantId,
+        isActive: { $ne: false },
+      }),
     ]);
 
     const inventoryValue = inventoryAgg[0]?.total || 0;
     const eligibleIds = topProducts ? new Set(topProducts.map((p) => String(p._id))) : null;
+
+    const needsActiveProductsSelection = maxProducts !== -1 &&
+      totalProducts > maxProducts &&
+      (!merchant.hasSelectedActiveProducts || actualActiveCount !== maxProducts);
 
     const response = {
       success: true,
@@ -311,6 +337,9 @@ export class MerchantProductsService implements OnModuleInit {
           lowStockProducts,
           outOfStockProducts,
         },
+        needsActiveProductsSelection,
+        maxActiveProducts: maxProducts,
+        hasSelectedActiveProducts: merchant.hasSelectedActiveProducts || false,
       },
       pagination: {
         total,
@@ -579,6 +608,11 @@ export class MerchantProductsService implements OnModuleInit {
   }
 
   async toggleProductActiveStatus(productId: string, merchantId: string, isActive: boolean) {
+    const merchant = await this.merchantModel.findOne({ userId: merchantId }).exec();
+    if (merchant && merchant.hasSelectedActiveProducts) {
+      throw new ForbiddenException('You have already finalized your active products selection. Individual product status toggles are disabled.');
+    }
+
     const product = await this.merchantProductModel.findOne({
       _id: productId,
       merchantId,
@@ -626,6 +660,63 @@ export class MerchantProductsService implements OnModuleInit {
       success: true,
       message: `Product ${isActive ? 'activated' : 'deactivated'} successfully`,
       data: this.mapProduct(product as any),
+    };
+  }
+
+  async finalizeActiveProducts(merchantId: string, productIds: string[]) {
+    const merchant = await this.merchantModel.findOne({ userId: merchantId }).exec();
+    if (!merchant) {
+      throw new NotFoundException('Merchant not found');
+    }
+    if (merchant.hasSelectedActiveProducts) {
+      throw new BadRequestException('You have already finalized your active products selection. This selection cannot be edited.');
+    }
+    const planDetails = await this.SubscriptionsService.getPlanDetails(merchant);
+    const maxProducts = planDetails.planFeatures.maxProducts;
+
+    const totalProducts = await this.merchantProductModel.countDocuments({ merchantId });
+    const expectedCount = Math.min(maxProducts, totalProducts);
+
+    if (maxProducts !== -1 && productIds.length !== expectedCount) {
+      throw new BadRequestException(`You must select exactly ${expectedCount} active product${expectedCount === 1 ? '' : 's'}.`);
+    }
+
+    // Verify all productIds belong to this merchant
+    const count = await this.merchantProductModel.countDocuments({
+      _id: { $in: productIds },
+      merchantId,
+    });
+    if (count !== productIds.length) {
+      throw new BadRequestException('One or more selected products do not belong to you.');
+    }
+
+    await this.transactionService.execute(async (session) => {
+      // Deactivate all products first
+      await this.merchantProductModel.updateMany(
+        { merchantId },
+        { isActive: false },
+        { session }
+      );
+
+      // Activate selected products
+      if (productIds.length > 0) {
+        await this.merchantProductModel.updateMany(
+          { _id: { $in: productIds }, merchantId },
+          { isActive: true, lastActivatedAt: new Date() },
+          { session }
+        );
+      }
+
+      // Mark selection as finalized
+      merchant.hasSelectedActiveProducts = true;
+      await merchant.save({ session });
+    });
+
+    await this.invalidateMerchantProductCache(merchantId);
+
+    return {
+      success: true,
+      message: 'Active products selection finalized successfully',
     };
   }
 

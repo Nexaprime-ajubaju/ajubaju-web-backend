@@ -113,4 +113,17 @@ export class MerchantProductsController {
       isActive,
     );
   }
+
+  @Post('select-active')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.MERCHANT, UserRole.ADMIN)
+  async selectActive(
+    @CurrentUser() user: CurrentUserPayload,
+    @Body('productIds') productIds: string[],
+  ) {
+    return this.merchantProductsService.finalizeActiveProducts(
+      user.id,
+      productIds,
+    );
+  }
 }
