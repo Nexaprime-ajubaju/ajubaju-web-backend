@@ -27,7 +27,7 @@ export class ChatsService {
     @InjectModel(Message.name) private messageModel: Model<MessageDocument>,
     @InjectModel(Ad.name) private adModel: Model<AdDocument>,
     @InjectModel(User.name) private userModel: Model<UserDocument>,
-  ) {}
+  ) { }
 
   private toConversationId(id: any): string {
     return id instanceof Types.ObjectId ? id.toString() : String(id);
@@ -132,20 +132,20 @@ export class ChatsService {
         participants: conversation.participants,
         otherUser: otherUser
           ? {
-              id: String(otherUser._id),
-              name: otherUser.name,
-              email: otherUser.email,
-              avatar: otherUser.profile?.avatar || null,
-            }
+            id: String(otherUser._id),
+            name: otherUser.name,
+            email: otherUser.email,
+            avatar: otherUser.profile?.avatar || null,
+          }
           : null,
         ad: ad
           ? {
-              id: ad.adId || this.toConversationId(ad._id),
-              title: ad.title,
-              image: ad.images?.[0] || null,
-              price: ad.price,
-              location: ad.location,
-            }
+            id: ad.adId || this.toConversationId(ad._id),
+            title: ad.title,
+            image: ad.images?.[0] || null,
+            price: ad.price,
+            location: ad.location,
+          }
           : null,
         lastMessageText: conversation.lastMessageText || '',
         lastMessageAdId:
@@ -210,10 +210,10 @@ export class ChatsService {
         senderId: message.senderId,
         sender: senderMap.get(message.senderId)
           ? {
-              id: message.senderId,
-              name: senderMap.get(message.senderId)?.name,
-              avatar: senderMap.get(message.senderId)?.profile?.avatar || null,
-            }
+            id: message.senderId,
+            name: senderMap.get(message.senderId)?.name,
+            avatar: senderMap.get(message.senderId)?.profile?.avatar || null,
+          }
           : null,
         text: message.text,
         attachments: message.attachments || [],
@@ -243,19 +243,19 @@ export class ChatsService {
     const text = dto.text?.trim();
     const attachments = Array.isArray(dto.attachments)
       ? dto.attachments
-          .filter(
-            (attachment) =>
-              attachment?.url && attachment?.name && attachment?.mimeType,
-          )
-          .map((attachment) => ({
-            name: attachment.name,
-            mimeType: attachment.mimeType,
-            url: attachment.url,
-            type:
-              attachment.type ||
-              (attachment.mimeType.startsWith('image/') ? 'image' : 'file'),
-            size: attachment.size,
-          }))
+        .filter(
+          (attachment) =>
+            attachment?.url && attachment?.name && attachment?.mimeType,
+        )
+        .map((attachment) => ({
+          name: attachment.name,
+          mimeType: attachment.mimeType,
+          url: attachment.url,
+          type:
+            attachment.type ||
+            (attachment.mimeType.startsWith('image/') ? 'image' : 'file'),
+          size: attachment.size,
+        }))
       : [];
 
     if (!text && attachments.length === 0) {
@@ -279,7 +279,7 @@ export class ChatsService {
       adPrice: adContext?.price ?? null,
       adLocation: adContext?.location || null,
       senderId: String(userId),
-      text: text || '',
+      text: text || (attachments.length ? '📷 Photo' : ''),
       attachments,
       readBy: [String(userId)],
     });
@@ -287,7 +287,7 @@ export class ChatsService {
     conversation.adId = resolvedAdId;
     conversation.adTitle = resolvedAdTitle;
     conversation.lastMessageText =
-      text || (attachments.length ? '📎 Attachment' : '');
+      text || (attachments.length ? '📷 Photo' : '');
     conversation.lastMessageAdId = resolvedAdId;
     conversation.lastMessageAdTitle = resolvedAdTitle;
     conversation.lastMessageAt = new Date();
@@ -307,10 +307,10 @@ export class ChatsService {
       senderId: message.senderId,
       sender: sender
         ? {
-            id: String(sender._id),
-            name: sender.name,
-            avatar: sender.profile?.avatar || null,
-          }
+          id: String(sender._id),
+          name: sender.name,
+          avatar: sender.profile?.avatar || null,
+        }
         : null,
       text: message.text,
       attachments: message.attachments || [],
@@ -428,20 +428,20 @@ export class ChatsService {
       participants: conversation.participants,
       otherUser: otherUser
         ? {
-            id: String(otherUser._id),
-            name: otherUser.name,
-            email: otherUser.email,
-            avatar: otherUser.profile?.avatar || null,
-          }
+          id: String(otherUser._id),
+          name: otherUser.name,
+          email: otherUser.email,
+          avatar: otherUser.profile?.avatar || null,
+        }
         : null,
       ad: ad
         ? {
-            id: ad.adId || this.toConversationId(ad._id),
-            title: ad.title,
-            image: ad.images?.[0] || null,
-            price: ad.price,
-            location: ad.location,
-          }
+          id: ad.adId || this.toConversationId(ad._id),
+          title: ad.title,
+          image: ad.images?.[0] || null,
+          price: ad.price,
+          location: ad.location,
+        }
         : null,
       lastMessageText: conversation.lastMessageText || '',
       lastMessageAdId:

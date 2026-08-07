@@ -29,7 +29,7 @@ export class OffersController {
     private readonly offersService: OffersService,
     private readonly bannersService: BannersService,
     private readonly kafkaService: KafkaService,
-  ) {}
+  ) { }
 
   @Post('request')
   @UseGuards(JwtAuthGuard)

@@ -46,6 +46,10 @@ class MessageAttachmentDto {
 export class SendMessageDto {
   @IsOptional()
   @IsString()
+  conversationId?: string;
+
+  @IsOptional()
+  @IsString()
   @MaxLength(2000)
   text?: string;
 

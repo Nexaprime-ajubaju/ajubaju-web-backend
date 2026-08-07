@@ -2,16 +2,21 @@ import {
   Injectable,
   BadRequestException,
   NotFoundException,
+  ConflictException,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Merchant, MerchantDocument } from '../users/schemas/merchant.schema';
+import { User, UserDocument } from '../users/schemas/user.schema';
+import { OTP, OTPDocument } from '../users/schemas/otp.schema';
 import { UpdateStoreLocationDto } from '../users/dto/update-store-location.dto';
 
 @Injectable()
 export class MerchantsService {
   constructor(
     @InjectModel(Merchant.name) private merchantModel: Model<MerchantDocument>,
+    @InjectModel(User.name) private userModel: Model<UserDocument>,
+    @InjectModel(OTP.name) private otpModel: Model<OTPDocument>,
   ) {}
 
   /**
@@ -241,6 +246,10 @@ export class MerchantsService {
     }
   }
 
+  private normalizeEmail(value: string): string {
+    return String(value || '').trim().toLowerCase();
+  }
+
   /**
    * Update merchant profile information
    * @param userId - Merchant's user ID
@@ -253,11 +262,56 @@ export class MerchantsService {
     }
 
     try {
+      const currentUser = await this.userModel.findById(userId).exec();
+      if (!currentUser) {
+        throw new NotFoundException('User not found');
+      }
+      if (currentUser.accountType !== 'merchant') {
+        throw new BadRequestException('Merchant access required');
+      }
+
+      const merchant = await this.merchantModel.findOne({ userId }).exec();
+      if (!merchant) {
+        throw new NotFoundException('Merchant not found');
+      }
+
       const allowedUpdates: any = {};
+      let normalizedNewEmail: string | null = null;
 
       if (updateData.storeName) allowedUpdates.storeName = updateData.storeName;
-      if (updateData.storeEmail)
-        allowedUpdates.storeEmail = updateData.storeEmail;
+      if (updateData.storeEmail) {
+        normalizedNewEmail = this.normalizeEmail(updateData.storeEmail);
+        const currentMerchantEmail = this.normalizeEmail(merchant.storeEmail || currentUser.email || '');
+
+        if (!normalizedNewEmail) {
+          throw new BadRequestException('Invalid email address');
+        }
+
+        if (normalizedNewEmail !== currentMerchantEmail) {
+          const existingUser = await this.userModel.findOne({
+            email: normalizedNewEmail,
+            _id: { $ne: new Types.ObjectId(userId) },
+            accountType: 'merchant',
+          }).exec();
+
+          if (existingUser) {
+            throw new ConflictException('Email is already in use by another merchant account');
+          }
+
+          const verifiedOtp = await this.otpModel.findOne({
+            email: normalizedNewEmail,
+            verified: true,
+            updatedAt: { $gte: new Date(Date.now() - 15 * 60 * 1000) },
+          }).exec();
+
+          if (!verifiedOtp) {
+            throw new BadRequestException('New email has not been verified via OTP');
+          }
+
+          await this.otpModel.deleteOne({ email: normalizedNewEmail }).exec();
+          allowedUpdates.storeEmail = normalizedNewEmail;
+        }
+      }
       if (updateData.gstNumber) allowedUpdates.gstNumber = updateData.gstNumber;
       if (updateData.contactNumber)
         allowedUpdates.contactNumber = updateData.contactNumber;
@@ -273,26 +327,42 @@ export class MerchantsService {
 
       allowedUpdates.updatedAt = new Date();
 
-      const merchant = await this.merchantModel.findOneAndUpdate(
+      const updatedMerchant = await this.merchantModel.findOneAndUpdate(
         { userId },
         { $set: allowedUpdates },
         { new: true, runValidators: true },
       );
 
-      if (!merchant) {
+      if (!updatedMerchant) {
         throw new NotFoundException('Merchant not found');
+      }
+
+      if (normalizedNewEmail) {
+        await this.userModel.findByIdAndUpdate(
+          userId,
+          {
+            $set: {
+              email: normalizedNewEmail,
+              isEmailVerified: true,
+              updatedAt: new Date(),
+            },
+          },
+        ).exec();
       }
 
       return {
         success: true,
         message: 'Merchant profile updated successfully',
-        data: merchant,
+        data: updatedMerchant,
       };
     } catch (error) {
       if (error instanceof NotFoundException) {
         throw error;
       }
       if (error instanceof BadRequestException) {
+        throw error;
+      }
+      if (error instanceof ConflictException) {
         throw error;
       }
       throw new BadRequestException(

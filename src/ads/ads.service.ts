@@ -595,7 +595,7 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
 
     let categorySpecificData: any = {};
     const payload: any = createAdDto as any;
-    
+
     this.logger.log(`Received createAdDto: ${JSON.stringify(createAdDto, null, 2)}`);
 
     switch (createAdDto.category) {
@@ -696,13 +696,13 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
 
     const locationCoordinates =
       latitude !== undefined &&
-      longitude !== undefined &&
-      !Number.isNaN(latitude) &&
-      !Number.isNaN(longitude)
+        longitude !== undefined &&
+        !Number.isNaN(latitude) &&
+        !Number.isNaN(longitude)
         ? {
-            type: 'Point' as const,
-            coordinates: [longitude, latitude] as [number, number],
-          }
+          type: 'Point' as const,
+          coordinates: [longitude, latitude] as [number, number],
+        }
         : undefined;
 
     const namedCategoryData: any = {};
@@ -1602,21 +1602,21 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
       clickThroughRate:
         (ad.viewHistory?.length || 0) > 0
           ? Number(
-              (
-                ((ad.contactClicks || 0) / (ad.viewHistory?.length || 0)) *
-                100
-              ).toFixed(2),
-            )
+            (
+              ((ad.contactClicks || 0) / (ad.viewHistory?.length || 0)) *
+              100
+            ).toFixed(2),
+          )
           : 0,
       wishlistRate:
         (ad.viewHistory?.length || 0) > 0
           ? Number(
-              (
-                ((wishlistCounts[ad.adId] || 0) /
-                  (ad.viewHistory?.length || 0)) *
-                100
-              ).toFixed(2),
-            )
+            (
+              ((wishlistCounts[ad.adId] || 0) /
+                (ad.viewHistory?.length || 0)) *
+              100
+            ).toFixed(2),
+          )
           : 0,
       isPromoted: ad.isPromoted || false,
       promotedUntil: ad.promotedUntil || null,
@@ -1741,7 +1741,7 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
     if (this.moderationService && updateData.images && updateData.images.length > 0) {
       const isMulti = updateData.images.length > 1;
       const context = isMulti ? 'multi' : 'single';
-      
+
       for (const imageUrl of updateData.images) {
         // Optionally skip if image is already in the old ad, 
         // but for safety, we check all provided images.
@@ -2587,16 +2587,15 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
                 </div>
               </div>
 
-              ${
-                data.description
-                  ? `
+              ${data.description
+        ? `
                 <div class="detail-row">
                   <div class="label">Reporter's Description</div>
                   <div class="value" style="font-style: italic;">"${data.description}"</div>
                 </div>
               `
-                  : ''
-              }
+        : ''
+      }
 
               <div class="detail-row">
                 <div class="label">Reported By (User ID)</div>
@@ -2609,9 +2608,8 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
                 </a>
               </div>
 
-              ${
-                data.reportCount >= 10
-                  ? `
+              ${data.reportCount >= 10
+        ? `
                 <div style="margin-top: 20px; padding: 15px; background: #fef2f2; border: 2px solid #dc2626; border-radius: 8px;">
                   <strong style="color: #dc2626;">⚠️ AUTO-DISABLED</strong>
                   <p style="margin: 10px 0 0 0; color: #991b1b; font-size: 14px;">
@@ -2619,8 +2617,8 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
                   </p>
                 </div>
               `
-                  : ''
-              }
+        : ''
+      }
 
               <div class="footer">
                 <p>This is an automated notification from GOLO's content moderation system.</p>
@@ -2777,4 +2775,70 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
   private validateCategoryData(category: string, data: any): void {
     if (!data) return;
   }
+
+  /**
+   * Upload an image buffer to Cloudinary
+   */
+  async uploadImageToCloudinary(file: any): Promise<string> {
+    if (!file || !file.buffer) {
+      throw new BadRequestException('No image file provided');
+    }
+
+    const cloudName = process.env.CLOUDINARY_CLOUD_NAME || 'dcm1plq42';
+    const apiKey = process.env.CLOUDINARY_API_KEY;
+    const apiSecret = process.env.CLOUDINARY_API_SECRET;
+
+    if (apiKey && apiSecret) {
+      const cloudinary = require('cloudinary').v2;
+      cloudinary.config({
+        cloud_name: cloudName,
+        api_key: apiKey,
+        api_secret: apiSecret,
+      });
+
+      return new Promise<string>((resolve, reject) => {
+        const uploadStream = cloudinary.uploader.upload_stream(
+          { folder: 'golo/chat-images' },
+          (error: any, result: any) => {
+            if (error) {
+              return reject(
+                new BadRequestException(
+                  error.message || 'Cloudinary upload failed',
+                ),
+              );
+            }
+            resolve(result.secure_url);
+          },
+        );
+        uploadStream.end(file.buffer);
+      });
+    } else {
+      // Unsigned upload fallback using Cloudinary REST API
+      const FormData = require('form-data');
+      const axios = require('axios');
+
+      const formData = new FormData();
+      formData.append('file', file.buffer, {
+        filename: file.originalname || 'upload.jpg',
+        contentType: file.mimetype || 'image/jpeg',
+      });
+      formData.append(
+        'upload_preset',
+        process.env.CLOUDINARY_UPLOAD_PRESET || 'choja_preset',
+      );
+      formData.append('folder', 'golo/chat-images');
+
+      const response = await axios.post(
+        `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
+        formData,
+        { headers: formData.getHeaders() },
+      );
+
+      if (response.data && response.data.secure_url) {
+        return response.data.secure_url;
+      }
+      throw new BadRequestException('Cloudinary upload returned invalid response');
+    }
+  }
 }
+

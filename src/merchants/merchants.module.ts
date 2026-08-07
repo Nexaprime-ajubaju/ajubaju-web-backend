@@ -4,11 +4,15 @@ import { MerchantsService } from './merchants.service';
 import { MerchantsController } from './merchants.controller';
 import { PublicMerchantsController } from './public-merchants.controller';
 import { Merchant, MerchantSchema } from '../users/schemas/merchant.schema';
+import { User, UserSchema } from '../users/schemas/user.schema';
+import { OTP, OTPSchema } from '../users/schemas/otp.schema';
 
 @Module({
   imports: [
     MongooseModule.forFeature([
       { name: Merchant.name, schema: MerchantSchema },
+      { name: User.name, schema: UserSchema },
+      { name: OTP.name, schema: OTPSchema },
     ]),
   ],
   controllers: [MerchantsController, PublicMerchantsController],
