@@ -384,6 +384,23 @@ export class OffersService implements OnModuleInit {
             }
           }
         }
+
+        // Check active offers limit
+        const maxActiveOffers = planDetails.planFeatures.maxMonthlyOffers;
+        if (maxActiveOffers !== -1) {
+          const currentActiveOffersCount = await this.offerModel.countDocuments({
+            merchantId,
+            status: { $in: [OfferPromotionStatus.ACTIVE, OfferPromotionStatus.APPROVED, OfferPromotionStatus.UNDER_REVIEW] }
+          });
+          if (currentActiveOffersCount >= maxActiveOffers) {
+            throw new BadRequestException({
+              success: false,
+              errorCode: 'ACTIVE_OFFERS_LIMIT_EXCEEDED',
+              message: `You have reached the maximum active offers limit of ${maxActiveOffers} for your current plan. Please upgrade your plan to upload more offers.`,
+              maxActiveOffers,
+            });
+          }
+        }
       }
 
       // Determine business category from merchant profile (fallbacks to payload or generic)
