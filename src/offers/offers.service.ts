@@ -373,8 +373,9 @@ export class OffersService implements OnModuleInit {
           // Verify all selectedProducts are active merchant products
           const selectedProds = Array.isArray(payload.selectedProducts) ? payload.selectedProducts : [];
           if (selectedProds.length > 0) {
+            const productIds = selectedProds.map(p => p.productId || p.id || p._id);
             const activeProductsCount = await this.merchantProductModel.countDocuments({
-              _id: { $in: selectedProds },
+              _id: { $in: productIds },
               merchantId,
               isActive: { $ne: false }
             });
