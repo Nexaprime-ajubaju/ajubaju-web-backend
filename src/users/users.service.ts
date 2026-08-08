@@ -323,19 +323,19 @@ export class UsersService implements OnModuleInit {
     userIds = [...new Set(userIds)];
 
     this.logger.log(`Broadcasting notification to ${userIds.length} users (Audience: ${audience})`);
-    
+
     // Fire and forget batch processing
     const BATCH_SIZE = 50;
     const processBatch = async () => {
       for (let i = 0; i < userIds.length; i += BATCH_SIZE) {
         const batch = userIds.slice(i, i + BATCH_SIZE);
-        await Promise.all(batch.map(id => 
+        await Promise.all(batch.map(id =>
           this.createNotificationAndPush(id, adminId, adminEmail || 'admin', '-', '-', type, message, title)
             .catch(err => this.logger.warn(`Failed broadcast to ${id}: ${err.message}`))
         ));
       }
     };
-    
+
     processBatch().catch(err => this.logger.error(`Broadcast failed: ${err.message}`));
 
     return { success: true, sentCount: userIds.length };
@@ -452,7 +452,7 @@ export class UsersService implements OnModuleInit {
     const accountType = registerDto.accountType === 'merchant' ? 'merchant' : 'user';
 
     const normalizedEmail = this.normalizeEmail(registerDto.email);
-    
+
     // Only enforce email verification OTP check for non-merchants
     if (accountType !== 'merchant') {
       const verifiedOtp = await this.otpModel.findOne({
@@ -915,7 +915,7 @@ export class UsersService implements OnModuleInit {
     this.logger.debug(`Update data received: ${JSON.stringify(updateData).substring(0, 200)}...`);
 
     const currentUser = await this.userModel.findById(userId).exec();
-    
+
     // Check if email is being changed and if it's already taken
     let normalizedNewEmail: string | null = null;
     let isEmailChanging = false;
@@ -1407,13 +1407,13 @@ export class UsersService implements OnModuleInit {
       }
       const currentUser = await this.userModel.findById(userId).exec();
       if (!currentUser) throw new NotFoundException('User not found');
-      
-      const existingUser = await this.userModel.findOne({ 
-        email: normalizedEmail, 
+
+      const existingUser = await this.userModel.findOne({
+        email: normalizedEmail,
         _id: { $ne: new Types.ObjectId(userId) },
         accountType: currentUser.accountType
       }).exec();
-      
+
       if (existingUser) {
         throw new ConflictException('Email is already in use by another account');
       }
@@ -2016,37 +2016,79 @@ export class UsersService implements OnModuleInit {
     return { wishlist, liked: true };
   }
 
+  private async resolveUserRecipientIds(userId: string): Promise<any[]> {
+    const idsSet = new Set<any>([String(userId)]);
+    if (isValidObjectId(userId)) {
+      idsSet.add(new Types.ObjectId(userId));
+    }
+    try {
+      const userObj = await this.userModel.findOne({
+        $or: [
+          ...(isValidObjectId(userId) ? [{ _id: new Types.ObjectId(userId) }] : []),
+          { _id: userId },
+          { id: userId },
+        ],
+      }).select('_id id').lean().exec();
+
+      if (userObj) {
+        if (userObj._id) {
+          idsSet.add(String(userObj._id));
+          if (isValidObjectId(String(userObj._id))) {
+            idsSet.add(new Types.ObjectId(String(userObj._id)));
+          }
+        }
+        if ((userObj as any).id) {
+          idsSet.add(String((userObj as any).id));
+        }
+      }
+    } catch {
+      // Fallback to initial idsSet
+    }
+    return Array.from(idsSet);
+  }
+
   async getNotifications(userId: string, page = 1, limit = 20): Promise<{ notifications: any[]; unreadCount: number }> {
     const skip = (page - 1) * limit;
+    const recipientIds = await this.resolveUserRecipientIds(userId);
+
+    this.logger.log(`[getNotifications] Fetching notifications for recipientIds: ${recipientIds.map(r => String(r)).join(', ')}`);
+
     const [notifications, unreadCount] = await Promise.all([
       this.notificationModel
-        .find({ recipientId: userId })
+        .find({ recipientId: { $in: recipientIds } })
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
         .lean()
         .exec(),
-      this.notificationModel.countDocuments({ recipientId: userId, read: false }),
+      this.notificationModel.countDocuments({ recipientId: { $in: recipientIds }, read: false }),
     ]);
+
+    this.logger.log(`[getNotifications] Found ${notifications.length} notifications (${unreadCount} unread)`);
+
     return { notifications, unreadCount };
   }
 
   async markNotificationRead(notificationId: string, userId: string): Promise<void> {
+    const recipientIds = await this.resolveUserRecipientIds(userId);
     await this.notificationModel.findOneAndUpdate(
-      { _id: notificationId, recipientId: userId },
+      { _id: notificationId, recipientId: { $in: recipientIds } },
       { $set: { read: true } },
     ).exec();
   }
 
   async markAllNotificationsRead(userId: string): Promise<void> {
+    const recipientIds = await this.resolveUserRecipientIds(userId);
     await this.notificationModel.updateMany(
-      { recipientId: userId, read: false },
+      { recipientId: { $in: recipientIds }, read: false },
       { $set: { read: true } },
     ).exec();
   }
 
   async deleteAllNotifications(userId: string): Promise<void> {
-    await this.notificationModel.deleteMany({ recipientId: userId }).exec();
+    const recipientIds: any[] = [String(userId)];
+    if (isValidObjectId(userId)) recipientIds.push(new Types.ObjectId(userId));
+    await this.notificationModel.deleteMany({ recipientId: { $in: recipientIds } }).exec();
   }
 
   async saveIWantPreference(

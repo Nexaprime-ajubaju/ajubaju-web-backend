@@ -484,9 +484,10 @@ export class UsersController {
   @Get('notifications')
   @UseGuards(JwtAuthGuard)
   async getNotifications(@CurrentUser() user: any) {
+    const userId = String(user?.id || user?.sub || user?._id || user?.userId || '');
     return {
       success: true,
-      data: await this.usersService.getNotifications(user.id),
+      data: await this.usersService.getNotifications(userId),
     };
   }
 
@@ -496,7 +497,8 @@ export class UsersController {
     @CurrentUser() user: any,
     @Body() body: { pushToken?: string },
   ) {
-    return this.usersService.registerPushToken(user?.id || user?._id, body?.pushToken);
+    const userId = String(user?.id || user?.sub || user?._id || user?.userId || '');
+    return this.usersService.registerPushToken(userId, body?.pushToken);
   }
 
   @Post('notifications/:notificationId/read')
@@ -505,21 +507,24 @@ export class UsersController {
     @CurrentUser() user: any,
     @Param('notificationId') notificationId: string,
   ) {
-    await this.usersService.markNotificationRead(notificationId, user.id);
+    const userId = String(user?.id || user?.sub || user?._id || user?.userId || '');
+    await this.usersService.markNotificationRead(notificationId, userId);
     return { success: true };
   }
 
   @Post('notifications/read-all')
   @UseGuards(JwtAuthGuard)
   async markAllNotificationsRead(@CurrentUser() user: any) {
-    await this.usersService.markAllNotificationsRead(user.id);
+    const userId = String(user?.id || user?.sub || user?._id || user?.userId || '');
+    await this.usersService.markAllNotificationsRead(userId);
     return { success: true };
   }
 
   @Delete('notifications')
   @UseGuards(JwtAuthGuard)
   async deleteAllNotifications(@CurrentUser() user: any) {
-    await this.usersService.deleteAllNotifications(user.id);
+    const userId = String(user?.id || user?.sub || user?._id || user?.userId || '');
+    await this.usersService.deleteAllNotifications(userId);
     return { success: true };
   }
 
