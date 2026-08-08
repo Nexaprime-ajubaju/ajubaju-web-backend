@@ -167,11 +167,16 @@ export class MerchantProductsService implements OnModuleInit {
           merchant,
         );
         if (planDetails.planFeatures.maxProducts !== -1) {
-          const activeProducts = await this.merchantProductModel
-            .countDocuments({ merchantId, isActive: { $ne: false } })
+          const totalProductsCount = await this.merchantProductModel
+            .countDocuments({ merchantId })
             .exec();
-          if (activeProducts >= planDetails.planFeatures.maxProducts) {
+          
+          if (totalProductsCount >= planDetails.planFeatures.maxProducts) {
             payload.isActive = false;
+            
+            // Force the merchant to re-select active products since they now have more products than their plan allows
+            merchant.hasSelectedActiveProducts = false;
+            await merchant.save();
           } else {
             payload.isActive = true;
           }

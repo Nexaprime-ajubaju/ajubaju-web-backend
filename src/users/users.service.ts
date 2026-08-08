@@ -536,16 +536,24 @@ export class UsersService implements OnModuleInit {
       const { latitude, longitude } = this.getMerchantCoordinates(registerDto);
 
       const settings = this.systemSettingsModel ? await this.systemSettingsModel.findOne({ key: 'global' }).exec() : null;
+      
       const trialDays = settings?.merchantTrialDays ?? 50;
+      const trialHours = settings?.merchantTrialHours ?? 0;
+      const trialMinutes = settings?.merchantTrialMinutes ?? 0;
+      const hasTrial = trialDays > 0 || trialHours > 0 || trialMinutes > 0;
 
       let subscriptionData = null;
-      if (trialDays > 0) {
+      if (hasTrial) {
         subscriptionData = {
           planId: 'Premium',
           status: 'TRIAL',
           startedAt: new Date(),
           expiresAt: null,
-          trialEndsAt: moment().add(trialDays, 'days').toDate(),
+          trialEndsAt: moment()
+            .add(trialDays, 'days')
+            .add(trialHours, 'hours')
+            .add(trialMinutes, 'minutes')
+            .toDate(),
           billingCycle: 'monthly',
           autoRenew: false,
           assignedBy: 'system',
@@ -870,16 +878,24 @@ export class UsersService implements OnModuleInit {
     if (!merchant) {
       // Auto-create merchant profile to avoid 404s in the frontend
       const settings = this.systemSettingsModel ? await this.systemSettingsModel.findOne({ key: 'global' }).exec() : null;
+      
       const trialDays = settings?.merchantTrialDays ?? 50;
+      const trialHours = settings?.merchantTrialHours ?? 0;
+      const trialMinutes = settings?.merchantTrialMinutes ?? 0;
+      const hasTrial = trialDays > 0 || trialHours > 0 || trialMinutes > 0;
 
       let subscriptionData = null;
-      if (trialDays > 0) {
+      if (hasTrial) {
         subscriptionData = {
           planId: 'Premium',
           status: 'TRIAL',
           startedAt: new Date(),
           expiresAt: null,
-          trialEndsAt: moment().add(trialDays, 'days').toDate(),
+          trialEndsAt: moment()
+            .add(trialDays, 'days')
+            .add(trialHours, 'hours')
+            .add(trialMinutes, 'minutes')
+            .toDate(),
           billingCycle: 'monthly',
           autoRenew: false,
           assignedBy: 'system',
