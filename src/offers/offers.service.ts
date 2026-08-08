@@ -377,14 +377,32 @@ export class OffersService implements OnModuleInit {
           // Verify all selectedProducts are active merchant products
           const selectedProds = Array.isArray(payload.selectedProducts) ? payload.selectedProducts : [];
           if (selectedProds.length > 0) {
+            const productIds = selectedProds.map(p => p.productId || p.id || p._id);
             const activeProductsCount = await this.merchantProductModel.countDocuments({
-              _id: { $in: selectedProds },
+              _id: { $in: productIds },
               merchantId,
               isActive: { $ne: false }
             });
             if (activeProductsCount !== selectedProds.length) {
               throw new BadRequestException('All selected products for the offer must be active products in your plan.');
             }
+          }
+        }
+
+        // Check active offers limit
+        const maxActiveOffers = planDetails.planFeatures.maxMonthlyOffers;
+        if (maxActiveOffers !== -1) {
+          const currentActiveOffersCount = await this.offerModel.countDocuments({
+            merchantId,
+            status: { $in: [OfferPromotionStatus.ACTIVE, OfferPromotionStatus.APPROVED, OfferPromotionStatus.UNDER_REVIEW] }
+          });
+          if (currentActiveOffersCount >= maxActiveOffers) {
+            throw new BadRequestException({
+              success: false,
+              errorCode: 'ACTIVE_OFFERS_LIMIT_EXCEEDED',
+              message: `You have reached the maximum active offers limit of ${maxActiveOffers} for your current plan. Please upgrade your plan to upload more offers.`,
+              maxActiveOffers,
+            });
           }
         }
       }

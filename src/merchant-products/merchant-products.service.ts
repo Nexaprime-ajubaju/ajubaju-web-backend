@@ -159,36 +159,28 @@ export class MerchantProductsService implements OnModuleInit {
         await this.moderateVideo(dto.videoUrl, merchantId);
       }
 
-      const product = await this.transactionService.execute(async (session) => {
-        const merchant = await this.merchantModel
-          .findOne({ userId: merchantId })
-          .session(session)
-          .exec();
-        if (merchant) {
-          const planDetails = await this.SubscriptionsService.getPlanDetails(
-            merchant,
-            session,
-          );
-          if (planDetails.planFeatures.maxProducts !== -1) {
-            const activeProducts = await this.merchantProductModel
-              .countDocuments({ merchantId, isActive: { $ne: false } })
-              .session(session)
-              .exec();
-            if (activeProducts >= planDetails.planFeatures.maxProducts) {
-              payload.isActive = false;
-            } else {
-              payload.isActive = true;
-            }
+      const merchant = await this.merchantModel
+        .findOne({ userId: merchantId })
+        .exec();
+      if (merchant) {
+        const planDetails = await this.SubscriptionsService.getPlanDetails(
+          merchant,
+        );
+        if (planDetails.planFeatures.maxProducts !== -1) {
+          const activeProducts = await this.merchantProductModel
+            .countDocuments({ merchantId, isActive: { $ne: false } })
+            .exec();
+          if (activeProducts >= planDetails.planFeatures.maxProducts) {
+            payload.isActive = false;
           } else {
             payload.isActive = true;
           }
+        } else {
+          payload.isActive = true;
         }
+      }
 
-        const created = await this.merchantProductModel.create([payload], {
-          session,
-        });
-        return created[0];
-      });
+      const product = await this.merchantProductModel.create(payload);
       await this.invalidateMerchantProductCache(merchantId);
 
       if (this.kafkaService) {
@@ -540,7 +532,6 @@ export class MerchantProductsService implements OnModuleInit {
       product.images = sanitizedImages;
     }
 
-    await this.transactionService.execute(async (session) => {
       if (dto.videoUrl !== undefined) {
         if (dto.videoUrl !== null && dto.videoUrl !== product.videoUrl) {
           await this.moderateVideo(dto.videoUrl, merchantId);
@@ -548,8 +539,7 @@ export class MerchantProductsService implements OnModuleInit {
         product.videoUrl = dto.videoUrl;
       }
 
-      await product.save({ session });
-    });
+      await product.save();
     await this.invalidateMerchantProductCache(merchantId);
 
     return {
@@ -594,11 +584,7 @@ export class MerchantProductsService implements OnModuleInit {
       });
     }
 
-    await this.transactionService.execute(async (session) => {
-      await this.merchantProductModel
-        .findByIdAndDelete(productId, { session })
-        .exec();
-    });
+    await this.merchantProductModel.findByIdAndDelete(productId).exec();
     await this.invalidateMerchantProductCache(merchantId);
 
     return {
@@ -690,27 +676,23 @@ export class MerchantProductsService implements OnModuleInit {
       throw new BadRequestException('One or more selected products do not belong to you.');
     }
 
-    await this.transactionService.execute(async (session) => {
-      // Deactivate all products first
+    // Deactivate all products first
+    await this.merchantProductModel.updateMany(
+      { merchantId },
+      { isActive: false }
+    );
+
+    // Activate selected products
+    if (productIds.length > 0) {
       await this.merchantProductModel.updateMany(
-        { merchantId },
-        { isActive: false },
-        { session }
+        { _id: { $in: productIds }, merchantId },
+        { isActive: true, lastActivatedAt: new Date() }
       );
+    }
 
-      // Activate selected products
-      if (productIds.length > 0) {
-        await this.merchantProductModel.updateMany(
-          { _id: { $in: productIds }, merchantId },
-          { isActive: true, lastActivatedAt: new Date() },
-          { session }
-        );
-      }
-
-      // Mark selection as finalized
-      merchant.hasSelectedActiveProducts = true;
-      await merchant.save({ session });
-    });
+    // Mark selection as finalized
+    merchant.hasSelectedActiveProducts = true;
+    await merchant.save();
 
     await this.invalidateMerchantProductCache(merchantId);
 
