@@ -128,7 +128,7 @@ export class UsersService implements OnModuleInit {
           .exec(),
         this.userModel
           .findById(recipientIdStr)
-          .select('profile notificationSettings')
+          .select('profile notificationSettings pushTokens')
           .lean()
           .exec(),
       ]);
@@ -158,7 +158,7 @@ export class UsersService implements OnModuleInit {
           title: payload.title,
           body: payload.body,
           sound: 'default',
-          ttl: 60,
+          ttl: 2419200,
           priority: 'high',
           data: {
             type: payload.type || 'notification',
@@ -245,7 +245,8 @@ export class UsersService implements OnModuleInit {
       throw new BadRequestException('Push token is required');
     }
 
-    const user = await this.userModel.findById(String(userId)).exec();
+    const userIdStr = String(userId);
+    const user = await this.userModel.findById(userIdStr).exec();
     if (!user) {
       throw new NotFoundException('User not found');
     }
@@ -257,6 +258,17 @@ export class UsersService implements OnModuleInit {
 
     (user as any).pushTokens = existingTokens.slice(-10);
     await user.save();
+
+    // Also update merchant record if user is a merchant
+    const merchant = await this.merchantModel.findOne({ userId: userIdStr }).exec();
+    if (merchant) {
+      const merchantTokens = Array.isArray((merchant as any).pushTokens) ? (merchant as any).pushTokens.filter(Boolean) : [];
+      if (!merchantTokens.includes(token)) {
+        merchantTokens.push(token);
+      }
+      (merchant as any).pushTokens = merchantTokens.slice(-10);
+      await merchant.save();
+    }
 
     return {
       success: true,
