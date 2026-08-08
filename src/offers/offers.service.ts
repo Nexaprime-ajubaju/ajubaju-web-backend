@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, Logger, NotFoundException, OnModuleInit, Optional } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model, isValidObjectId } from 'mongoose';
+import { Model, Types, isValidObjectId } from 'mongoose';
 import { v4 as uuidv4 } from 'uuid';
 import { KafkaService } from '../kafka/kafka.service';
 import { RedisService } from '../common/services/redis.service';
@@ -10,6 +10,8 @@ import { OfferPromotion, OfferPromotionDocument, OfferPromotionStatus, OfferPaym
 // Banner models removed to keep offers module independent from banners
 import { User, UserDocument } from '../users/schemas/user.schema';
 import { Merchant, MerchantDocument } from '../users/schemas/merchant.schema';
+import { Follow, FollowDocument } from '../users/schemas/follow.schema';
+import { Notification, NotificationDocument } from '../users/schemas/notification.schema';
 import { KAFKA_TOPICS } from '../common/constants/kafka-topics';
 import { MerchantProduct, MerchantProductDocument } from '../merchant-products/schemas/merchant-product.schema';
 import { SubscriptionsService } from '../subscriptions/subscriptions.service';
@@ -32,6 +34,8 @@ export class OffersService implements OnModuleInit {
     @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
     @InjectModel(Merchant.name) private readonly merchantModel: Model<MerchantDocument>,
     @InjectModel(MerchantProduct.name) private readonly merchantProductModel: Model<MerchantProductDocument>,
+    @InjectModel(Follow.name) private readonly followModel: Model<FollowDocument>,
+    @InjectModel(Notification.name) private readonly notificationModel: Model<NotificationDocument>,
     private readonly subscriptionsService: SubscriptionsService,
     private readonly redisService: RedisService,
     @Optional() private readonly kafkaService?: KafkaService,
@@ -271,13 +275,13 @@ export class OffersService implements OnModuleInit {
       if (videoUrl.includes('cloudinary.com') && videoUrl.includes('/video/upload/')) {
         const baseUrl = videoUrl.substring(0, videoUrl.lastIndexOf('.')); // removes .mp4 or .webm
         const urlWithoutExt = baseUrl;
-        
+
         // Split around /upload/
         const parts = urlWithoutExt.split('/upload/');
         if (parts.length === 2) {
           const prefix = parts[0];
           const suffix = parts[1];
-          
+
           const frame0 = `${prefix}/upload/so_0/${suffix}.jpg`;
           const frame30 = `${prefix}/upload/so_30p/${suffix}.jpg`;
           const frame70 = `${prefix}/upload/so_70p/${suffix}.jpg`;
@@ -505,6 +509,9 @@ export class OffersService implements OnModuleInit {
         }
       }
 
+      // Notify followers about the newly created offer
+      await this.notifyFollowersAboutNewOffer(merchantId, merchant.name || 'Merchant', request);
+
       return request;
     } catch (error: any) {
       if (error?.name === 'ValidationError' || error?.name === 'CastError') {
@@ -614,6 +621,9 @@ export class OffersService implements OnModuleInit {
 
     await request.save();
     await this.clearOfferCaches(merchantId, [requestId, String(request._id)]);
+
+    await this.notifyFollowersAboutNewOffer(merchantId, request.merchantName || 'Merchant', request);
+
     return this.normalizeMerchantOfferRow(request.toObject());
   }
 
@@ -1111,5 +1121,137 @@ export class OffersService implements OnModuleInit {
     const result = { data, pagination: { page: safePage, limit: safeLimit, total, pages } };
     await this.writeCache(cacheKey, result, this.cacheTtlSeconds.nearbyOffers);
     return result;
+  }
+
+  private async notifyFollowersAboutNewOffer(
+    merchantId: string,
+    fallbackMerchantName: string,
+    offer: any,
+  ) {
+    try {
+      if ((offer.title || '').trim() === 'Moderation Check') {
+        this.logger.log('[notifyFollowersAboutNewOffer] Skipping notification for moderation check probe');
+        return;
+      }
+
+      const merchantObj = await this.merchantModel
+        .findOne({ $or: [{ userId: merchantId }, { _id: merchantId }] })
+        .lean()
+        .exec();
+
+      const canonicalMerchantId = merchantObj ? String(merchantObj.userId) : String(merchantId);
+      const merchantObjIdStr = merchantObj ? String(merchantObj._id) : null;
+
+      const storeName =
+        (merchantObj as any)?.merchantName ||
+        (merchantObj as any)?.storeName ||
+        fallbackMerchantName ||
+        'Store';
+
+      const merchantIdSet = new Set<string>([
+        String(merchantId),
+        canonicalMerchantId,
+      ]);
+      if (merchantObjIdStr) merchantIdSet.add(merchantObjIdStr);
+
+      const merchantIdArray = Array.from(merchantIdSet);
+      const queryMerchantIds: any[] = [...merchantIdArray];
+      for (const idStr of merchantIdArray) {
+        if (isValidObjectId(idStr)) {
+          queryMerchantIds.push(new Types.ObjectId(idStr));
+        }
+      }
+
+      const follows = await this.followModel
+        .find({
+          merchantId: { $in: queryMerchantIds },
+        })
+        .select('userId')
+        .lean()
+        .exec();
+
+      if (!follows || follows.length === 0) {
+        this.logger.log(
+          `[notifyFollowersAboutNewOffer] No followers found for merchant ${merchantId} (query variants: ${merchantIdArray.join(', ')})`,
+        );
+        return;
+      }
+
+      const followerUserIds = Array.from(
+        new Set(follows.map((f) => String(f.userId)).filter(Boolean)),
+      );
+
+      this.logger.log(
+        `[notifyFollowersAboutNewOffer] Notifying ${followerUserIds.length} followers of ${storeName} about offer "${offer.title}"`,
+      );
+
+      const title = `${storeName} posted a new offer!`;
+      const message = offer.title
+        ? `Check out their new offer: "${offer.title}"`
+        : `${storeName} has posted a new special offer!`;
+
+      const notificationsToCreate = followerUserIds.map((recipientId) => ({
+        recipientId: String(recipientId),
+        senderId: String(merchantId),
+        senderName: storeName,
+        adId: String(offer.requestId || offer._id || ''),
+        adTitle: String(offer.title || title),
+        merchantId: String(merchantId),
+        offerId: String(offer._id || offer.requestId || ''),
+        type: 'new_offer',
+        title,
+        message,
+        read: false,
+      }));
+
+      await this.notificationModel.insertMany(notificationsToCreate);
+
+      // Attempt push notifications to followers if tokens are available
+      try {
+        const queryUserIds: any[] = [...followerUserIds];
+        for (const uid of followerUserIds) {
+          if (isValidObjectId(uid)) {
+            queryUserIds.push(new Types.ObjectId(uid));
+          }
+        }
+
+        const followerUsers = await this.userModel
+          .find({ _id: { $in: queryUserIds } })
+          .select('pushTokens notificationSettings')
+          .lean()
+          .exec();
+
+        const pushTokens: string[] = [];
+        for (const user of followerUsers) {
+          if ((user as any)?.notificationSettings?.pushNotifications === false) continue;
+          if (Array.isArray((user as any)?.pushTokens)) {
+            pushTokens.push(...(user as any).pushTokens.filter(Boolean));
+          }
+        }
+
+        if (pushTokens.length > 0) {
+          await fetch('https://exp.host/--/api/v2/push/send', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              to: pushTokens,
+              title,
+              body: message,
+              sound: 'default',
+              priority: 'high',
+              data: {
+                type: 'new_offer',
+                merchantId: String(merchantId),
+                offerId: String(offer._id || offer.requestId || ''),
+              },
+            }),
+          });
+        }
+      } catch (pushErr: any) {
+        this.logger.warn(`[notifyFollowersAboutNewOffer] Push delivery failed: ${pushErr.message}`);
+      }
+    } catch (err: any) {
+      this.logger.error(`[notifyFollowersAboutNewOffer] Error sending notifications: ${err.message}`, err.stack);
+    }
   }
 }
