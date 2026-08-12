@@ -57,9 +57,9 @@ export class MerchantDashboardController {
 
   @Get('analytics/realtime')
   async getMerchantRealtimeAnalytics(@CurrentUser() user: any) {
-    return this.merchantDashboardService.getRealtimeAnalytics(
-      this.getMerchantId(user),
-    );
+    const merchantId = this.getMerchantId(user);
+    const result = await this.merchantDashboardService.getRealtimeAnalytics(merchantId);
+    return result;
   }
 
   @Get('loyalty-leaderboard')

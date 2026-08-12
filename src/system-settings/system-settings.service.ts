@@ -62,8 +62,11 @@ export class SystemSettingsService {
       );
 
       if (updateDto.applyTrialChangesToExistingMerchants) {
-        const totalDays = (settings.merchantTrialDays || 0) + (settings.merchantTrialHours || 0) / 24 + (settings.merchantTrialMinutes || 0) / 1440;
-        
+        const totalDays = (settings.merchantTrialDays || 0);
+        const totalHours = (settings.merchantTrialHours || 0);
+        const totalMinutes = (settings.merchantTrialMinutes || 0);
+        const hasTrial = totalDays > 0 || totalHours > 0 || totalMinutes > 0;
+
         const merchants = await this.merchantModel.find({
            $or: [
              { 'subscription.status': 'TRIAL' },
@@ -73,30 +76,38 @@ export class SystemSettingsService {
         }).session(session);
 
         for (const merchant of merchants) {
-            if (!merchant.subscription) {
-               merchant.subscription = {
-                   planId: 'Premium',
-                   status: 'TRIAL',
-                   startedAt: merchant.createdAt || new Date(),
-                   expiresAt: null,
-                   trialEndsAt: null,
-                   billingCycle: 'monthly',
-                   autoRenew: false,
-                   assignedBy: 'system',
-                   assignedAt: new Date()
-               };
-            }
-
-            const startDate = merchant.subscription.startedAt || merchant.createdAt || new Date();
-            const newTrialEndsAt = moment(startDate).add(totalDays, 'days').toDate();
-            merchant.subscription.trialEndsAt = newTrialEndsAt;
-
-            if (moment().isAfter(moment(newTrialEndsAt))) {
-                merchant.subscription.status = 'ACTIVE';
-                merchant.subscription.planId = 'Free Tier';
+            if (!hasTrial) {
+              // No trial duration set — move to Free Tier immediately
+              if (!merchant.subscription) merchant.subscription = {} as any;
+              merchant.subscription.planId = 'Free Tier';
+              merchant.subscription.status = 'ACTIVE';
+              merchant.subscription.trialEndsAt = null;
             } else {
-                merchant.subscription.status = 'TRIAL';
+              // Reset trial from NOW so the merchant gets the FULL new duration
+              const newTrialEndsAt = moment()
+                .add(totalDays, 'days')
+                .add(totalHours, 'hours')
+                .add(totalMinutes, 'minutes')
+                .toDate();
+
+              if (!merchant.subscription) {
+                merchant.subscription = {
+                  planId: 'Premium',
+                  status: 'TRIAL',
+                  startedAt: new Date(),
+                  expiresAt: null,
+                  trialEndsAt: newTrialEndsAt,
+                  billingCycle: 'monthly',
+                  autoRenew: false,
+                  assignedBy: 'system',
+                  assignedAt: new Date()
+                };
+              } else {
                 merchant.subscription.planId = 'Premium';
+                merchant.subscription.status = 'TRIAL';
+                merchant.subscription.startedAt = new Date();
+                merchant.subscription.trialEndsAt = newTrialEndsAt;
+              }
             }
 
             merchant.markModified('subscription');

@@ -136,6 +136,9 @@ export class MerchantsService {
       throw new NotFoundException('Merchant not found');
     }
 
+    merchant.profileViews = (merchant.profileViews || 0) + 1;
+    await merchant.save();
+
     const data = merchant.toObject ? merchant.toObject() : merchant;
 
     return {

@@ -405,6 +405,25 @@ export class OffersService implements OnModuleInit {
             });
           }
         }
+
+        // Check offer duration limit
+        const maxOfferDurationDays = planDetails.planFeatures.maxOfferDurationDays;
+        if (maxOfferDurationDays && maxOfferDurationDays !== -1) {
+          const offerStartDate = payload.startDate ? new Date(payload.startDate) : null;
+          const offerEndDate = payload.endDate ? new Date(payload.endDate) : offerStartDate;
+          if (offerStartDate && offerEndDate) {
+            const durationMs = offerEndDate.getTime() - offerStartDate.getTime();
+            const durationDays = Math.ceil(durationMs / (1000 * 60 * 60 * 24));
+            if (durationDays > maxOfferDurationDays) {
+              throw new BadRequestException({
+                success: false,
+                errorCode: 'OFFER_DURATION_LIMIT_EXCEEDED',
+                message: `Your current plan allows a maximum offer duration of ${maxOfferDurationDays} day${maxOfferDurationDays === 1 ? '' : 's'}. Please reduce the offer end date or upgrade your plan.`,
+                maxOfferDurationDays,
+              });
+            }
+          }
+        }
       }
 
       // Determine business category from merchant profile (fallbacks to payload or generic)

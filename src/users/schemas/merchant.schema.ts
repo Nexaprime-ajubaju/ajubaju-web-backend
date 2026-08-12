@@ -137,6 +137,9 @@ export class Merchant {
   @Prop({ type: Boolean, default: false })
   hasSelectedActiveProducts?: boolean;
 
+  @Prop({ type: Number, default: 0 })
+  profileViews?: number;
+
   @Prop()
   createdAt: Date;
 
