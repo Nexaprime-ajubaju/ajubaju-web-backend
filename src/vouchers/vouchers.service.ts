@@ -31,6 +31,7 @@ import {
   MerchantProductDocument,
 } from '../merchant-products/schemas/merchant-product.schema';
 import { OrdersService } from '../orders/orders.service';
+import { OrderDocument, OrderStatus } from '../orders/schemas/order.schema';
 import { RedisService } from '../common/services/redis.service';
 import { TransactionService } from '../common/services/transaction.service';
 
@@ -63,6 +64,7 @@ export class VouchersService implements OnModuleInit {
     @InjectModel('Merchant') private merchantModel: Model<MerchantDocument>,
     @InjectModel(MerchantProduct.name)
     private merchantProductModel: Model<MerchantProductDocument>,
+    @InjectModel('Order') private orderModel: Model<OrderDocument>,
     private ordersService: OrdersService,
     private redisService: RedisService,
     private readonly transactionService: TransactionService,
@@ -1153,6 +1155,16 @@ export class VouchersService implements OnModuleInit {
             );
             voucherForUpdate.redemptionCode = redemptionCode;
             await voucherForUpdate.save({ session });
+
+            try {
+              await this.orderModel.findOneAndUpdate(
+                { voucherId: voucherId },
+                { status: OrderStatus.COMPLETED, completedAt: new Date() },
+                { session }
+              ).exec();
+            } catch (orderError) {
+              this.logger.error(`Failed to update order status for voucher ${voucherId}: ${orderError.message}`);
+            }
 
             try {
               const offerId = String(voucherForUpdate.offerId);

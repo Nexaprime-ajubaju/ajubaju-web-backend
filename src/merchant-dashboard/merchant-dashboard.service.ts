@@ -49,7 +49,10 @@ export class MerchantDashboardService {
       const d = new Date(now);
       d.setDate(now.getDate() - i);
       d.setHours(0, 0, 0, 0);
-      const key = d.toISOString().slice(0, 10);
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      const key = `${year}-${month}-${day}`;
       keys.push(key);
       labels.push(
         d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }),
@@ -286,7 +289,7 @@ export class MerchantDashboardService {
             {
               $group: {
                 _id: {
-                  $dateToString: { format: '%Y-%m-%d', date: '$redeemedAt' },
+                  $dateToString: { format: '%Y-%m-%d', date: '$redeemedAt', timezone: '+05:30' },
                 },
                 count: { $sum: 1 },
               },
@@ -320,7 +323,7 @@ export class MerchantDashboardService {
     const startOfWeek = new Date();
     startOfWeek.setDate(startOfWeek.getDate() - 7);
 
-    const [recentOrders, latestReviews, orderStats, reviewStats, adStats] =
+    const [recentOrders, latestReviews, orderStats, reviewStats, adStats, merchant, redeemedVouchersCount] =
       await Promise.all([
         this.orderModel
           .find({ merchantId: mId })
@@ -379,6 +382,8 @@ export class MerchantDashboardService {
             },
           },
         ]),
+        this.merchantModel.findOne({ userId: merchantId }).select('profileViews').lean(),
+        this.voucherModel.countDocuments({ merchantId: mId, status: 'redeemed' }),
       ]);
 
     const reviewUserIds = latestReviews
@@ -404,6 +409,11 @@ export class MerchantDashboardService {
           ),
           totalViews: adStats?.[0]?.totalViews || 0,
           weeklyViews: adStats?.[0]?.weeklyViews || 0,
+          profileViews: merchant?.profileViews || 0,
+          totalRedemptions: redeemedVouchersCount || 0,
+          conversionRate: merchant?.profileViews > 0 
+            ? Number(((redeemedVouchersCount / merchant.profileViews) * 100).toFixed(2)) 
+            : 0,
         },
         recentOrders: recentOrders.map((o: any) => ({
           _id: String(o._id),
@@ -651,11 +661,11 @@ export class MerchantDashboardService {
     const start = new Date(keys[0]);
 
     const rows = await this.orderModel.aggregate([
-      { $match: { merchantId: mId, placedAt: { $gte: start } } },
+      { $match: { merchantId: mId, completedAt: { $gte: start }, status: OrderStatus.COMPLETED } },
       {
         $group: {
           _id: {
-            $dateToString: { format: '%Y-%m-%d', date: '$placedAt' },
+            $dateToString: { format: '%Y-%m-%d', date: '$completedAt', timezone: '+05:30' },
           },
           count: { $sum: 1 },
         },

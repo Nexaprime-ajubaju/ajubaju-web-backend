@@ -17,6 +17,7 @@ import {
   MerchantProduct,
   MerchantProductSchema,
 } from '../merchant-products/schemas/merchant-product.schema';
+import { Order, OrderSchema } from '../orders/schemas/order.schema';
 import { KafkaModule } from '../kafka/kafka.module';
 import { VouchersKafkaController } from './vouchers.kafka.controller';
 import { OrdersModule } from '../orders/orders.module';
@@ -32,6 +33,7 @@ import { ModerationModule } from '../moderation/moderation.module';
       { name: User.name, schema: UserSchema },
       { name: Merchant.name, schema: MerchantSchema },
       { name: MerchantProduct.name, schema: MerchantProductSchema },
+      { name: Order.name, schema: OrderSchema },
     ]),
     forwardRef(() => KafkaModule),
     OrdersModule,
