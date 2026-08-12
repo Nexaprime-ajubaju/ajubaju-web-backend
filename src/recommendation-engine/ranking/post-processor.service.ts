@@ -32,7 +32,7 @@ export class PostProcessorService {
 
     for (const s of currentCandidates) {
       if (finalProducts.length >= limit) break;
-      
+
       const offer = s.product;
       const explainability = {
         finalScore: s.finalScore,
@@ -42,7 +42,7 @@ export class PostProcessorService {
         policyAdjustments: s.policyAdjustments,
         reasons: s.reasons,
       };
-      
+
       const hasOfferImage = !!(offer.imageUrl || (offer.images && offer.images[0]));
 
       if (offer.selectedProducts && offer.selectedProducts.length > 0) {
@@ -71,7 +71,7 @@ export class PostProcessorService {
           // Otherwise, unpack into individual product cards
           for (const sp of offer.selectedProducts) {
             if (finalProducts.length >= limit) break;
-            
+
             let discountPercent = 0;
             if (sp.originalPrice && sp.offerPrice && sp.originalPrice > sp.offerPrice) {
               discountPercent = Math.round(((sp.originalPrice - sp.offerPrice) / sp.originalPrice) * 100);
@@ -98,7 +98,7 @@ export class PostProcessorService {
         const p = { ...offer };
         p.id = p.userId ? p.userId.toString() : (p._id ? p._id.toString() : p.id);
         p.merchantId = p.merchantId || p.userId;
-        p.type = p.type || 'offer'; 
+        p.type = p.type || 'offer';
         p.imageUrl = p.imageUrl || (p.images && p.images[0]) || '/images/placeholder.webp';
         p.badge = p.promoTag || null;
         p.recommendationExplainability = explainability;
