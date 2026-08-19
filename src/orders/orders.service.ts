@@ -238,7 +238,7 @@ export class OrdersService {
     const userMapAvatar = new Map(
       users.map((u: any) => {
         let avatar = (u.profile && u.profile.avatar) || u.profilePhoto || null;
-        if (avatar && avatar.length > 1000 && avatar.startsWith('data:image')) {
+        if (avatar && avatar.length > 1000) {
           avatar = null; // Drop huge base64 strings
         }
         return [String(u._id), avatar];
