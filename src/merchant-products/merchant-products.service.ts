@@ -7,6 +7,7 @@ import {
   NotFoundException,
   OnModuleInit,
   BadRequestException,
+  ConflictException,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { FilterQuery, Model } from 'mongoose';
@@ -24,6 +25,7 @@ import {
 } from './schemas/merchant-product.schema';
 import { SubscriptionsService } from '../subscriptions/subscriptions.service';
 import { Merchant, MerchantDocument } from '../users/schemas/merchant.schema';
+import { OfferPromotion, OfferPromotionDocument } from '../offers/schemas/offer-promotion.schema';
 import { TransactionService } from '../common/services/transaction.service';
 
 @Injectable()
@@ -35,6 +37,8 @@ export class MerchantProductsService implements OnModuleInit {
     private readonly merchantProductModel: Model<MerchantProductDocument>,
     @InjectModel(Merchant.name)
     private readonly merchantModel: Model<MerchantDocument>,
+    @InjectModel(OfferPromotion.name)
+    private readonly offerPromotionModel: Model<OfferPromotionDocument>,
     private readonly SubscriptionsService: SubscriptionsService,
     private readonly redisService: RedisService,
     private readonly transactionService: TransactionService,
@@ -448,6 +452,20 @@ export class MerchantProductsService implements OnModuleInit {
     };
   }
 
+  async incrementViewCount(productId: string) {
+    const product = await this.merchantProductModel.findByIdAndUpdate(
+      productId,
+      { $inc: { views: 1 } },
+      { new: true }
+    ).exec();
+
+    if (!product) {
+      throw new NotFoundException('Product not found');
+    }
+
+    return { success: true, views: product.views };
+  }
+
   async getProduct(merchantId: string, productId: string) {
     const cacheKey = this.cacheItemKey(merchantId, productId);
     const cached = await this.redisService.get<any>(cacheKey);
@@ -576,6 +594,41 @@ export class MerchantProductsService implements OnModuleInit {
 
     if (String(product.merchantId) !== String(merchantId)) {
       throw new ForbiddenException('You can only delete your own products');
+    }
+
+    // Check if the product is linked to any active offers
+    const activeOffers = await this.offerPromotionModel.find({
+      merchantId,
+      'selectedProducts.productId': productId,
+      status: { $in: ['active', 'approved', 'under_review'] },
+    }).exec();
+
+    // Filter out offers that have actually expired by date
+    const now = new Date();
+    const currentlyActiveOffers = activeOffers.filter(offer => {
+      if (offer.endDate && new Date(offer.endDate).getTime() < now.getTime()) return false;
+      return true;
+    });
+
+    if (currentlyActiveOffers.length > 0) {
+      // Check if any active offer has ONLY this product
+      const singleProductOffer = currentlyActiveOffers.find(offer => offer.selectedProducts.length === 1);
+      if (singleProductOffer) {
+        throw new ConflictException({
+          success: false,
+          statusCode: 409,
+          errorCode: 'PRODUCT_LINKED_TO_ACTIVE_OFFER',
+          message: 'Cannot delete product. It is the only product in an active offer. Please delete the offer first.'
+        });
+      }
+
+      // If all active offers have > 1 product, pull this product from them
+      for (const offer of currentlyActiveOffers) {
+        offer.selectedProducts = offer.selectedProducts.filter(p => p.productId !== productId);
+        // Recalculate total price if needed (assuming simple sum, or just let it be)
+        offer.totalPrice = offer.selectedProducts.reduce((sum, p) => sum + p.offerPrice, 0);
+        await offer.save();
+      }
     }
 
     if (this.kafkaService) {

@@ -73,7 +73,9 @@ async function bootstrap() {
 
   app.useGlobalPipes(validationPipe);
   app.useGlobalFilters(new GlobalExceptionFilter());
-  app.enableShutdownHooks();
+  if (process.env.NODE_ENV === 'production') {
+    app.enableShutdownHooks();
+  }
 
   if (kafkaEnabled) {
     const brokers = (process.env.KAFKA_BROKERS || '')

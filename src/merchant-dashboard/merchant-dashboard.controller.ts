@@ -1,4 +1,4 @@
-import { Controller, Get, UseGuards } from '@nestjs/common';
+import { Controller, Get, UseGuards, Query } from '@nestjs/common';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { MerchantDashboardService } from './merchant-dashboard.service';
@@ -56,9 +56,13 @@ export class MerchantDashboardController {
   }
 
   @Get('analytics/realtime')
-  async getMerchantRealtimeAnalytics(@CurrentUser() user: any) {
+  async getMerchantRealtimeAnalytics(
+    @CurrentUser() user: any,
+    @Query('start') start?: string,
+    @Query('end') end?: string
+  ) {
     const merchantId = this.getMerchantId(user);
-    const result = await this.merchantDashboardService.getRealtimeAnalytics(merchantId);
+    const result = await this.merchantDashboardService.getRealtimeAnalytics(merchantId, start, end);
     return result;
   }
 

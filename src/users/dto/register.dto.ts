@@ -63,6 +63,10 @@ export class RegisterDto {
   businessType?: string;
 
   @IsOptional()
+  @IsIn(['Merchant', 'Service Provider', 'Both'])
+  merchantRole?: string;
+
+  @IsOptional()
   yearsInBusiness?: number | string;
 
   @IsOptional()

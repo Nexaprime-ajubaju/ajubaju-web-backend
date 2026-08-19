@@ -129,12 +129,20 @@ export class PaymentsService implements OnModuleInit {
     const receipt =
       dto.receipt || `golo_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
 
-    const order = await gateway.orders.create({
-      amount: amountInPaise,
-      currency,
-      receipt,
-      notes: dto.notes || {},
-    });
+    let order;
+    try {
+      order = await gateway.orders.create({
+        amount: amountInPaise,
+        currency,
+        receipt,
+        notes: dto.notes || {},
+      });
+    } catch (error) {
+      this.logger.error('Razorpay order creation failed', error);
+      throw new BadRequestException(
+        error?.error?.description || error?.message || 'Failed to create payment order with Razorpay',
+      );
+    }
 
     const payment = await this.transactionService.execute(async (session) => {
       const createdPayment = await this.paymentModel.create(

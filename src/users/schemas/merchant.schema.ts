@@ -26,6 +26,9 @@ export class Merchant {
   @Prop()
   storeSubCategory?: string;
 
+  @Prop({ enum: ['Merchant', 'Service Provider', 'Both'] })
+  merchantRole?: string;
+
   @Prop()
   businessType?: string;
 

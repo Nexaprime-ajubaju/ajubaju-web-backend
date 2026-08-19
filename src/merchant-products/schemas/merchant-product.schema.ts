@@ -38,6 +38,9 @@ export class MerchantProduct {
   @Prop({ type: Date, default: null })
   lastActivatedAt: Date;
 
+  @Prop({ default: 0 })
+  views: number;
+
   @Prop()
   createdAt: Date;
 

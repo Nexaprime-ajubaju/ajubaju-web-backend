@@ -48,6 +48,11 @@ export class MerchantProductsController {
     return this.merchantProductsService.getPublicProduct(productId);
   }
 
+  @Post('public/item/:productId/view')
+  async incrementViewCount(@Param('productId') productId: string) {
+    return this.merchantProductsService.incrementViewCount(productId);
+  }
+
   @Post()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.MERCHANT, UserRole.ADMIN)

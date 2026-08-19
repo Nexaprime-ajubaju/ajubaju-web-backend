@@ -597,6 +597,7 @@ export class UsersService implements OnModuleInit {
         storeLocationLatitude: latitude,
         storeLocationLongitude: longitude,
         businessType: registerDto.businessType?.trim() || undefined,
+        merchantRole: registerDto.merchantRole || undefined,
         yearsInBusiness: registerDto.yearsInBusiness ? Number(registerDto.yearsInBusiness) : undefined,
         businessDescription: registerDto.businessDescription?.trim() || undefined,
         profilePhoto: registerDto.profilePhoto || undefined,

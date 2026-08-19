@@ -15,11 +15,14 @@ import { SubscriptionsModule } from '../subscriptions/subscriptions.module';
 import { Merchant, MerchantSchema } from '../users/schemas/merchant.schema';
 import { TransactionModule } from '../common/services/transaction.module';
 
+import { OfferPromotion, OfferPromotionSchema } from '../offers/schemas/offer-promotion.schema';
+
 @Module({
   imports: [
     MongooseModule.forFeature([
       { name: MerchantProduct.name, schema: MerchantProductSchema },
       { name: Merchant.name, schema: MerchantSchema },
+      { name: OfferPromotion.name, schema: OfferPromotionSchema },
     ]),
     TransactionModule,
     KafkaModule,
