@@ -388,7 +388,7 @@ export class MerchantDashboardService {
       this.orderModel
         .find({ merchantId: mId })
         .sort({ placedAt: -1 })
-        .limit(5)
+        .limit(4)
         .lean(),
       this.reviewModel
         .find({ merchantId: mId })
@@ -516,6 +516,10 @@ export class MerchantDashboardService {
       }
     }
 
+    const recentOrderUserIds = recentOrders.map((o: any) => o.userId).filter(Boolean);
+    const recentOrderUsers = await this.userModel.find({ _id: { $in: recentOrderUserIds } }).select('name').lean();
+    const recentOrderUserMap = new Map(recentOrderUsers.map((u: any) => [String(u._id), u.name]));
+
     const reviewUserIds = latestReviews
       .map((r: any) => r.userId)
       .filter(Boolean);
@@ -585,8 +589,9 @@ export class MerchantDashboardService {
           orderNumber: o.orderNumber,
           amount: o.amount,
           itemsCount: o.itemsCount,
-          status: o.status,
+          status: o.status === 'accepted' ? 'completed' : o.status,
           placedAt: o.placedAt,
+          customerName: recentOrderUserMap.get(String(o.userId)) || 'Customer',
         })),
         latestReviews: latestReviews.map((r: any) => ({
           _id: String(r._id),

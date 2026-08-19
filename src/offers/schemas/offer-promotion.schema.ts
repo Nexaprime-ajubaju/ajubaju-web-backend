@@ -188,3 +188,4 @@ export class OfferPromotion {
 export const OfferPromotionSchema =
   SchemaFactory.createForClass(OfferPromotion);
 OfferPromotionSchema.index({ merchantId: 1, createdAt: -1 });
+OfferPromotionSchema.index({ status: 1, createdAt: -1 });

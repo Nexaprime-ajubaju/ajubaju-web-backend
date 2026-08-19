@@ -887,7 +887,8 @@ export class OffersService implements OnModuleInit {
         },
       };
 
-      await this.writeCache(cacheKey, emptyResult, this.cacheTtlSeconds.nearbyOffers);
+      // CACHE BYPASSED
+      // await this.writeCache(cacheKey, emptyResult, this.cacheTtlSeconds.nearbyOffers);
       return emptyResult;
     }
 
@@ -902,7 +903,8 @@ export class OffersService implements OnModuleInit {
         },
       };
 
-      await this.writeCache(cacheKey, emptyResult, this.cacheTtlSeconds.nearbyOffers);
+      // CACHE BYPASSED
+      // await this.writeCache(cacheKey, emptyResult, this.cacheTtlSeconds.nearbyOffers);
       return emptyResult;
     }
 

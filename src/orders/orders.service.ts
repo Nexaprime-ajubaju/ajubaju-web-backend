@@ -269,7 +269,7 @@ export class OrdersService {
     const startOfDay = new Date();
     startOfDay.setHours(0, 0, 0, 0);
 
-    const [todayOrders, pendingOrders, completedOrders, revenueAgg] =
+    const [todayOrders, pendingOrders, completedOrders, rejectedOrders, totalOrders, revenueAgg] =
       await Promise.all([
         this.orderModel.countDocuments({
           merchantId: mId,
@@ -282,6 +282,13 @@ export class OrdersService {
         this.orderModel.countDocuments({
           merchantId: mId,
           status: OrderStatus.COMPLETED,
+        }),
+        this.orderModel.countDocuments({
+          merchantId: mId,
+          status: OrderStatus.REJECTED,
+        }),
+        this.orderModel.countDocuments({
+          merchantId: mId,
         }),
         this.orderModel.aggregate([
           {
@@ -302,6 +309,8 @@ export class OrdersService {
         todayOrders,
         pendingOrders,
         completedOrders,
+        rejectedOrders,
+        totalOrders,
         totalRevenue,
       },
     };
