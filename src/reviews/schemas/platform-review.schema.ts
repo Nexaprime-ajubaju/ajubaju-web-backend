@@ -17,6 +17,7 @@ export enum PlatformReviewSource {
   WEBSITE = 'website',
   CHOJA = 'choja',
   POST_REDEMPTION = 'post_redemption',
+  APP = 'app',
 }
 
 @Schema({ timestamps: true, collection: 'platform_reviews' })
