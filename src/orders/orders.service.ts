@@ -16,6 +16,7 @@ import {
 } from '../users/schemas/notification.schema';
 import { SubscriptionsService } from '../subscriptions/subscriptions.service';
 import { TransactionService } from '../common/services/transaction.service';
+import { RedisService } from '../common/services/redis.service';
 
 @Injectable()
 export class OrdersService {
@@ -30,6 +31,7 @@ export class OrdersService {
     private readonly merchantModel: Model<MerchantDocument>,
     private readonly SubscriptionsService: SubscriptionsService,
     private readonly transactionService: TransactionService,
+    private readonly redisService: RedisService,
   ) { }
 
   private async sendPushNotificationToMerchant(
@@ -150,13 +152,25 @@ export class OrdersService {
           .exec();
 
         if (merchant && customer) {
+          let realOfferId = createdOrder.voucherId || 'order';
+          if (createdOrder.voucherId && createdOrder.voucherId.startsWith('VOUCHER-')) {
+            try {
+              const VoucherModel = this.orderModel.db.model('Voucher');
+              const voucher: any = await VoucherModel.findOne({ voucherId: createdOrder.voucherId }).select('offerId').lean().exec();
+              if (voucher && voucher.offerId) {
+                realOfferId = String(voucher.offerId);
+              }
+            } catch (e) {}
+          }
+
           const notifications = await this.notificationModel.create(
             [
               {
                 recipientId: String(merchantId),
                 senderId: String(userId),
                 senderName: customer.name || 'Customer',
-                adId: createdOrder.voucherId || 'order',
+                adId: realOfferId,
+                offerId: realOfferId,
                 adTitle: `New order from ${customer.name || 'Customer'}`,
                 type: 'order_placed',
                 message: `${customer.name || 'Customer'} claimed your offer`,
@@ -186,6 +200,9 @@ export class OrdersService {
       return createdOrder;
     }, session);
 
+    // Invalidate orders cache for this merchant
+    await this.redisService.deleteByPattern(`merchant:${merchantId}:orders*`);
+
     return {
       success: true,
       message: 'Order placed successfully',
@@ -207,6 +224,10 @@ export class OrdersService {
     limit = 20,
     status?: string,
   ) {
+    const cacheKey = `merchant:${merchantId}:orders:page:${page}:limit:${limit}:status:${status || 'all'}`;
+    const cached = await this.redisService.get(cacheKey);
+    if (cached) return cached;
+
     const query: any = { merchantId: new Types.ObjectId(merchantId) };
     if (status && status !== 'all') {
       query.status = status;
@@ -226,7 +247,7 @@ export class OrdersService {
     const userIds = orders.map((o) => o.userId).filter(Boolean);
     const users = await this.userModel
       .find({ _id: { $in: userIds } })
-      .select('name profile.phone profile.avatar profilePhoto')
+      .select('name profile.phone')
       .lean();
     const userMapName = new Map(users.map((u: any) => [String(u._id), u.name]));
     const userMapPhone = new Map(
@@ -245,7 +266,7 @@ export class OrdersService {
       }),
     );
 
-    return {
+    const result = {
       success: true,
       data: orders.map((o: any) => ({
         _id: String(o._id),
@@ -265,48 +286,64 @@ export class OrdersService {
         totalPages: Math.ceil(total / limit),
       },
     };
+
+    await this.redisService.set(cacheKey, result, 60);
+    return result;
   }
 
   async getMerchantOrderStats(merchantId: string) {
+    const cacheKey = `merchant:${merchantId}:orders:stats`;
+    const cached = await this.redisService.get(cacheKey);
+    if (cached) return cached;
+
     const mId = new Types.ObjectId(merchantId);
     const startOfDay = new Date();
     startOfDay.setHours(0, 0, 0, 0);
 
-    const [todayOrders, pendingOrders, completedOrders, rejectedOrders, totalOrders, revenueAgg] =
-      await Promise.all([
-        this.orderModel.countDocuments({
-          merchantId: mId,
-          placedAt: { $gte: startOfDay },
-        }),
-        this.orderModel.countDocuments({
-          merchantId: mId,
-          status: OrderStatus.PENDING,
-        }),
-        this.orderModel.countDocuments({
-          merchantId: mId,
-          status: OrderStatus.COMPLETED,
-        }),
-        this.orderModel.countDocuments({
-          merchantId: mId,
-          status: OrderStatus.REJECTED,
-        }),
-        this.orderModel.countDocuments({
-          merchantId: mId,
-        }),
-        this.orderModel.aggregate([
-          {
-            $match: {
-              merchantId: mId,
-              status: { $in: [OrderStatus.ACCEPTED, OrderStatus.COMPLETED] },
+    const aggResult = await this.orderModel.aggregate([
+      {
+        $match: { merchantId: mId },
+      },
+      {
+        $group: {
+          _id: null,
+          totalOrders: { $sum: 1 },
+          pendingOrders: {
+            $sum: { $cond: [{ $eq: ['$status', OrderStatus.PENDING] }, 1, 0] },
+          },
+          completedOrders: {
+            $sum: { $cond: [{ $eq: ['$status', OrderStatus.COMPLETED] }, 1, 0] },
+          },
+          rejectedOrders: {
+            $sum: { $cond: [{ $eq: ['$status', OrderStatus.REJECTED] }, 1, 0] },
+          },
+          todayOrders: {
+            $sum: { $cond: [{ $gte: ['$placedAt', startOfDay] }, 1, 0] },
+          },
+          totalRevenue: {
+            $sum: {
+              $cond: [
+                {
+                  $in: ['$status', [OrderStatus.ACCEPTED, OrderStatus.COMPLETED]],
+                },
+                '$amount',
+                0,
+              ],
             },
           },
-          { $group: { _id: null, totalRevenue: { $sum: '$amount' } } },
-        ]),
-      ]);
+        },
+      },
+    ]);
 
-    const totalRevenue = revenueAgg?.[0]?.totalRevenue || 0;
+    const stats = aggResult[0] || {};
+    const todayOrders = stats.todayOrders || 0;
+    const pendingOrders = stats.pendingOrders || 0;
+    const completedOrders = stats.completedOrders || 0;
+    const rejectedOrders = stats.rejectedOrders || 0;
+    const totalOrders = stats.totalOrders || 0;
+    const totalRevenue = stats.totalRevenue || 0;
 
-    return {
+    const result = {
       success: true,
       data: {
         todayOrders,
@@ -317,6 +354,9 @@ export class OrdersService {
         totalRevenue,
       },
     };
+
+    await this.redisService.set(cacheKey, result, 60);
+    return result;
   }
 
   async updateOrderStatus(
@@ -369,6 +409,9 @@ export class OrdersService {
 
     await order.save();
 
+    // Invalidate orders cache for this merchant
+    await this.redisService.deleteByPattern(`merchant:${merchantId}:orders*`);
+
     // Create notification for the customer
     try {
       const merchant = await this.userModel
@@ -379,12 +422,24 @@ export class OrdersService {
       const customerId = String(order.userId);
       const merchantName = merchant?.name || 'Merchant';
 
+      let realOfferId = order.voucherId || 'order';
+      if (order.voucherId && order.voucherId.startsWith('VOUCHER-')) {
+        try {
+          const VoucherModel = this.orderModel.db.model('Voucher');
+          const voucher: any = await VoucherModel.findOne({ voucherId: order.voucherId }).select('offerId').lean().exec();
+          if (voucher && voucher.offerId) {
+            realOfferId = String(voucher.offerId);
+          }
+        } catch (e) {}
+      }
+
       if (status === OrderStatus.ACCEPTED) {
         const notification = await this.notificationModel.create({
           recipientId: customerId,
           senderId: String(merchantId),
           senderName: merchantName,
-          adId: order.voucherId || 'order',
+          adId: realOfferId,
+          offerId: realOfferId,
           adTitle: `${merchantName} accepted your offer`,
           type: 'order_accepted',
           message: `${merchantName} accepted your claimed offer`,
@@ -399,7 +454,8 @@ export class OrdersService {
           recipientId: customerId,
           senderId: String(merchantId),
           senderName: merchantName,
-          adId: order.voucherId || 'order',
+          adId: realOfferId,
+          offerId: realOfferId,
           adTitle: `${merchantName} rejected your offer`,
           type: 'order_rejected',
           message: `${merchantName} rejected your claimed offer`,

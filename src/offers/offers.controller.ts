@@ -145,6 +145,7 @@ export class OffersController {
 
   @Get('nearby')
   async getNearbyOffers(
+    @Query('merchantId') merchantId?: string,
     @Query('lat') lat?: string,
     @Query('lng') lng?: string,
     @Query('radiusKm') radiusKm?: string,
@@ -160,6 +161,7 @@ export class OffersController {
     @Query('limit') limit?: string,
   ) {
     const requestPayload = {
+      merchantId,
       latitude: lat ? Number(lat) : undefined,
       longitude: lng ? Number(lng) : undefined,
       radiusKm: radiusKm ? Number(radiusKm) : undefined,

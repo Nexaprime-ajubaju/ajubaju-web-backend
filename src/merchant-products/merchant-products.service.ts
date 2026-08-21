@@ -272,6 +272,7 @@ export class MerchantProductsService implements OnModuleInit {
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
+        .lean()
         .exec(),
       this.merchantProductModel.countDocuments(filter),
       Promise.resolve(dbTotalProducts),
@@ -486,6 +487,31 @@ export class MerchantProductsService implements OnModuleInit {
 
     await this.redisService.set(cacheKey, response, 300);
     return response;
+  }
+
+  async searchGlobalProducts(query: string, page: number = 1, limit: number = 10) {
+    const regex = new RegExp(query, 'i');
+    const skip = (page - 1) * limit;
+
+    const products = await this.merchantProductModel
+      .find({
+        status: 'active',
+        isVisible: true,
+        $or: [
+          { productName: { $regex: regex } },
+          { description: { $regex: regex } },
+          { category: { $regex: regex } },
+        ],
+      })
+      .skip(skip)
+      .limit(limit)
+      .lean()
+      .exec();
+
+    return {
+      success: true,
+      data: products,
+    };
   }
 
   async getPublicProductById(productId: string) {

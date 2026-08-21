@@ -477,9 +477,9 @@ export class OffersService implements OnModuleInit {
         termsAndConditions: payload.termsAndConditions || '',
         exampleUsage: payload.exampleUsage || '',
         selectedProducts: Array.isArray(payload.selectedProducts) ? payload.selectedProducts : [],
-        status: OfferPromotionStatus.UNDER_REVIEW,
+        status: OfferPromotionStatus.ACTIVE,
         paymentStatus: OfferPaymentStatus.PENDING,
-        isActive: false,
+        isActive: true,
       });
 
       if (this.kafkaService) {
@@ -760,6 +760,7 @@ export class OffersService implements OnModuleInit {
   }
 
   async getNearbyOffers(params: {
+    merchantId?: string;
     latitude?: number;
     longitude?: number;
     radiusKm?: number;
@@ -869,6 +870,7 @@ export class OffersService implements OnModuleInit {
       offerRows = await this.offerModel
         .find({
           status: { $in: ['under_review', 'approved', 'active'] },
+          ...(params.merchantId ? { merchantId: params.merchantId } : {}),
         })
         .select('requestId merchantId merchantName title category businessCategory businessSubCategory totalPrice startDate endDate status createdAt imageUrl videoUrl selectedProducts')
         .limit(prefetchLimit)

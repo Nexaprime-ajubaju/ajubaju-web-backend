@@ -139,9 +139,15 @@ export class ProductsController {
    * Public: Search products by query - MUST BE BEFORE :productId
    */
   @Get('search/:query')
-  async searchProducts(@Param('query') query: string) {
+  async searchProducts(
+    @Param('query') query: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
     try {
-      const products = await this.productsService.searchProducts(query);
+      const pageNum = Math.max(1, parseInt(page || '1', 10));
+      const limitNum = Math.min(50, Math.max(1, parseInt(limit || '10', 10)));
+      const products = await this.productsService.searchProducts(query, undefined, pageNum, limitNum);
 
       return {
         success: true,

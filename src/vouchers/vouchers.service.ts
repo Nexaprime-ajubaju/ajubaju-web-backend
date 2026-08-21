@@ -97,6 +97,13 @@ export class VouchersService implements OnModuleInit {
 
   async onModuleInit() {
     console.log('--> VOUCHERS SERVICE onModuleInit START');
+    // Run DB migrations and indexing asynchronously to prevent blocking NestJS bootstrap
+    this.ensureDatabaseSchema().catch(err => {
+      this.logger.error(`Error ensuring database schema: ${err.message}`);
+    });
+  }
+
+  private async ensureDatabaseSchema() {
     try {
       // Clean legacy documents created while verificationCode defaulted to null.
       await this.voucherModel.updateMany(
@@ -129,6 +136,7 @@ export class VouchersService implements OnModuleInit {
             unique: true,
             partialFilterExpression: { verificationCode: { $type: 'string' } },
             name: 'verificationCode_1',
+            background: true,
           },
         );
       }
@@ -142,13 +150,14 @@ export class VouchersService implements OnModuleInit {
           {
             unique: true,
             name: 'user_offer_claim_unique',
+            background: true,
           },
         );
       }
     } catch (error) {
       if (error?.code === 86 || error?.codeName === 'IndexKeySpecsConflict') {
         this.logger.warn(
-          'verificationCode_1 index already exists with a different definition; skipping index migration for this startup.',
+          'Index specs conflict detected during startup. Handled.',
         );
         return;
       }
@@ -158,7 +167,7 @@ export class VouchersService implements OnModuleInit {
         );
         return;
       }
-      this.logger.error(`Error ensuring index: ${error.message}`);
+      this.logger.error(`Error ensuring schema: ${error.message}`);
       throw error;
     }
   }
@@ -1463,6 +1472,10 @@ export class VouchersService implements OnModuleInit {
     limit: number = 20,
     status?: string,
   ) {
+    const cacheKey = `merchant:${merchantId}:offers:page:${page}:limit:${limit}:status:${status || 'all'}`;
+    const cached = await this.redisService.get(cacheKey);
+    if (cached) return cached;
+
     try {
       // Get merchant's banners/offers from BannerPromotion
       const query: any = {
@@ -1478,6 +1491,7 @@ export class VouchersService implements OnModuleInit {
         .skip(skip)
         .limit(limit)
         .sort({ createdAt: -1 })
+        .lean()
         .exec();
 
       const total = await this.bannerModel.countDocuments(query);
@@ -1506,7 +1520,7 @@ export class VouchersService implements OnModuleInit {
         }),
       );
 
-      return {
+      const result = {
         success: true,
         data: enrichedOffers,
         pagination: {
@@ -1516,6 +1530,9 @@ export class VouchersService implements OnModuleInit {
           pages: Math.ceil(total / limit),
         },
       };
+      
+      await this.redisService.set(cacheKey, result, 60);
+      return result;
     } catch (error) {
       this.logger.error(`Error fetching merchant offers: ${error.message}`);
       throw error;

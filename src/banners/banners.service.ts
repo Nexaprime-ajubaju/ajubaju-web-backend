@@ -626,7 +626,6 @@ export class BannersService implements OnModuleInit {
     request.isHomepageVisible = true;
 
     await request.save();
-    await this.enforceActiveBannerLimit(5);
 
     if (this.kafkaService) {
       await this.kafkaService.emit(KAFKA_TOPICS.BANNER_PROMOTION_PAID, {
@@ -838,25 +837,4 @@ export class BannersService implements OnModuleInit {
       .exec();
   }
 
-  private async enforceActiveBannerLimit(maxActive: number): Promise<void> {
-    const activeRequests = await this.bannerPromotionModel
-      .find({
-        status: BannerPromotionStatus.ACTIVE,
-        paymentStatus: BannerPaymentStatus.PAID,
-        isHomepageVisible: true,
-      })
-      .sort({ paidAt: 1, createdAt: 1 })
-      .exec();
-
-    if (activeRequests.length <= maxActive) {
-      return;
-    }
-
-    const toDelete = activeRequests.slice(0, activeRequests.length - maxActive);
-    const idsToDelete = toDelete.map((item) => item.requestId);
-
-    await this.bannerPromotionModel
-      .deleteMany({ requestId: { $in: idsToDelete } })
-      .exec();
-  }
 }

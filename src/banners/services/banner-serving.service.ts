@@ -63,13 +63,14 @@ export class BannerServingService {
           .filter(Boolean);
 
         for (const banner of bannerList) {
-          const bannerId = String(banner.id || banner._id);
+          const bannerId = String(banner.id || banner._id || banner.requestId);
           if (!seenBannerIds.has(bannerId)) {
             seenBannerIds.add(bannerId);
             finalBanners.push(banner);
             if (finalBanners.length >= limit) break;
           }
         }
+        this.logger.log(`[DEBUG] Added banners from ${loc}, finalBanners.length is now ${finalBanners.length}`);
       }
     }
 

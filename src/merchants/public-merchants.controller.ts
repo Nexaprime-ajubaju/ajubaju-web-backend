@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, BadRequestException, InternalServerErrorException, Logger } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Query, BadRequestException, InternalServerErrorException, Logger } from '@nestjs/common';
 import { MerchantsService } from './merchants.service';
 import * as nodemailer from 'nodemailer';
 
@@ -7,6 +7,20 @@ export class PublicMerchantsController {
   private readonly logger = new Logger(PublicMerchantsController.name);
 
   constructor(private readonly merchantsService: MerchantsService) {}
+
+  @Get('public/search')
+  async searchMerchants(
+    @Query('q') query: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    if (!query) {
+      return { success: true, data: [] };
+    }
+    const pageNum = Math.max(1, parseInt(page || '1', 10));
+    const limitNum = Math.min(50, Math.max(1, parseInt(limit || '10', 10)));
+    return this.merchantsService.searchMerchants(query, pageNum, limitNum);
+  }
 
   @Get('public/:merchantId/profile')
   async getPublicMerchantProfile(@Param('merchantId') merchantId: string) {

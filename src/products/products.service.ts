@@ -150,7 +150,7 @@ export class ProductsService {
     return product;
   }
 
-  async searchProducts(query: string, merchantId?: string): Promise<Product[]> {
+  async searchProducts(query: string, merchantId?: string, page: number = 1, limit: number = 10): Promise<Product[]> {
     const searchFilter: any = {
       isVisible: true,
       $or: [
@@ -164,7 +164,8 @@ export class ProductsService {
       searchFilter.merchantId = merchantId;
     }
 
-    return this.productModel.find(searchFilter).limit(10).lean().exec();
+    const skip = (page - 1) * limit;
+    return this.productModel.find(searchFilter).skip(skip).limit(limit).lean().exec();
   }
 
   async getProductsByCategory(

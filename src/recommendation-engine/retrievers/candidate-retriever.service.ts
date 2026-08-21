@@ -44,7 +44,7 @@ export class CandidateRetrieverService {
       .filter(Boolean);
 
     const offers = await this.offerModel
-      .find({ _id: { $in: objectIds }, status: { $in: ['approved', 'active'] } })
+      .find({ _id: { $in: objectIds }, status: { $in: ['approved', 'active'] }, endDate: { $gte: new Date() } })
       .limit(limit)
       .select(this.baseSelect)
       .lean();
@@ -111,7 +111,7 @@ export class CandidateRetrieverService {
     limit: number = 20,
   ): Promise<any[]> {
     return this.offerModel
-      .find({ merchantId: { $in: merchantIds }, status: { $in: ['approved', 'active'] } })
+      .find({ merchantId: { $in: merchantIds }, status: { $in: ['approved', 'active'] }, endDate: { $gte: new Date() } })
       .limit(limit)
       .select(this.baseSelect)
       .lean();
@@ -120,7 +120,7 @@ export class CandidateRetrieverService {
     return this.offerModel
       .find({
         $or: [{ category: { $in: tags } }, { businessCategory: { $in: tags } }],
-        status: { $in: ['approved', 'active'] }
+        status: { $in: ['approved', 'active'] }, endDate: { $gte: new Date() }
       })
       .limit(limit)
       .select(this.baseSelect)
@@ -132,7 +132,7 @@ export class CandidateRetrieverService {
     limit: number = 20,
   ): Promise<any[]> {
     return this.offerModel
-      .find({ category: { $in: categories }, status: { $in: ['approved', 'active'] } })
+      .find({ category: { $in: categories }, status: { $in: ['approved', 'active'] }, endDate: { $gte: new Date() } })
       .limit(limit)
       .select(this.baseSelect)
       .lean();
@@ -176,7 +176,7 @@ export class CandidateRetrieverService {
     const offers = await this.offerModel
       .find({
         merchantId: { $in: merchantIds },
-        status: { $in: ['approved', 'active'] },
+        status: { $in: ['approved', 'active'] }, endDate: { $gte: new Date() },
       })
       .sort({ createdAt: -1 })
       .limit(limit)
@@ -240,7 +240,7 @@ export class CandidateRetrieverService {
     }
 
     const query: any = {
-      status: { $in: ['approved', 'active'] },
+      status: { $in: ['approved', 'active'] }, endDate: { $gte: new Date() },
       createdAt: { $gte: dateLimit },
     };
     if (merchantIdsFilter) {
@@ -320,7 +320,7 @@ export class CandidateRetrieverService {
       merchants.forEach((m) => merchantMap.set(m.userId, m));
     }
 
-    const query: any = { status: { $in: ['approved', 'active'] } };
+    const query: any = { status: { $in: ['approved', 'active'] }, endDate: { $gte: new Date() } };
     if (merchantIdsFilter) {
       query.merchantId = { $in: merchantIdsFilter };
     }
@@ -401,7 +401,7 @@ export class CandidateRetrieverService {
     }
 
     const matchStage: any = {
-      status: { $in: ['approved', 'active'] },
+      status: { $in: ['approved', 'active'] }, endDate: { $gte: new Date() },
     };
     if (merchantIdsFilter) {
       matchStage.merchantId = { $in: merchantIdsFilter };
@@ -488,7 +488,7 @@ export class CandidateRetrieverService {
   async findSponsored(limit: number = 20): Promise<any[]> {
     return this.offerModel
       .find({
-        status: { $in: ['approved', 'active'] },
+        status: { $in: ['approved', 'active'] }, endDate: { $gte: new Date() },
         isActive: true,
       })
       .limit(limit)
@@ -555,7 +555,7 @@ export class CandidateRetrieverService {
         try { return new mongoose.Types.ObjectId(id); } catch (e) { return null; }
       }).filter(Boolean);
 
-      const offers = await this.offerModel.find({ _id: { $in: objectIds }, status: { $in: ['approved', 'active'] } }).lean();
+      const offers = await this.offerModel.find({ _id: { $in: objectIds }, status: { $in: ['approved', 'active'] }, endDate: { $gte: new Date() } }).lean();
       
       let merchantIds = [...new Set(offers.map((o) => o.merchantId).filter(Boolean))];
       
@@ -609,7 +609,7 @@ export class CandidateRetrieverService {
       sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
       const matchStage: any = { 
-        status: { $in: ['approved', 'active'] },
+        status: { $in: ['approved', 'active'] }, endDate: { $gte: new Date() },
         createdAt: { $gte: sevenDaysAgo }
       };
 
@@ -683,7 +683,7 @@ export class CandidateRetrieverService {
     options: RetrieverOptions = {},
   ): Promise<any[]> {
     const maxCandidates = options.maxCandidates || 100;
-    const baseQuery: any = { status: { $in: ['approved', 'active'] } };
+    const baseQuery: any = { status: { $in: ['approved', 'active'] }, endDate: { $gte: new Date() } };
 
     // Match categories OR tags
     if (categories.length > 0 || tags.length > 0) {

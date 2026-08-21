@@ -170,6 +170,33 @@ export class MerchantsService {
     };
   }
 
+  async searchMerchants(query: string, page: number = 1, limit: number = 10) {
+    const regex = new RegExp(query, 'i');
+    const skip = (page - 1) * limit;
+
+    const merchants = await this.merchantModel
+      .find({
+        $or: [
+          { storeName: { $regex: regex } },
+          { name: { $regex: regex } },
+          { category: { $regex: regex } },
+        ],
+      })
+      .skip(skip)
+      .limit(limit)
+      .select('userId storeName name profilePic category address storeLocation city')
+      .lean()
+      .exec();
+
+    return {
+      success: true,
+      data: merchants.map(m => ({
+        ...m,
+        merchantId: m.userId,
+      })),
+    };
+  }
+
   private findPublicMerchantById(merchantId: string) {
     const filters: any[] = [{ userId: merchantId }];
 

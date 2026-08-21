@@ -12,19 +12,14 @@ export class BannerRotationPolicyService {
     @Optional() private readonly redisService?: RedisService,
   ) {}
 
-  /**
-   * Evaluate complete eligibility pipeline for a banner
-   */
   isEligible(campaign: BannerPromotion, city: string, now: Date = new Date()): boolean {
     return this.eligibilityService.isEligibleForCity(campaign, city, now);
   }
 
-  /**
-   * Check if a merchant is in a cooldown period (default 5 minutes)
-   */
   async isMerchantInCooldown(merchantId: string, city: string, queueSize: number = 0): Promise<boolean> {
-    // Disable strict cooldown if available queue is small (<= 9 campaigns) so slots are never left empty
-    if (queueSize <= 9) return false;
+    // If the queue size is 10 or less, we don't need cooldowns because there's enough space for all banners.
+    if (queueSize <= 10) return false;
+    
     if (!this.redisService || !this.redisService.isEnabled()) return false;
     const client = this.redisService.getClient();
     if (!client) return false;
@@ -39,9 +34,6 @@ export class BannerRotationPolicyService {
     }
   }
 
-  /**
-   * Record merchant display to activate cooldown window
-   */
   async setMerchantCooldown(merchantId: string, city: string, cooldownMinutes: number = 5): Promise<void> {
     if (!this.redisService || !this.redisService.isEnabled()) return;
     const client = this.redisService.getClient();
@@ -55,9 +47,6 @@ export class BannerRotationPolicyService {
     }
   }
 
-  /**
-   * Verify duplicate suppression rules across active slots
-   */
   checkDuplicateSlot(
     requestId: string,
     merchantId: string,
@@ -65,13 +54,14 @@ export class BannerRotationPolicyService {
     displayedMerchants: Set<string>,
     queueSize: number,
   ): boolean {
-    // 1. Same campaign cannot appear twice simultaneously
+    // 1. Same campaign MUST NOT appear twice simultaneously in the slider.
     if (displayedBanners.has(requestId)) {
       return true;
     }
 
-    // 2. Same merchant cannot appear twice simultaneously (unless total queue size <= 9)
-    if (queueSize > 9 && displayedMerchants.has(merchantId)) {
+    // 2. Same merchant cannot occupy multiple slots UNLESS the queue size is 10 or less.
+    // This allows a single merchant to occupy all 10 slots if they have 10 distinct campaigns.
+    if (queueSize > 10 && displayedMerchants.has(merchantId)) {
       return true;
     }
 

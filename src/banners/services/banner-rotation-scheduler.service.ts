@@ -108,7 +108,7 @@ export class BannerRotationSchedulerService implements OnModuleInit {
   /**
    * Run rotation cron every 4 minutes across cities (3 slots change per rotation)
    */
-  @Cron('0 * * * * *')
+  @Cron('0 */4 * * * *')
   async handleScheduledRotation() {
     try {
       let states: BannerSchedulerStateDocument[] = await this.schedulerStateModel.find({ isRunning: true }).exec();
@@ -177,9 +177,24 @@ export class BannerRotationSchedulerService implements OnModuleInit {
       }
     }
 
-    const slotsToRotate = Object.keys(activeSlots).length < 10
+    const localRequestIds = [...new Set([...districtQueue, ...cityQueue, ...townQueue])];
+    
+    // If we have 10 or fewer local banners, they easily fit in the 10 slots.
+    // The user explicitly requested: "till filling the 10 slot for a area dont count 4 min..
+    // after filling the 11th banner by merchant for that area then start 4 min count".
+    // This means we should NOT rotate if local banners <= 10. They should be completely static.
+    const isUnderLimit = localRequestIds.length <= 10;
+    
+    const slotsToRotate = (Object.keys(activeSlots).length < 10 || isUnderLimit)
       ? [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
       : (this.GROUPS[currentGroup] || [1, 5, 9]);
+
+    // If we are under limit, we want to reset pointers so they ALWAYS render in the exact same static order.
+    if (isUnderLimit) {
+      state.districtPointer = 0;
+      state.cityPointer = 0;
+      state.townPointer = 0;
+    }
 
     let duplicateSkips = 0;
     const displayedMerchants = new Set<string>();
@@ -291,8 +306,9 @@ export class BannerRotationSchedulerService implements OnModuleInit {
         if (!assigned) assigned = await tryAssignFromQueue(districtQueue, 'districtPointer', slotNum);
       }
 
-      // Global Fallback
-      if (!assigned) {
+      // Global Fallback - Only use global queue if NO local banners exist
+      const hasLocalBanners = districtQueue.length > 0 || cityQueue.length > 0 || townQueue.length > 0;
+      if (!assigned && !hasLocalBanners) {
         assigned = await tryAssignFromQueue(globalQueue, 'globalPointer', slotNum);
       }
 
