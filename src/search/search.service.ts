@@ -23,9 +23,9 @@ export class SearchService {
     const [matchingMerchants, matchingProducts, matchingOffers] = await Promise.all([
       this.merchantModel.find({
         $or: [{ storeName: { $regex: regex } }, { name: { $regex: regex } }, { category: { $regex: regex } }],
-      }).select('_id merchantId').lean().exec(),
+      }).select('_id userId').lean().exec(),
       this.merchantProductModel.find({
-        $or: [{ productName: { $regex: regex } }, { description: { $regex: regex } }, { category: { $regex: regex } }],
+        $or: [{ name: { $regex: regex } }, { description: { $regex: regex } }, { category: { $regex: regex } }],
       }).select('merchantId').lean().exec(),
       this.offerModel.find({
         status: 'active',
@@ -36,7 +36,7 @@ export class SearchService {
     // 2. Aggregate unique merchantIds
     const merchantIdSet = new Set<string>();
     matchingMerchants.forEach((m: any) => { 
-      const id = m.merchantId || (m._id ? m._id.toString() : null);
+      const id = m.userId || (m._id ? m._id.toString() : null);
       if (id) merchantIdSet.add(id); 
     });
     matchingProducts.forEach((p: any) => { if (p.merchantId) merchantIdSet.add(p.merchantId); });
@@ -48,11 +48,24 @@ export class SearchService {
     const responseData: any = { merchants: [], products: [], offers: [] };
 
     // 4. Fetch requested type(s)
+    const merchantsMap = new Map();
+    if (merchantIds.length > 0) {
+      const allMerchants = await this.merchantModel.find({
+        $or: [
+          { userId: { $in: merchantIds } },
+          { _id: { $in: merchantIds } }
+        ]
+      }).lean().exec();
+      allMerchants.forEach((m: any) => {
+        if (m.userId) merchantsMap.set(m.userId.toString(), m);
+        if (m._id) merchantsMap.set(m._id.toString(), m);
+      });
+    }
+
     if (type === 'all' || type === 'merchants') {
-      // Prioritize direct matches, then others. Simple approach: just fetch all matches by ID
       const merchants = await this.merchantModel.find({
         $or: [
-          { merchantId: { $in: merchantIds } },
+          { userId: { $in: merchantIds } },
           { _id: { $in: merchantIds } }
         ]
       }).skip(type === 'all' ? 0 : skip).limit(limit).lean().exec();
@@ -71,7 +84,25 @@ export class SearchService {
         merchantId: { $in: merchantIds },
         status: 'active',
       }).skip(type === 'all' ? 0 : skip).limit(limit).lean().exec();
-      responseData.offers = offers;
+      
+      responseData.offers = offers.map((offer: any) => {
+        const m = merchantsMap.get(offer.merchantId);
+        return {
+          ...offer,
+          startsAt: offer.startDate,
+          endsAt: offer.endDate,
+          merchant: {
+            merchantId: offer.merchantId,
+            name: m?.storeName || offer.merchantName || 'Merchant',
+            category: m?.storeCategory || '',
+            subCategory: m?.storeSubCategory || '',
+            address: m?.storeLocation || '',
+            latitude: m?.storeLocationLatitude || null,
+            longitude: m?.storeLocationLongitude || null,
+            profilePhoto: m?.profilePhoto || m?.shopPhoto || '',
+          }
+        };
+      });
     }
 
     return {

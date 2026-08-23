@@ -70,6 +70,10 @@ export class SubmitBannerPromotionDto {
   @IsString()
   bannerCategory?: string;
 
+  @IsOptional()
+  @IsString()
+  subCategory?: string;
+
   // Accept new API alias `category` as optional to support offers API
   @IsOptional()
   @IsString()

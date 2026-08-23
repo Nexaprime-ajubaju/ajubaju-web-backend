@@ -50,6 +50,9 @@ export class BannerPromotion {
   bannerCategory: string;
 
   @Prop({ default: '' })
+  subCategory: string;
+
+  @Prop({ default: '' })
   description: string;
 
   @Prop({
@@ -177,6 +180,12 @@ export class BannerPromotion {
 
   @Prop({ default: false })
   isHomepageVisible: boolean;
+
+  @Prop()
+  pausedAt?: Date;
+
+  @Prop({ default: 0 })
+  totalPausedDuration?: number; // in milliseconds
 
   @Prop()
   createdAt: Date;

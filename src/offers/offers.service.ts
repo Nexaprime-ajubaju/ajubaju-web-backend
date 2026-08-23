@@ -1063,16 +1063,14 @@ export class OffersService implements OnModuleInit {
       normalized = normalized.filter((row) => row.isActiveNow);
     }
 
-    if (hasUserCoordinates && !locationNeedle) {
+    if (hasUserCoordinates) {
       normalized = normalized.filter((row) => {
         if (row.distanceKm === null) {
           return true;
         }
         return row.distanceKm <= safeRadiusKm;
       });
-    }
-
-    if (locationNeedle) {
+    } else if (locationNeedle) {
       normalized = normalized.filter((row) => locationMatchesAddress(row.merchant.address || ''));
     }
 
