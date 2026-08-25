@@ -194,34 +194,7 @@ export class ChatsGateway implements OnGatewayConnection, OnGatewayDisconnect {
         },
       );
 
-      const room = `conversation:${payload.conversationId}`;
-      this.server.to(room).emit('new_message', message);
-
-      const participants = Array.isArray((message as any).participants)
-        ? (message as any).participants
-        : [];
-
-      for (const participantId of participants) {
-        this.server.to(`user:${participantId}`).emit('conversation_updated', {
-          conversationId: payload.conversationId,
-          lastMessageText:
-            message.text ||
-            (Array.isArray(message.attachments) && message.attachments.length
-              ? '📎 Attachment'
-              : ''),
-          lastMessageAt: message.createdAt,
-          lastMessageAdId: message.adId,
-          lastMessageAdTitle: message.adTitle || null,
-          message,
-        });
-        if (String(participantId) !== String(userId)) {
-          this.server.to(`user:${participantId}`).emit('presence_state', {
-            userId,
-            online: this.isUserOnline(userId),
-            lastSeenAt: this.lastSeenMap.get(userId) || null,
-          });
-        }
-      }
+      this.broadcastNewMessage(userId, payload.conversationId, message);
 
       return {
         success: true,
@@ -229,6 +202,50 @@ export class ChatsGateway implements OnGatewayConnection, OnGatewayDisconnect {
       };
     } catch (error) {
       throw new WsException(error.message || 'Failed to send message');
+    }
+  }
+
+  public broadcastNewMessage(userId: string, conversationId: string, message: any) {
+    const room = `conversation:${conversationId}`;
+
+    const participants = Array.isArray(message.participants)
+      ? message.participants
+      : [];
+
+    this.logger.log(
+      `[BROADCAST] senderId=${userId}, conversationId=${conversationId}, ` +
+      `room=${room}, participants=${JSON.stringify(participants)}, ` +
+      `messageId=${message.id}, onlineUsers=${JSON.stringify([...this.onlineUsers.keys()])}`,
+    );
+
+    // Emit new_message to the conversation room
+    this.server.to(room).emit('new_message', message);
+
+    // Emit conversation_updated to EACH participant's user room
+    for (const participantId of participants) {
+      const userRoom = `user:${participantId}`;
+      this.logger.log(
+        `[BROADCAST] Emitting conversation_updated to ${userRoom} for participant ${participantId}`,
+      );
+      this.server.to(userRoom).emit('conversation_updated', {
+        conversationId: conversationId,
+        lastMessageText:
+          message.text ||
+          (Array.isArray(message.attachments) && message.attachments.length
+            ? '📎 Attachment'
+            : ''),
+        lastMessageAt: message.createdAt,
+        lastMessageAdId: message.adId,
+        lastMessageAdTitle: message.adTitle || null,
+        message,
+      });
+      if (String(participantId) !== String(userId)) {
+        this.server.to(userRoom).emit('presence_state', {
+          userId,
+          online: this.isUserOnline(userId),
+          lastSeenAt: this.lastSeenMap.get(userId) || null,
+        });
+      }
     }
   }
 

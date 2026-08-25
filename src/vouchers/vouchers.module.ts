@@ -23,6 +23,7 @@ import { VouchersKafkaController } from './vouchers.kafka.controller';
 import { OrdersModule } from '../orders/orders.module';
 import { TransactionModule } from '../common/services/transaction.module';
 import { ModerationModule } from '../moderation/moderation.module';
+import { UsersModule } from '../users/users.module';
 
 @Module({
   imports: [
@@ -39,6 +40,7 @@ import { ModerationModule } from '../moderation/moderation.module';
     OrdersModule,
     TransactionModule,
     ModerationModule,
+    UsersModule,
   ],
   controllers: [VouchersController, VouchersKafkaController],
   providers: [VouchersService],

@@ -26,6 +26,7 @@ import {
 } from '../offers/schemas/offer-promotion.schema';
 import { UserDocument } from '../users/schemas/user.schema';
 import { MerchantDocument } from '../users/schemas/merchant.schema';
+import { UsersService } from '../users/users.service';
 import {
   MerchantProduct,
   MerchantProductDocument,
@@ -68,6 +69,7 @@ export class VouchersService implements OnModuleInit {
     private ordersService: OrdersService,
     private redisService: RedisService,
     private readonly transactionService: TransactionService,
+    private usersService: UsersService,
   ) {}
 
   private getRedemptionRedisKey(merchantId: string) {
@@ -1266,6 +1268,7 @@ export class VouchersService implements OnModuleInit {
 
             if (loyaltyPoints > 0) {
               voucherForUpdate.loyaltyPointsEarned = loyaltyPoints;
+              await voucherForUpdate.save({ session });
               const user = await this.userModel
                 .findById(voucherForUpdate.userId)
                 .session(session)
@@ -1282,6 +1285,20 @@ export class VouchersService implements OnModuleInit {
                     (current[merchantIdStr] || 0) + loyaltyPoints,
                 };
                 await user.save({ session });
+                
+                const m = await this.merchantModel.findOne({ userId: merchantIdStr }).exec();
+                const actualStoreName = m?.storeName || voucherForUpdate.merchantName;
+                
+                this.usersService.createNotificationAndPush(
+                  user._id.toString(),
+                  merchantIdStr,
+                  actualStoreName,
+                  String(voucherForUpdate.offerId || ''),
+                  voucherForUpdate.offerTitle || '',
+                  'loyalty_points',
+                  `${loyaltyPoints} points were credited to your account from "${voucherForUpdate.offerTitle || 'an offer'}" at ${actualStoreName}.`,
+                  'Loyalty Points Earned!'
+                ).catch(err => this.logger.warn(`Failed to send loyalty notification: ${err.message}`));
               }
             }
 
@@ -1550,15 +1567,37 @@ export class VouchersService implements OnModuleInit {
         loyaltyPointsEarned: { $gt: 0 },
       })
       .sort({ redeemedAt: -1 })
-      .select('merchantName offerTitle loyaltyPointsEarned redeemedAt')
+      .select('merchantId merchantName offerTitle loyaltyPointsEarned redeemedAt')
       .exec();
 
-    return vouchers.map((v) => ({
-      id: v._id.toString(),
-      storeName: v.merchantName,
-      offerName: v.offerTitle,
-      points: v.loyaltyPointsEarned,
-      date: v.redeemedAt,
-    }));
+    const merchantIds = [...new Set(vouchers.map(v => v.merchantId).filter(Boolean))];
+    
+    const users = await this.userModel.find({ _id: { $in: merchantIds } }).select('name').lean().exec();
+    const userMap = {};
+    users.forEach(u => userMap[u._id.toString()] = u.name);
+
+    const merchants = await this.merchantModel.find({ 
+      userId: { $in: merchantIds.map(id => id.toString()) } 
+    }).select('userId storeName').lean().exec();
+    
+    const merchantMap = {};
+    merchants.forEach(m => {
+      merchantMap[m.userId.toString()] = m.storeName;
+    });
+
+    return vouchers.map((v) => {
+      const uId = v.merchantId ? v.merchantId.toString() : null;
+      let finalStoreName = v.merchantName;
+      if (uId) {
+        finalStoreName = merchantMap[uId] || userMap[uId] || v.merchantName;
+      }
+      return {
+        id: v._id.toString(),
+        storeName: finalStoreName,
+        offerName: v.offerTitle,
+        points: v.loyaltyPointsEarned,
+        date: v.redeemedAt,
+      };
+    });
   }
 }

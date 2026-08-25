@@ -176,7 +176,7 @@ export class UsersService implements OnModuleInit {
     }
   }
 
-  private async createNotificationAndPush(
+  public async createNotificationAndPush(
     recipientId: string,
     senderId: string,
     senderName: string,

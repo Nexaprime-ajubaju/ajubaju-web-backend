@@ -16,6 +16,7 @@ import { SendMessageDto } from './dto/send-message.dto';
 import { ListMessagesDto } from './dto/list-messages.dto';
 import { Ad, AdDocument } from '../ads/schemas/category-schemas/ad.schema';
 import { User, UserDocument } from '../users/schemas/user.schema';
+import { UsersService } from '../users/users.service';
 
 @Injectable()
 export class ChatsService {
@@ -27,6 +28,7 @@ export class ChatsService {
     @InjectModel(Message.name) private messageModel: Model<MessageDocument>,
     @InjectModel(Ad.name) private adModel: Model<AdDocument>,
     @InjectModel(User.name) private userModel: Model<UserDocument>,
+    private usersService: UsersService,
   ) { }
 
   private toConversationId(id: any): string {
@@ -295,6 +297,21 @@ export class ChatsService {
     await conversation.save();
 
     const sender = await this.userModel.findById(userId).exec();
+
+    // Notify recipient
+    const recipientId = conversation.participants.find(id => id !== String(userId));
+    if (recipientId) {
+      this.usersService.createNotificationAndPush(
+        recipientId,
+        String(userId),
+        sender?.name || 'A user',
+        resolvedAdId || '',
+        resolvedAdTitle || '',
+        'new_message',
+        `${sender?.name || 'Someone'} sent you a message: ${text || '📷 Photo'}`,
+        'New Message'
+      ).catch(err => this.logger.warn(`Failed to send chat notification: ${err.message}`));
+    }
 
     return {
       id: this.toConversationId(message._id),

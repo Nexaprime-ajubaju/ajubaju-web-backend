@@ -18,10 +18,15 @@ import { StartConversationDto } from './dto/start-conversation.dto';
 import { SendMessageDto } from './dto/send-message.dto';
 import { ListMessagesDto } from './dto/list-messages.dto';
 
+import { ChatsGateway } from './chats.gateway';
+
 @Controller('chats')
 @UseGuards(JwtAuthGuard)
 export class ChatsController {
-  constructor(private readonly chatsService: ChatsService) { }
+  constructor(
+    private readonly chatsService: ChatsService,
+    private readonly chatsGateway: ChatsGateway,
+  ) { }
 
   @Post('upload/image')
   @UseInterceptors(AnyFilesInterceptor())
@@ -147,6 +152,9 @@ export class ChatsController {
       conversationId,
       dto,
     );
+
+    this.chatsGateway.broadcastNewMessage(user.id, conversationId, data);
+
     return {
       success: true,
       data,

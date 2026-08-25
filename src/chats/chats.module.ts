@@ -14,6 +14,7 @@ import { Message, MessageSchema } from './schemas/message.schema';
 import { Ad, AdSchema } from '../ads/schemas/category-schemas/ad.schema';
 import { User, UserSchema } from '../users/schemas/user.schema';
 import { KafkaModule } from '../kafka/kafka.module';
+import { UsersModule } from '../users/users.module';
 
 @Module({
   imports: [
@@ -31,6 +32,7 @@ import { KafkaModule } from '../kafka/kafka.module';
       }),
     }),
     KafkaModule,
+    UsersModule,
   ],
   controllers: [ChatsController, ChatsKafkaController],
   providers: [ChatsService, ChatsGateway],
