@@ -6,7 +6,7 @@ import * as nodemailer from 'nodemailer';
 export class PublicMerchantsController {
   private readonly logger = new Logger(PublicMerchantsController.name);
 
-  constructor(private readonly merchantsService: MerchantsService) {}
+  constructor(private readonly merchantsService: MerchantsService) { }
 
   @Get('public/search')
   async searchMerchants(
