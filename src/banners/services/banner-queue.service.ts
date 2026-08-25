@@ -94,6 +94,17 @@ export class BannerQueueService {
         if (!matchesCity) {
           return false;
         }
+        // When rebuilding a LOCAL city queue (not 'global'), exclude banners that
+        // are purely global. Global banners live in the 'global' queue and are used
+        // as a fallback by the serving layer only when no local banners exist.
+        // Without this, global banners would steal local slots (e.g. districtQueue
+        // slots 1-5), causing "8 merchant + 2 global" instead of showing all 10 local.
+        if (cityNormalized !== 'global') {
+          const isGlobalOnly = c.targetCities.every((tc: string) => String(tc).trim().toLowerCase() === 'global');
+          if (isGlobalOnly) {
+            return false;
+          }
+        }
       }
       return true;
     });

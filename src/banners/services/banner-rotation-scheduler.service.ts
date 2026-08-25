@@ -306,9 +306,9 @@ export class BannerRotationSchedulerService implements OnModuleInit {
         if (!assigned) assigned = await tryAssignFromQueue(districtQueue, 'districtPointer', slotNum);
       }
 
-      // Global Fallback - Only use global queue if NO local banners exist
-      const hasLocalBanners = districtQueue.length > 0 || cityQueue.length > 0 || townQueue.length > 0;
-      if (!assigned && !hasLocalBanners) {
+      // Global Fallback - Fill remaining slots with global banners when local count < 10.
+      // Once there are 10+ local banners, global banners are completely excluded.
+      if (!assigned && localRequestIds.length < 10) {
         assigned = await tryAssignFromQueue(globalQueue, 'globalPointer', slotNum);
       }
 

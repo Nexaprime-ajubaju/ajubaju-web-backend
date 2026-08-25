@@ -84,6 +84,17 @@ export class VouchersController {
     return await this.vouchersService.getPublicVoucherStatus(voucherId);
   }
 
+  @Get('loyalty-history')
+  @UseGuards(JwtAuthGuard)
+  async getLoyaltyHistory(@CurrentUser() user: any) {
+    const userId = user?.id || user?._id;
+    if (!userId) {
+      throw new BadRequestException('User ID not found');
+    }
+    const data = await this.vouchersService.getLoyaltyHistory(userId);
+    return { success: true, data };
+  }
+
   /**
    * GET /vouchers/:voucherId
    * Get single voucher details by ID
@@ -221,6 +232,7 @@ export class VouchersController {
    * GET /vouchers/merchant/pending
    * Get merchant's pending redemptions (to be redeemed)
    */
+
   @Get('merchant/pending')
   @UseGuards(JwtAuthGuard)
   async getMerchantPendingRedemptions(

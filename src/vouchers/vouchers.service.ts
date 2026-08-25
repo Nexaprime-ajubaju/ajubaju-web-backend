@@ -1265,6 +1265,7 @@ export class VouchersService implements OnModuleInit {
             }
 
             if (loyaltyPoints > 0) {
+              voucherForUpdate.loyaltyPointsEarned = loyaltyPoints;
               const user = await this.userModel
                 .findById(voucherForUpdate.userId)
                 .session(session)
@@ -1537,5 +1538,27 @@ export class VouchersService implements OnModuleInit {
       this.logger.error(`Error fetching merchant offers: ${error.message}`);
       throw error;
     }
+  }
+
+  // ==================== LOYALTY ====================
+
+  async getLoyaltyHistory(userId: string) {
+    const vouchers = await this.voucherModel
+      .find({
+        userId: new Types.ObjectId(userId),
+        status: VoucherStatus.REDEEMED,
+        loyaltyPointsEarned: { $gt: 0 },
+      })
+      .sort({ redeemedAt: -1 })
+      .select('merchantName offerTitle loyaltyPointsEarned redeemedAt')
+      .exec();
+
+    return vouchers.map((v) => ({
+      id: v._id.toString(),
+      storeName: v.merchantName,
+      offerName: v.offerTitle,
+      points: v.loyaltyPointsEarned,
+      date: v.redeemedAt,
+    }));
   }
 }

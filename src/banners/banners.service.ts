@@ -35,6 +35,7 @@ import { UpdateBannerPromotionDto } from './dto/update-banner-promotion.dto';
 import { TransactionService } from '../common/services/transaction.service';
 import { BannerQueueService } from './services/banner-queue.service';
 import { BannerServingService } from './services/banner-serving.service';
+import { BannerCacheService } from './services/banner-cache.service';
 
 @Injectable()
 export class BannersService implements OnModuleInit {
@@ -62,6 +63,7 @@ export class BannersService implements OnModuleInit {
     private readonly pricingService: BannerPricingService,
     @Optional() private readonly queueService?: BannerQueueService,
     @Optional() private readonly servingService?: BannerServingService,
+    @Optional() private readonly cacheService?: BannerCacheService,
     @Optional() private readonly kafkaService?: KafkaService,
   ) { }
 
@@ -172,6 +174,10 @@ export class BannersService implements OnModuleInit {
   private async invalidateBannerCache(merchantId?: string): Promise<void> {
     await this.redisService.deleteByPattern('golo:banners:active:*');
     await this.redisService.deleteByPattern('golo:banners:admin:*');
+    await this.redisService.deleteByPattern('banner:city:*');
+    if (this.cacheService) {
+      this.cacheService.clearAllInMemorySlots();
+    }
     if (merchantId) {
       await this.redisService.deleteByPattern(
         `golo:banners:merchant:${merchantId}:*`,
@@ -739,9 +745,10 @@ export class BannersService implements OnModuleInit {
     }
 
     if (payload.action === 'pause') {
-      request.isHomepageVisible = false;
-      if (request.status === BannerPromotionStatus.ACTIVE) {
+      if (request.status === BannerPromotionStatus.ACTIVE || request.isHomepageVisible) {
+        request.isHomepageVisible = false;
         request.status = BannerPromotionStatus.APPROVED;
+        request.pausedAt = new Date();
       }
     }
 
@@ -751,12 +758,35 @@ export class BannersService implements OnModuleInit {
           'Only paid banner requests can be resumed',
         );
       }
+      
+      if (request.pausedAt) {
+        const pauseDurationMs = new Date().getTime() - request.pausedAt.getTime();
+        request.totalPausedDuration = (request.totalPausedDuration || 0) + pauseDurationMs;
+        
+        if (request.endDate) {
+          request.endDate = new Date(request.endDate.getTime() + pauseDurationMs);
+        }
+        
+        request.pausedAt = null;
+      }
+
       request.isHomepageVisible = true;
       request.status = BannerPromotionStatus.ACTIVE;
     }
 
     await request.save();
+
+    if (this.queueService && (payload.action === 'pause' || payload.action === 'resume')) {
+      if (request.targetCities && request.targetCities.length > 0) {
+        for (const city of request.targetCities) {
+          await this.queueService.rebuildCityQueue(city);
+        }
+      }
+      await this.queueService.rebuildCityQueue('global');
+    }
+
     await this.invalidateBannerCache(merchantId);
+
     return request;
   }
 
@@ -792,6 +822,11 @@ export class BannersService implements OnModuleInit {
 
     await this.invalidateBannerCache(bannerPromotion.merchantId);
     if (this.queueService) {
+      if (bannerPromotion.targetCities && bannerPromotion.targetCities.length > 0) {
+        for (const city of bannerPromotion.targetCities) {
+          await this.queueService.rebuildCityQueue(city);
+        }
+      }
       await this.queueService.rebuildCityQueue('global');
     }
 
@@ -813,6 +848,11 @@ export class BannersService implements OnModuleInit {
     await this.bannerPromotionModel.deleteOne({ requestId, merchantId }).exec();
     await this.invalidateBannerCache(merchantId);
     if (this.queueService) {
+      if (bannerPromotion.targetCities && bannerPromotion.targetCities.length > 0) {
+        for (const city of bannerPromotion.targetCities) {
+          await this.queueService.rebuildCityQueue(city);
+        }
+      }
       await this.queueService.rebuildCityQueue('global');
     }
     return bannerPromotion;

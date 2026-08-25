@@ -150,4 +150,11 @@ export class BannerCacheService {
       this.logger.error(`Error invalidating city cache for ${city}: ${err.message}`);
     }
   }
+
+  /**
+   * Clear all in-memory slots (useful when globally invalidating cache)
+   */
+  clearAllInMemorySlots(): void {
+    this.inMemorySlots.clear();
+  }
 }

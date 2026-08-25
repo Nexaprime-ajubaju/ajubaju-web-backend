@@ -89,6 +89,9 @@ export class Voucher {
   @Prop({ type: Date })
   sharedAt?: Date;
 
+  @Prop({ type: Number, default: 0 })
+  loyaltyPointsEarned?: number;
+
   // Timestamps automatically added by @Schema decorator
   // createdAt: Date;
   // updatedAt: Date;
