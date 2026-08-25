@@ -45,7 +45,7 @@ export class MerchantProductsService implements OnModuleInit {
     private readonly moderationService: ModerationService,
     private readonly moderationSecurityService: ModerationSecurityService,
     @Optional() private readonly kafkaService?: KafkaService,
-  ) {}
+  ) { }
 
   private cacheListKey(
     merchantId: string,
@@ -90,13 +90,13 @@ export class MerchantProductsService implements OnModuleInit {
       if (videoUrl.includes('cloudinary.com') && videoUrl.includes('/video/upload/')) {
         const baseUrl = videoUrl.substring(0, videoUrl.lastIndexOf('.')); // removes .mp4 or .webm
         const urlWithoutExt = baseUrl;
-        
+
         // Split around /upload/
         const parts = urlWithoutExt.split('/upload/');
         if (parts.length === 2) {
           const prefix = parts[0];
           const suffix = parts[1];
-          
+
           const frame0 = `${prefix}/upload/so_0/${suffix}.jpg`;
           const frame30 = `${prefix}/upload/so_30p/${suffix}.jpg`;
           const frame70 = `${prefix}/upload/so_70p/${suffix}.jpg`;
@@ -174,10 +174,10 @@ export class MerchantProductsService implements OnModuleInit {
           const totalProductsCount = await this.merchantProductModel
             .countDocuments({ merchantId })
             .exec();
-          
+
           if (totalProductsCount >= planDetails.planFeatures.maxProducts) {
             payload.isActive = false;
-            
+
             // Force the merchant to re-select active products since they now have more products than their plan allows
             merchant.hasSelectedActiveProducts = false;
             await merchant.save();
@@ -298,12 +298,12 @@ export class MerchantProductsService implements OnModuleInit {
       maxProducts === -1
         ? Promise.resolve(null)
         : this.merchantProductModel
-            .find({ merchantId })
-            .sort({ createdAt: -1 })
-            .limit(maxProducts)
-            .select('_id')
-            .lean()
-            .exec(),
+          .find({ merchantId })
+          .sort({ createdAt: -1 })
+          .limit(maxProducts)
+          .select('_id')
+          .lean()
+          .exec(),
       this.merchantProductModel.countDocuments({
         merchantId,
         isActive: { $ne: false },
@@ -328,9 +328,9 @@ export class MerchantProductsService implements OnModuleInit {
             ...(isEligible
               ? {}
               : {
-                  offerEligibilityReason:
-                    `Only your ${maxProducts} most recently created products can receive offers on your current tier.`,
-                }),
+                offerEligibilityReason:
+                  `Only your ${maxProducts} most recently created products can receive offers on your current tier.`,
+              }),
           };
         }),
         stats: {
@@ -388,12 +388,12 @@ export class MerchantProductsService implements OnModuleInit {
       maxProducts === -1
         ? Promise.resolve(null)
         : this.merchantProductModel
-            .find({ merchantId })
-            .sort({ createdAt: -1 })
-            .limit(maxProducts)
-            .select('_id')
-            .lean()
-            .exec(),
+          .find({ merchantId })
+          .sort({ createdAt: -1 })
+          .limit(maxProducts)
+          .select('_id')
+          .lean()
+          .exec(),
     ]);
 
     const eligibleIds = topProducts ? new Set(topProducts.map((p) => String(p._id))) : null;
@@ -409,9 +409,9 @@ export class MerchantProductsService implements OnModuleInit {
             ...(isEligible
               ? {}
               : {
-                  offerEligibilityReason:
-                    `Only your ${maxProducts} most recently created products can receive offers on your current tier.`,
-                }),
+                offerEligibilityReason:
+                  `Only your ${maxProducts} most recently created products can receive offers on your current tier.`,
+              }),
           };
         }),
       },
@@ -532,20 +532,13 @@ export class MerchantProductsService implements OnModuleInit {
     dto: UpdateMerchantProductDto,
   ) {
     await this.moderationSecurityService.checkRestriction(merchantId);
-    
+
     const product = await this.findProductOrThrow(productId);
 
     if (String(product.merchantId) !== String(merchantId)) {
       throw new ForbiddenException('You can only update your own products');
     }
 
-    if (product.isActive && product.lastActivatedAt) {
-      const freezePeriodMs = 30 * 24 * 60 * 60 * 1000;
-      const timeSinceActivation = Date.now() - new Date(product.lastActivatedAt).getTime();
-      if (timeSinceActivation < freezePeriodMs) {
-        throw new BadRequestException('Product cannot be edited during the 30-day freeze period after activation.');
-      }
-    }
 
     if (typeof dto.name === 'string') {
       product.name = dto.name.trim();
@@ -581,14 +574,14 @@ export class MerchantProductsService implements OnModuleInit {
       product.images = sanitizedImages;
     }
 
-      if (dto.videoUrl !== undefined) {
-        if (dto.videoUrl !== null && dto.videoUrl !== product.videoUrl) {
-          await this.moderateVideo(dto.videoUrl, merchantId);
-        }
-        product.videoUrl = dto.videoUrl;
+    if (dto.videoUrl !== undefined) {
+      if (dto.videoUrl !== null && dto.videoUrl !== product.videoUrl) {
+        await this.moderateVideo(dto.videoUrl, merchantId);
       }
+      product.videoUrl = dto.videoUrl;
+    }
 
-      await product.save();
+    await product.save();
     await this.invalidateMerchantProductCache(merchantId);
 
     return {
