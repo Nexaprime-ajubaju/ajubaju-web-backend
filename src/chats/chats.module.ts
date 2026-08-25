@@ -6,10 +6,7 @@ import { ChatsController } from './chats.controller';
 import { ChatsService } from './chats.service';
 import { ChatsGateway } from './chats.gateway';
 import { ChatsKafkaController } from './chats.kafka.controller';
-import {
-  Conversation,
-  ConversationSchema,
-} from './schemas/conversation.schema';
+import { Conversation, ConversationSchema } from './schemas/conversation.schema';
 import { Message, MessageSchema } from './schemas/message.schema';
 import { Ad, AdSchema } from '../ads/schemas/category-schemas/ad.schema';
 import { User, UserSchema } from '../users/schemas/user.schema';
@@ -36,4 +33,4 @@ import { KafkaModule } from '../kafka/kafka.module';
   providers: [ChatsService, ChatsGateway],
   exports: [ChatsService],
 })
-export class ChatsModule {}
+export class ChatsModule { }
