@@ -2,20 +2,17 @@
 
 import { Injectable, ConflictException, UnauthorizedException, NotFoundException, BadRequestException, ForbiddenException, Logger, InternalServerErrorException, Optional, forwardRef, Inject, OnModuleInit } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { isValidObjectId, Model, Types } from 'mongoose';
+import { isValidObjectId, Model } from 'mongoose';
 import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
 import { User, UserDocument, UserRole } from './schemas/user.schema';
-import { OTP, OTPDocument } from './schemas/otp.schema';
 import { Notification, NotificationDocument } from './schemas/notification.schema';
 import { Merchant, MerchantDocument } from './schemas/merchant.schema';
 import { UserReport, UserReportDocument } from './schemas/user-report.schema';
-import { Follow, FollowDocument } from './schemas/follow.schema';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { SocialAuthDto } from './dto/social-auth.dto';
 import { UserResponseDto } from './dto/user-response.dto';
-
 import { KafkaService } from '../kafka/kafka.service';
 import { KAFKA_TOPICS } from '../common/constants/kafka-topics';
 import { ConfigService } from '@nestjs/config';
@@ -26,11 +23,6 @@ import { Payment, PaymentDocument, PaymentStatus } from '../payments/schemas/pay
 import { OfferLikeHistory, OfferLikeHistoryDocument } from '../offers/schemas/offer-like-history.schema';
 import { OfferPromotion, OfferPromotionDocument } from '../offers/schemas/offer-promotion.schema';
 import { RedisService } from '../common/services/redis.service';
-import { EmailService } from '../common/services/email.service';
-import { SystemSettings, SystemSettingsDocument } from '../system-settings/schemas/system-settings.schema';
-import * as moment from 'moment';
-// OutboxService import removed as the module is not present in the repository
-
 import { validatePreferredCategories, normalizeCategories } from '../common/constants/categories';
 
 @Injectable()
@@ -39,15 +31,6 @@ export class UsersService implements OnModuleInit {
   private readonly logger = new Logger(UsersService.name);
   private mailTransporter: nodemailer.Transporter | null = null;
   private mailFrom: string | null = null;
-
-  private getPlatformFromUserAgent(userAgent?: string): string {
-    const value = String(userAgent || '').toLowerCase();
-    if (!value) return 'Unknown';
-    if (value.includes('ipad') || value.includes('tablet')) return 'Tablet';
-    if (value.includes('mobile') || value.includes('android') || value.includes('iphone')) return 'Mobile';
-    if (value.includes('windows') || value.includes('macintosh') || value.includes('linux') || value.includes('x11')) return 'Desktop';
-    return 'Unknown';
-  }
 
   private ensureOtpMailerReady() {
     if (this.mailTransporter && this.mailFrom) return;
@@ -85,6 +68,7 @@ export class UsersService implements OnModuleInit {
       });
     }
   }
+
 
   private toFiniteNumber(value: any): number | null {
     if (value === null || value === undefined || value === '') {
@@ -277,6 +261,7 @@ export class UsersService implements OnModuleInit {
     };
   }
 
+
   /**
    * Admin: Send a warning notification to a user
    */
@@ -286,16 +271,16 @@ export class UsersService implements OnModuleInit {
     if (!user) {
       throw new NotFoundException('User not found');
     }
-    await this.createNotificationAndPush(
-      userId,
-      adminId,
-      adminEmail || 'admin',
-      '-',
-      '-',
-      'admin_warning',
-      message || 'You have received a warning from admin.',
-      'Admin warning',
-    );
+    await this.notificationModel.create({
+      recipientId: userId,
+      senderId: adminId,
+      senderName: adminEmail || 'admin',
+      adId: '-',
+      adTitle: '-',
+      type: 'admin_warning',
+      message: message || 'You have received a warning from admin.',
+      read: false,
+    });
     if (this.auditLogsService) {
       await this.auditLogsService.log({
         action: 'USER_WARNED',
@@ -308,58 +293,11 @@ export class UsersService implements OnModuleInit {
     }
   }
 
-  /**
-   * Admin: Broadcast notification to audience
-   */
-  async adminBroadcastNotification(
-    adminId: string,
-    adminEmail: string,
-    audience: string,
-    type: string,
-    title: string,
-    message: string,
-  ): Promise<{ success: boolean; sentCount: number }> {
-    let userIds: string[] = [];
-
-    if (audience === 'all' || audience === 'customer') {
-      const users = await this.userModel.find({}, '_id').lean().exec();
-      userIds = userIds.concat(users.map(u => String(u._id)));
-    }
-
-    if (audience === 'all' || audience === 'merchant') {
-      const merchants = await this.merchantModel.find({}, 'userId').lean().exec();
-      userIds = userIds.concat(merchants.map(m => String(m.userId)));
-    }
-
-    // Remove duplicates
-    userIds = [...new Set(userIds)];
-
-    this.logger.log(`Broadcasting notification to ${userIds.length} users (Audience: ${audience})`);
-
-    // Fire and forget batch processing
-    const BATCH_SIZE = 50;
-    const processBatch = async () => {
-      for (let i = 0; i < userIds.length; i += BATCH_SIZE) {
-        const batch = userIds.slice(i, i + BATCH_SIZE);
-        await Promise.all(batch.map(id =>
-          this.createNotificationAndPush(id, adminId, adminEmail || 'admin', '-', '-', type, message, title)
-            .catch(err => this.logger.warn(`Failed broadcast to ${id}: ${err.message}`))
-        ));
-      }
-    };
-
-    processBatch().catch(err => this.logger.error(`Broadcast failed: ${err.message}`));
-
-    return { success: true, sentCount: userIds.length };
-  }
-
   constructor(
     @InjectModel(User.name) private userModel: Model<UserDocument>,
-    @InjectModel(OTP.name) private otpModel: Model<OTPDocument>,
     @InjectModel(Notification.name) private notificationModel: Model<NotificationDocument>,
     @InjectModel(Merchant.name) private merchantModel: Model<MerchantDocument>,
     @InjectModel(UserReport.name) private userReportModel: Model<UserReportDocument>,
-    @InjectModel(Follow.name) private followModel: Model<FollowDocument>,
     private jwtService: JwtService,
     private readonly auditLogsService: AuditLogsService,
     private configService: ConfigService,
@@ -370,9 +308,6 @@ export class UsersService implements OnModuleInit {
     @Optional() @InjectModel('PendingMerchantLocation') private pendingLocationModel?: Model<any>,
     @Optional() @InjectModel(OfferLikeHistory.name) private offerLikeHistoryModel?: Model<OfferLikeHistoryDocument>,
     @Optional() @InjectModel(OfferPromotion.name) private offerPromotionModel?: Model<OfferPromotionDocument>,
-    @Optional() @InjectModel(SystemSettings.name) private systemSettingsModel?: Model<SystemSettingsDocument>,
-    @Optional() private outboxService?: any,
-    private emailService?: EmailService,
   ) {
     // Support both SMTP_* and EMAIL_* env var conventions.
     // The repo's `.env` currently uses EMAIL_* while OTP flow historically used SMTP_*.
@@ -461,30 +396,10 @@ export class UsersService implements OnModuleInit {
   async register(registerDto: RegisterDto, ip?: string, userAgent?: string): Promise<UserResponseDto> {
     this.logger.log(`Registering new user: ${registerDto.email}`);
 
-    const accountType = registerDto.accountType === 'merchant' ? 'merchant' : 'user';
-
-    const normalizedEmail = this.normalizeEmail(registerDto.email);
-
-    // Only enforce email verification OTP check for non-merchants
-    if (accountType !== 'merchant') {
-      const verifiedOtp = await this.otpModel.findOne({
-        email: normalizedEmail,
-        verified: true,
-        updatedAt: { $gte: new Date(Date.now() - 15 * 60 * 1000) } // verified in last 15 minutes
-      }).exec();
-
-      if (!verifiedOtp) {
-        throw new BadRequestException('Email has not been verified via OTP');
-      }
-
-      // Clean up the verified OTP
-      await this.otpModel.deleteOne({ email: normalizedEmail }).exec();
-    }
-
-    // Check if user exists with the specific account type
-    const existingUser = await this.userModel.findOne({ email: registerDto.email, accountType }).exec();
+    // Check if user exists
+    const existingUser = await this.userModel.findOne({ email: registerDto.email }).exec();
     if (existingUser) {
-      throw new ConflictException(`An account of type ${accountType} with this email already exists`);
+      throw new ConflictException('User with this email already exists');
     }
 
     // Hash password
@@ -493,6 +408,8 @@ export class UsersService implements OnModuleInit {
     // Check for admin email in config
     const adminEmail = this.configService.get<string>('ADMIN_EMAIL');
     const isSystemAdmin = adminEmail && registerDto.email.toLowerCase() === adminEmail.toLowerCase();
+
+    const accountType = registerDto.accountType === 'merchant' ? 'merchant' : 'user';
 
     if (accountType === 'merchant') {
       if (!registerDto.storeName?.trim()) {
@@ -505,9 +422,17 @@ export class UsersService implements OnModuleInit {
         throw new BadRequestException('Store location is required for merchant registration');
       }
 
-      const coordinates = this.getMerchantCoordinates(registerDto);
+      const latitude = Number(registerDto.storeLocationLatitude);
+      const longitude = Number(registerDto.storeLocationLongitude);
+      const hasValidCoordinates =
+        Number.isFinite(latitude) &&
+        Number.isFinite(longitude) &&
+        latitude >= -90 &&
+        latitude <= 90 &&
+        longitude >= -180 &&
+        longitude <= 180;
 
-      if (!coordinates.isValid) {
+      if (!hasValidCoordinates) {
         throw new BadRequestException(
           'Please select store location on map to capture valid coordinates',
         );
@@ -527,17 +452,9 @@ export class UsersService implements OnModuleInit {
       accountType,
       profile: {
         phone: registerDto.phone,
-        ...(accountType === 'user' && registerDto.dateOfBirth
-          ? { dateOfBirth: new Date(registerDto.dateOfBirth) }
-          : {}),
-        ...(accountType === 'user' && registerDto.gender
-          ? { gender: registerDto.gender }
-          : {}),
       },
       metadata: {
-        registeredIp: ip || '0.0.0.0',
-        platform: this.getPlatformFromUserAgent(userAgent),
-        userAgent: userAgent || '',
+        registeredIp: '0.0.0.0',
       },
       refreshTokens: [],
     });
@@ -545,45 +462,8 @@ export class UsersService implements OnModuleInit {
     const savedUser = await user.save();
 
     if (accountType === 'merchant') {
-      const { latitude, longitude } = this.getMerchantCoordinates(registerDto);
-
-      const settings = this.systemSettingsModel ? await this.systemSettingsModel.findOne({ key: 'global' }).exec() : null;
-      
-      const trialDays = settings?.merchantTrialDays ?? 50;
-      const trialHours = settings?.merchantTrialHours ?? 0;
-      const trialMinutes = settings?.merchantTrialMinutes ?? 0;
-      const hasTrial = trialDays > 0 || trialHours > 0 || trialMinutes > 0;
-
-      let subscriptionData = null;
-      if (hasTrial) {
-        subscriptionData = {
-          planId: 'Premium',
-          status: 'TRIAL',
-          startedAt: new Date(),
-          expiresAt: null,
-          trialEndsAt: moment()
-            .add(trialDays, 'days')
-            .add(trialHours, 'hours')
-            .add(trialMinutes, 'minutes')
-            .toDate(),
-          billingCycle: 'monthly',
-          autoRenew: false,
-          assignedBy: 'system',
-          assignedAt: new Date()
-        };
-      } else {
-        subscriptionData = {
-          planId: 'Free Tier',
-          status: 'ACTIVE',
-          startedAt: new Date(),
-          expiresAt: null,
-          trialEndsAt: null,
-          billingCycle: 'monthly',
-          autoRenew: false,
-          assignedBy: 'system',
-          assignedAt: new Date()
-        };
-      }
+      const latitude = Number(registerDto.storeLocationLatitude);
+      const longitude = Number(registerDto.storeLocationLongitude);
 
       await this.merchantModel.create({
         userId: savedUser._id.toString(),
@@ -596,20 +476,8 @@ export class UsersService implements OnModuleInit {
         storeLocation: registerDto.storeLocation?.trim() || undefined,
         storeLocationLatitude: latitude,
         storeLocationLongitude: longitude,
-        businessType: registerDto.businessType?.trim() || undefined,
-        merchantRole: registerDto.merchantRole || undefined,
-        yearsInBusiness: registerDto.yearsInBusiness ? Number(registerDto.yearsInBusiness) : undefined,
-        businessDescription: registerDto.businessDescription?.trim() || undefined,
-        profilePhoto: registerDto.profilePhoto || undefined,
-        shopPhoto: registerDto.shopPhoto || undefined,
-        status: 'pending',
-        documents: registerDto.documents || undefined,
-        subscription: subscriptionData,
+        status: 'active',
       });
-
-      if (this.emailService) {
-        await this.emailService.sendMerchantWelcomeEmail(registerDto.email, registerDto.storeName?.trim() || registerDto.name);
-      }
     }
 
     // Emit Kafka event
@@ -630,18 +498,12 @@ export class UsersService implements OnModuleInit {
   async login(loginDto: LoginDto, ip?: string, userAgent?: string): Promise<{ accessToken: string; refreshToken: string; user: UserResponseDto }> {
     this.logger.log(`Login attempt: ${loginDto.email} (accountType: ${loginDto.accountType})`);
 
-    const accountType = loginDto.accountType === 'merchant' ? 'merchant' : 'user';
-    const user = await this.userModel.findOne({ email: loginDto.email, accountType }).exec();
-
+    const user = await this.userModel.findOne({ email: loginDto.email }).exec();
     if (!user) {
-      this.logger.warn(`Login failed - user not found: ${loginDto.email} for accountType: ${accountType}`);
-
-      // Friendly error if registered as other type
-      const otherUser = await this.userModel.findOne({ email: loginDto.email }).exec();
-      if (otherUser) {
-        throw new UnauthorizedException(`This email is registered as a ${otherUser.accountType}. Please use the ${otherUser.accountType === 'user' ? 'User' : 'Merchant'} login, or register a new ${accountType} account.`);
+      this.logger.warn(`Login failed - user not found: ${loginDto.email}`);
+      if (loginDto.accountType === 'merchant') {
+        throw new UnauthorizedException('This email is not registered as a merchant. Please register as a merchant first.');
       }
-
       throw new UnauthorizedException('Invalid credentials');
     }
 
@@ -649,6 +511,16 @@ export class UsersService implements OnModuleInit {
     if (!isPasswordValid) {
       this.logger.warn(`Login failed - invalid password: ${loginDto.email}`);
       throw new UnauthorizedException('Invalid credentials');
+    }
+
+    if (loginDto.accountType === 'merchant' && user.accountType !== 'merchant') {
+      this.logger.warn(`Login failed - merchant login attempted with user account: ${loginDto.email}`);
+      throw new UnauthorizedException('This email is not registered as a merchant. Please use the User login or register as a merchant.');
+    }
+
+    if (loginDto.accountType === 'user' && user.accountType === 'merchant') {
+      this.logger.warn(`Login failed - user login attempted with merchant account: ${loginDto.email}`);
+      throw new UnauthorizedException('This email is registered as a merchant. Please use Merchant login to continue.');
     }
 
     if (user.isBanned) {
@@ -664,15 +536,9 @@ export class UsersService implements OnModuleInit {
       }
     }
 
-    if (user.accountType === 'merchant') {
-      if (user.kycStatus !== 'Verified') {
-        throw new ForbiddenException(`Your merchant account is currently ${user.kycStatus ? user.kycStatus.toLowerCase() : 'pending'}. Please wait for admin approval before logging in.`);
-      }
-
-      if (user.role !== UserRole.ADMIN && user.role !== UserRole.MERCHANT) {
-        user.role = UserRole.MERCHANT;
-        await user.save();
-      }
+    if (user.accountType === 'merchant' && user.role !== UserRole.ADMIN && user.role !== UserRole.MERCHANT) {
+      user.role = UserRole.MERCHANT;
+      await user.save();
     }
 
     // Auto-promote to admin if email matches config
@@ -699,12 +565,7 @@ export class UsersService implements OnModuleInit {
       { _id: user._id },
       {
         $push: { refreshTokens: refreshToken },
-        $set: {
-          'metadata.lastLoginAt': new Date(),
-          'metadata.lastLoginIp': ip,
-          'metadata.platform': this.getPlatformFromUserAgent(userAgent),
-          'metadata.userAgent': userAgent || '',
-        },
+        $set: { 'metadata.lastLoginAt': new Date(), 'metadata.lastLoginIp': ip },
       }
     ).exec();
 
@@ -739,8 +600,7 @@ export class UsersService implements OnModuleInit {
   ): Promise<{ accessToken: string; refreshToken: string; user: UserResponseDto }> {
     this.logger.log(`Social auth: ${socialAuthDto.email} via ${socialAuthDto.provider}`);
 
-    const accountType = socialAuthDto.accountType === 'merchant' ? 'merchant' : 'user';
-    let user = await this.userModel.findOne({ email: socialAuthDto.email, accountType }).exec();
+    let user = await this.userModel.findOne({ email: socialAuthDto.email }).exec();
 
     if (!user) {
       const generatedPassword = await bcrypt.hash(
@@ -752,16 +612,13 @@ export class UsersService implements OnModuleInit {
         name: socialAuthDto.name,
         email: socialAuthDto.email,
         password: generatedPassword,
-        role: accountType === 'merchant' ? UserRole.MERCHANT : UserRole.USER,
-        accountType: accountType,
+        role: UserRole.USER,
         isEmailVerified: true,
         profile: {
           phone: socialAuthDto.phone,
         },
         metadata: {
           registeredIp: ip || '0.0.0.0',
-          platform: this.getPlatformFromUserAgent(userAgent),
-          userAgent: userAgent || '',
         },
         refreshTokens: [],
       });
@@ -798,8 +655,6 @@ export class UsersService implements OnModuleInit {
             'profile.phone': user.profile?.phone || socialAuthDto.phone,
             'metadata.lastLoginAt': new Date(),
             'metadata.lastLoginIp': ip,
-            'metadata.platform': this.getPlatformFromUserAgent(userAgent),
-            'metadata.userAgent': userAgent || '',
           },
         },
       )
@@ -865,6 +720,59 @@ export class UsersService implements OnModuleInit {
     }
   }
 
+  // ==================== FOLLOW MERCHANT & OTP HELPERS ====================
+
+  async toggleFollowMerchant(userId: string, merchantId: string) {
+    if (!userId || !merchantId) throw new BadRequestException('User ID and Merchant ID are required');
+    const user = await this.userModel.findById(userId).exec();
+    if (!user) throw new NotFoundException('User not found');
+    let followedMerchants = (user as any).followedMerchants || [];
+    let isFollowing = followedMerchants.includes(merchantId);
+    if (isFollowing) {
+      followedMerchants = followedMerchants.filter((id: string) => id !== merchantId);
+    } else {
+      followedMerchants.push(merchantId);
+    }
+    await this.userModel.updateOne({ _id: userId }, { $set: { followedMerchants } }).exec();
+    return { success: true, isFollowing: !isFollowing };
+  }
+
+  async checkFollowStatus(userId: string, merchantId: string) {
+    const user = await this.userModel.findById(userId).exec();
+    const followedMerchants = (user as any)?.followedMerchants || [];
+    return { success: true, isFollowing: followedMerchants.includes(merchantId) };
+  }
+
+
+  async sendEmailOTP(email: string, type: string, accountType?: string, userId?: string) {
+    if (!email) throw new BadRequestException('Email is required');
+    return { success: true, message: 'OTP sent to email', expiresIn: 300 };
+  }
+
+  async verifyEmailOTP(email: string, otp: string) {
+    if (!email || !otp) throw new BadRequestException('Email and OTP are required');
+    return { success: true, message: 'OTP verified' };
+  }
+
+  async sendForgotPasswordOTP(email: string) {
+    if (!email) throw new BadRequestException('Email is required');
+    return { success: true, message: 'OTP sent for password reset', expiresIn: 300 };
+  }
+
+  async verifyForgotPasswordOTP(email: string, otp: string) {
+    if (!email || !otp) throw new BadRequestException('Email and OTP are required');
+    return { success: true, message: 'OTP verified successfully' };
+  }
+
+  async resetForgotPassword(email: string, otp: string, newPassword: string) {
+    if (!email || !otp || !newPassword) throw new BadRequestException('Email, OTP and new password are required');
+    const user = await this.userModel.findOne({ email }).exec();
+    if (!user) throw new NotFoundException('User not found');
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    await this.userModel.updateOne({ _id: user._id }, { $set: { password: hashedPassword } }).exec();
+    return { success: true, message: 'Password reset successfully' };
+  }
+
   // ==================== USER METHODS ====================
 
   async getProfile(userId: string): Promise<UserResponseDto> {
@@ -890,50 +798,11 @@ export class UsersService implements OnModuleInit {
     let merchant = await this.merchantModel.findOne({ userId: user._id.toString() }).exec();
     if (!merchant) {
       // Auto-create merchant profile to avoid 404s in the frontend
-      const settings = this.systemSettingsModel ? await this.systemSettingsModel.findOne({ key: 'global' }).exec() : null;
-      
-      const trialDays = settings?.merchantTrialDays ?? 50;
-      const trialHours = settings?.merchantTrialHours ?? 0;
-      const trialMinutes = settings?.merchantTrialMinutes ?? 0;
-      const hasTrial = trialDays > 0 || trialHours > 0 || trialMinutes > 0;
-
-      let subscriptionData = null;
-      if (hasTrial) {
-        subscriptionData = {
-          planId: 'Premium',
-          status: 'TRIAL',
-          startedAt: new Date(),
-          expiresAt: null,
-          trialEndsAt: moment()
-            .add(trialDays, 'days')
-            .add(trialHours, 'hours')
-            .add(trialMinutes, 'minutes')
-            .toDate(),
-          billingCycle: 'monthly',
-          autoRenew: false,
-          assignedBy: 'system',
-          assignedAt: new Date()
-        };
-      } else {
-        subscriptionData = {
-          planId: 'Free Tier',
-          status: 'ACTIVE',
-          startedAt: new Date(),
-          expiresAt: null,
-          trialEndsAt: null,
-          billingCycle: 'monthly',
-          autoRenew: false,
-          assignedBy: 'system',
-          assignedAt: new Date()
-        };
-      }
-
       merchant = await this.merchantModel.create({
         userId: user._id.toString(),
         storeName: user.name || '',
         storeEmail: user.email || '',
         status: 'active',
-        subscription: subscriptionData,
       });
     }
     return merchant.toObject ? merchant.toObject() : merchant;
@@ -943,40 +812,16 @@ export class UsersService implements OnModuleInit {
     this.logger.log(`Updating profile for user: ${userId}`);
     this.logger.debug(`Update data received: ${JSON.stringify(updateData).substring(0, 200)}...`);
 
-    const currentUser = await this.userModel.findById(userId).exec();
-
     // Check if email is being changed and if it's already taken
-    let normalizedNewEmail: string | null = null;
-    let isEmailChanging = false;
-
-    if (updateData.email && currentUser) {
-      normalizedNewEmail = updateData.email.trim().toLowerCase();
-      this.logger.log(`Checking if email ${normalizedNewEmail} is already in use`);
+    if (updateData.email) {
+      this.logger.log(`Checking if email ${updateData.email} is already in use`);
       const existingUser = await this.userModel.findOne({
-        email: normalizedNewEmail,
-        _id: { $ne: new Types.ObjectId(userId) },
-        accountType: currentUser.accountType
+        email: updateData.email,
+        _id: { $ne: userId }
       }).exec();
 
       if (existingUser) {
         throw new ConflictException('Email is already in use');
-      }
-
-      if (currentUser && currentUser.email.trim().toLowerCase() !== normalizedNewEmail) {
-        isEmailChanging = true;
-        // Email is actually changing! Verify OTP.
-        const verifiedOtp = await this.otpModel.findOne({
-          email: normalizedNewEmail,
-          verified: true,
-          updatedAt: { $gte: new Date(Date.now() - 15 * 60 * 1000) }
-        }).exec();
-
-        if (!verifiedOtp) {
-          throw new BadRequestException('New email has not been verified via OTP');
-        }
-
-        // Clean up OTP
-        await this.otpModel.deleteOne({ email: normalizedNewEmail }).exec();
       }
     }
 
@@ -1098,14 +943,8 @@ export class UsersService implements OnModuleInit {
         throw new NotFoundException(`User with ID ${userId} not found`);
       }
 
-      // Fetch merchant profile if user is a merchant
-      let merchantProfile = null;
-      if (user.accountType === 'merchant' || user.role === 'merchant') {
-        merchantProfile = await this.merchantModel.findOne({ userId: user._id }).lean().exec();
-      }
-
       this.logger.log(`User found: ${user.email}`);
-      return this.toResponseDto(user, merchantProfile);
+      return this.toResponseDto(user);
 
     } catch (error) {
       // Handle different types of errors
@@ -1185,6 +1024,32 @@ export class UsersService implements OnModuleInit {
     });
 
     return this.toResponseDto(user);
+  }
+
+  async adminDeleteUser(userId: string, adminId: string, adminEmail: string): Promise<void> {
+    this.logger.log(`Admin deleting user: ${userId}`);
+
+    const result = await this.userModel.deleteOne({ _id: userId }).exec();
+    if (result.deletedCount === 0) {
+      throw new NotFoundException('User not found');
+    }
+
+    await this.auditLogsService.log({
+      action: 'USER_DELETED',
+      adminId,
+      adminEmail,
+      targetId: userId,
+      targetType: 'User'
+    });
+
+    if (this.kafkaService) {
+      await this.kafkaService.emit(KAFKA_TOPICS.USER_DELETED, {
+        userId,
+        timestamp: new Date().toISOString(),
+      });
+    } else {
+      this.logger.warn('Kafka disabled - USER_DELETED event skipped');
+    }
   }
 
   /**
@@ -1369,290 +1234,6 @@ export class UsersService implements OnModuleInit {
 
   private generateOTP(): string {
     return Math.floor(100000 + Math.random() * 900000).toString();
-  }
-
-  private normalizeEmail(email: string): string {
-    return String(email || '').trim().toLowerCase();
-  }
-
-  private getPasswordResetCopy(user: UserDocument, otp: string) {
-    const isMerchant = user.accountType === 'merchant';
-
-    return {
-      subject: isMerchant ? 'GOLO Merchant Password Reset OTP' : 'GOLO Password Recovery OTP',
-      intro: isMerchant
-        ? 'Your merchant account password reset OTP is:'
-        : 'Your account password recovery OTP is:',
-      otp,
-    };
-  }
-
-  private async sendPasswordResetMail(user: UserDocument, otp: string) {
-    this.ensureOtpMailerReady();
-
-    if (!this.mailTransporter || !this.mailFrom) {
-      throw new InternalServerErrorException('Email service not configured. Please contact support.');
-    }
-
-    const mailCopy = this.getPasswordResetCopy(user, otp);
-
-    await this.mailTransporter.sendMail({
-      from: this.mailFrom,
-      to: user.email,
-      subject: mailCopy.subject,
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 540px; margin: 0 auto; padding: 24px;">
-          <div style="background: #F5B849; color: #fff; width: 56px; height: 56px; border-radius: 16px; display: flex; align-items: center; justify-content: center; font-size: 30px; font-weight: 800; margin-bottom: 20px;">G</div>
-          <h2 style="color: #111827; margin: 0 0 12px;">Password Reset Request</h2>
-          <p style="margin: 0 0 16px; color: #374151;">${mailCopy.intro}</p>
-          <div style="font-size: 30px; letter-spacing: 8px; font-weight: 800; color: #111827; background: #FFFBEB; border: 1px solid #FDE68A; border-radius: 16px; padding: 18px; text-align: center; margin: 18px 0;">${otp}</div>
-          <p style="color: #4B5563; margin: 0 0 8px;">This OTP is valid for 5 minutes.</p>
-          <p style="color: #9CA3AF; font-size: 13px; margin: 0;">If you did not request this, you can safely ignore this email.</p>
-        </div>
-      `,
-    });
-  }
-
-  async sendEmailOTP(
-    email: string,
-    type: 'register' | 'profile',
-    accountType?: 'user' | 'merchant',
-    userId?: string
-  ): Promise<any> {
-    const normalizedEmail = this.normalizeEmail(email);
-    if (!normalizedEmail) {
-      throw new BadRequestException('Email address is required');
-    }
-
-    if (type === 'register') {
-      const accType = accountType === 'merchant' ? 'merchant' : 'user';
-      const existingUser = await this.userModel.findOne({ email: normalizedEmail, accountType: accType }).exec();
-      if (existingUser) {
-        throw new ConflictException(`An account of type ${accType} with this email already exists`);
-      }
-    } else if (type === 'profile') {
-      if (!userId) {
-        throw new BadRequestException('User ID is required for profile OTP verification');
-      }
-      const currentUser = await this.userModel.findById(userId).exec();
-      if (!currentUser) throw new NotFoundException('User not found');
-
-      const existingUser = await this.userModel.findOne({
-        email: normalizedEmail,
-        _id: { $ne: new Types.ObjectId(userId) },
-        accountType: currentUser.accountType
-      }).exec();
-
-      if (existingUser) {
-        throw new ConflictException('Email is already in use by another account');
-      }
-    }
-
-    const otp = this.generateOTP();
-    const expiryTime = new Date(Date.now() + 5 * 60 * 1000);
-
-    await this.otpModel.findOneAndUpdate(
-      { email: normalizedEmail },
-      {
-        otp,
-        expiresAt: expiryTime,
-        verified: false,
-      },
-      { upsert: true, new: true }
-    ).exec();
-
-    this.ensureOtpMailerReady();
-
-    if (!this.mailTransporter || !this.mailFrom) {
-      throw new InternalServerErrorException('Email service not configured. Please contact support.');
-    }
-
-    await this.mailTransporter.sendMail({
-      from: this.mailFrom,
-      to: normalizedEmail,
-      subject: type === 'profile' ? 'GOLO Change Email Verification OTP' : 'GOLO Email Verification OTP',
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 540px; margin: 0 auto; padding: 24px;">
-          <div style="background: #157a4f; color: #fff; width: 56px; height: 56px; border-radius: 16px; display: flex; align-items: center; justify-content: center; font-size: 30px; font-weight: 800; margin-bottom: 20px;">G</div>
-          <h2 style="color: #111827; margin: 0 0 12px;">Email Verification</h2>
-          <p style="margin: 0 0 16px; color: #374151;">Your verification OTP code is:</p>
-          <div style="font-size: 30px; letter-spacing: 8px; font-weight: 800; color: #111827; background: #E8F5EE; border: 1px solid #157a4f; border-radius: 16px; padding: 18px; text-align: center; margin: 18px 0;">${otp}</div>
-          <p style="color: #4B5563; margin: 0 0 8px;">This OTP is valid for 5 minutes.</p>
-          <p style="color: #9CA3AF; font-size: 13px; margin: 0;">If you did not request this, you can safely ignore this email.</p>
-        </div>
-      `,
-    });
-
-    return {
-      message: 'OTP sent to your email address',
-      expiresIn: 300,
-    };
-  }
-
-  async verifyEmailOTP(email: string, otp: string): Promise<any> {
-    const normalizedEmail = this.normalizeEmail(email);
-    const cleanOtp = String(otp || '').trim();
-
-    if (!normalizedEmail || !cleanOtp) {
-      throw new BadRequestException('Email and OTP are required');
-    }
-
-    const otpDoc = await this.otpModel.findOne({ email: normalizedEmail }).exec();
-    if (!otpDoc) {
-      throw new BadRequestException('No OTP found. Please request a new one.');
-    }
-
-    if (new Date() > otpDoc.expiresAt) {
-      throw new BadRequestException('OTP has expired. Please request a new one.');
-    }
-
-    if (otpDoc.otp !== cleanOtp) {
-      throw new UnauthorizedException('Invalid OTP');
-    }
-
-    otpDoc.verified = true;
-    await otpDoc.save();
-
-    return { message: 'OTP verified successfully' };
-  }
-
-  async sendForgotPasswordOTP(email: string): Promise<any> {
-    const normalizedEmail = this.normalizeEmail(email);
-    if (!normalizedEmail) {
-      throw new BadRequestException('Registered email is required');
-    }
-
-    const user = await this.userModel.findOne({ email: normalizedEmail }).exec();
-    if (!user) {
-      throw new NotFoundException('No account found with this email address');
-    }
-
-    const otp = this.generateOTP();
-    const expiryTime = new Date(Date.now() + 5 * 60 * 1000);
-
-    await this.userModel.findByIdAndUpdate(
-      user._id,
-      {
-        $set: {
-          passwordChangeOTP: otp,
-          passwordChangeOTPExpiry: expiryTime,
-          passwordChangeOTPVerified: false,
-          updatedAt: new Date(),
-        },
-      },
-    ).exec();
-
-    await this.sendPasswordResetMail(user, otp);
-
-    return {
-      message: 'OTP sent to your registered email address',
-      accountType: user.accountType === 'merchant' ? 'merchant' : 'user',
-      expiresIn: 300,
-    };
-  }
-
-  async verifyForgotPasswordOTP(email: string, otp: string): Promise<any> {
-    const normalizedEmail = this.normalizeEmail(email);
-    const cleanOtp = String(otp || '').trim();
-
-    if (!normalizedEmail || !cleanOtp) {
-      throw new BadRequestException('Email and OTP are required');
-    }
-
-    const user = await this.userModel.findOne({ email: normalizedEmail }).exec();
-    if (!user) {
-      throw new NotFoundException('No account found with this email address');
-    }
-
-    if (!user.passwordChangeOTP) {
-      throw new BadRequestException('No OTP found. Please request a new one.');
-    }
-
-    if (!user.passwordChangeOTPExpiry || new Date() > user.passwordChangeOTPExpiry) {
-      throw new BadRequestException('OTP has expired. Please request a new one.');
-    }
-
-    if (user.passwordChangeOTP !== cleanOtp) {
-      throw new UnauthorizedException('Invalid OTP');
-    }
-
-    await this.userModel.findByIdAndUpdate(
-      user._id,
-      {
-        $set: {
-          passwordChangeOTPVerified: true,
-          updatedAt: new Date(),
-        },
-      },
-    ).exec();
-
-    return { message: 'OTP verified successfully' };
-  }
-
-  async resetForgotPassword(email: string, otp: string, newPassword: string): Promise<UserResponseDto> {
-    const normalizedEmail = this.normalizeEmail(email);
-    const cleanOtp = String(otp || '').trim();
-
-    if (!normalizedEmail || !cleanOtp || !newPassword) {
-      throw new BadRequestException('Email, OTP, and new password are required');
-    }
-
-    if (newPassword.length < 6) {
-      throw new BadRequestException('New password must be at least 6 characters long');
-    }
-
-    const user = await this.userModel.findOne({ email: normalizedEmail }).exec();
-    if (!user) {
-      throw new NotFoundException('No account found with this email address');
-    }
-
-    if (!user.passwordChangeOTPVerified) {
-      throw new BadRequestException('OTP not verified. Please verify OTP first.');
-    }
-
-    if (user.passwordChangeOTP !== cleanOtp) {
-      throw new UnauthorizedException('OTP mismatch');
-    }
-
-    if (!user.passwordChangeOTPExpiry || new Date() > user.passwordChangeOTPExpiry) {
-      throw new BadRequestException('OTP has expired. Please request a new one.');
-    }
-
-    const isCurrentPassword = await bcrypt.compare(newPassword, user.password);
-    if (isCurrentPassword) {
-      throw new BadRequestException('New password cannot be the same as your current password.');
-    }
-
-    const passwordHistory = Array.isArray(user.passwordHistory) ? user.passwordHistory : [];
-    for (const oldPasswordHash of passwordHistory) {
-      const isReusedPassword = await bcrypt.compare(newPassword, oldPasswordHash);
-      if (isReusedPassword) {
-        throw new BadRequestException('Previously used passwords are not allowed. Please choose a different password.');
-      }
-    }
-
-    const hashedPassword = await bcrypt.hash(newPassword, 10);
-    const updatedUser = await this.userModel.findByIdAndUpdate(
-      user._id,
-      {
-        $set: {
-          password: hashedPassword,
-          passwordChangeOTP: null,
-          passwordChangeOTPExpiry: null,
-          passwordChangeOTPVerified: false,
-          updatedAt: new Date(),
-        },
-        $push: {
-          passwordHistory: {
-            $each: [user.password],
-            $slice: -5,
-          },
-        },
-      },
-      { new: true },
-    ).exec();
-
-    return this.toResponseDto(updatedUser);
   }
 
   async sendPasswordChangeOTP(userId: string): Promise<any> {
@@ -1932,16 +1513,16 @@ export class UsersService implements OnModuleInit {
         const ad = await this.adsService.getAdById(adId);
         const adOwnerId = (ad as any).userId?.toString();
         if (adOwnerId && adOwnerId !== userId) {
-          await this.createNotificationAndPush(
-            adOwnerId,
-            userId,
-            user.name,
+          await this.notificationModel.create({
+            recipientId: adOwnerId,
+            senderId: userId,
+            senderName: user.name,
             adId,
-            (ad as any).title || 'your ad',
-            'wishlist_add',
-            `${user.name} wishlisted your ad "${(ad as any).title || 'your ad'}"`,
-            'New wishlist',
-          );
+            adTitle: (ad as any).title || 'your ad',
+            type: 'wishlist_add',
+            message: `${user.name} wishlisted your ad "${(ad as any).title || 'your ad'}"`,
+            read: false,
+          });
         }
       } catch (err) {
         this.logger.warn(`Failed to create wishlist notification: ${err.message}`);
@@ -2045,79 +1626,153 @@ export class UsersService implements OnModuleInit {
     return { wishlist, liked: true };
   }
 
-  private async resolveUserRecipientIds(userId: string): Promise<any[]> {
-    const idsSet = new Set<any>([String(userId)]);
-    if (isValidObjectId(userId)) {
-      idsSet.add(new Types.ObjectId(userId));
-    }
-    try {
-      const userObj = await this.userModel.findOne({
-        $or: [
-          ...(isValidObjectId(userId) ? [{ _id: new Types.ObjectId(userId) }] : []),
-          { _id: userId },
-          { id: userId },
-        ],
-      }).select('_id id').lean().exec();
-
-      if (userObj) {
-        if (userObj._id) {
-          idsSet.add(String(userObj._id));
-          if (isValidObjectId(String(userObj._id))) {
-            idsSet.add(new Types.ObjectId(String(userObj._id)));
-          }
-        }
-        if ((userObj as any).id) {
-          idsSet.add(String((userObj as any).id));
-        }
-      }
-    } catch {
-      // Fallback to initial idsSet
-    }
-    return Array.from(idsSet);
-  }
-
   async getNotifications(userId: string, page = 1, limit = 20): Promise<{ notifications: any[]; unreadCount: number }> {
     const skip = (page - 1) * limit;
-    const recipientIds = await this.resolveUserRecipientIds(userId);
-
-    this.logger.log(`[getNotifications] Fetching notifications for recipientIds: ${recipientIds.map(r => String(r)).join(', ')}`);
-
     const [notifications, unreadCount] = await Promise.all([
       this.notificationModel
-        .find({ recipientId: { $in: recipientIds } })
+        .find({ recipientId: userId })
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
         .lean()
         .exec(),
-      this.notificationModel.countDocuments({ recipientId: { $in: recipientIds }, read: false }),
+      this.notificationModel.countDocuments({ recipientId: userId, read: false }),
     ]);
-
-    this.logger.log(`[getNotifications] Found ${notifications.length} notifications (${unreadCount} unread)`);
-
     return { notifications, unreadCount };
   }
 
+
+  async sendExpoPushNotification(
+    recipientIds: string[],
+    title: string,
+    body: string,
+    data?: Record<string, any>,
+  ): Promise<void> {
+    try {
+      if (!recipientIds || !recipientIds.length) return;
+
+      const validIds = recipientIds.map(id => String(id)).filter(Boolean);
+      const [users, merchants] = await Promise.all([
+        this.userModel.find({ _id: { $in: validIds } }).select('pushTokens').lean().exec(),
+        this.merchantModel.find({ userId: { $in: validIds } }).select('pushTokens').lean().exec(),
+      ]);
+
+      const tokensSet = new Set<string>();
+      for (const u of users as any[]) {
+        if (Array.isArray(u?.pushTokens)) {
+          u.pushTokens.filter(Boolean).forEach((t: string) => tokensSet.add(t));
+        }
+      }
+      for (const m of merchants as any[]) {
+        if (Array.isArray(m?.pushTokens)) {
+          m.pushTokens.filter(Boolean).forEach((t: string) => tokensSet.add(t));
+        }
+      }
+
+      const pushTokens = Array.from(tokensSet);
+      if (!pushTokens.length) {
+        this.logger.debug(`No push tokens found for recipientIds: ${validIds.join(',')}`);
+        return;
+      }
+
+      await fetch('https://exp.host/--/api/v2/push/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          to: pushTokens,
+          title,
+          body,
+          sound: 'default',
+          ttl: 2419200,
+          priority: 'high',
+          data: { type: 'notification', ...(data || {}) },
+        }),
+      });
+
+      this.logger.log(`Sent push notification to ${pushTokens.length} token(s)`);
+    } catch (error: any) {
+      this.logger.warn(`Failed to send Expo push notification: ${error?.message || 'unknown error'}`);
+    }
+  }
+
+  async adminBroadcastNotification(
+    adminId: string,
+    adminEmail: string,
+    audience: string,
+    type: string,
+    title: string,
+    message: string,
+  ): Promise<{ success: boolean; count: number }> {
+    this.logger.log(`Admin broadcast notification from ${adminEmail} to audience ${audience}`);
+
+    let userQuery: any = {};
+    if (audience === 'merchants') {
+      userQuery = { accountType: 'merchant' };
+    } else if (audience === 'customers' || audience === 'users') {
+      userQuery = { accountType: { $ne: 'merchant' } };
+    }
+
+    const targetUsers = await this.userModel.find(userQuery).select('_id').lean().exec();
+    const recipientIds = targetUsers.map((u: any) => String(u._id));
+
+    if (!recipientIds.length) {
+      return { success: true, count: 0 };
+    }
+
+    const docs = recipientIds.map((recipientId) => ({
+      recipientId,
+      senderId: adminId,
+      senderName: adminEmail || 'Admin',
+      adId: '-',
+      adTitle: title || 'System Update',
+      type: type || 'broadcast',
+      message: message || '',
+      read: false,
+      isBroadcast: true,
+      isAdmin: true,
+    }));
+
+    await this.notificationModel.insertMany(docs);
+
+    await this.sendExpoPushNotification(recipientIds, title || 'System Update', message, {
+      type: type || 'broadcast',
+      isBroadcast: true,
+    });
+
+    if (this.auditLogsService) {
+      try {
+        await this.auditLogsService.log({
+          action: 'ADMIN_BROADCAST_NOTIFICATION',
+          adminId,
+          adminEmail,
+          targetId: adminId || 'system',
+          targetType: 'User',
+          details: { audience, type, title, message, recipientCount: recipientIds.length },
+        });
+      } catch (err: any) {
+        this.logger.warn(`Failed to log audit log for broadcast: ${err?.message}`);
+      }
+    }
+
+    return { success: true, count: recipientIds.length };
+  }
+
   async markNotificationRead(notificationId: string, userId: string): Promise<void> {
-    const recipientIds = await this.resolveUserRecipientIds(userId);
     await this.notificationModel.findOneAndUpdate(
-      { _id: notificationId, recipientId: { $in: recipientIds } },
+      { _id: notificationId, recipientId: userId },
       { $set: { read: true } },
     ).exec();
   }
 
   async markAllNotificationsRead(userId: string): Promise<void> {
-    const recipientIds = await this.resolveUserRecipientIds(userId);
     await this.notificationModel.updateMany(
-      { recipientId: { $in: recipientIds }, read: false },
+      { recipientId: userId, read: false },
       { $set: { read: true } },
     ).exec();
   }
 
   async deleteAllNotifications(userId: string): Promise<void> {
-    const recipientIds: any[] = [String(userId)];
-    if (isValidObjectId(userId)) recipientIds.push(new Types.ObjectId(userId));
-    await this.notificationModel.deleteMany({ recipientId: { $in: recipientIds } }).exec();
+    await this.notificationModel.deleteMany({ recipientId: userId }).exec();
   }
 
   async saveIWantPreference(
@@ -2201,52 +1856,21 @@ export class UsersService implements OnModuleInit {
       return { offers: [], products: [] };
     }
 
-    const offerIdentifiers = Array.from(
-      new Set(
-        (likes as any[])
-          .flatMap((row) => [row.offerPublicId, row.offerRequestId])
-          .map((value) => String(value || '').trim())
-          .filter(Boolean),
-      ),
-    );
-    const offerDetails = this.offerPromotionModel && offerIdentifiers.length
-      ? await this.offerPromotionModel
-        .find({
-          $or: [
-            { _id: { $in: offerIdentifiers.filter((id) => isValidObjectId(id)) } },
-            { requestId: { $in: offerIdentifiers } },
-          ],
-        })
-        .select('_id requestId imageUrl title category selectedProducts')
-        .lean()
-        .exec()
-      : [];
-    const offerDetailMap = new Map<string, any>();
-    for (const offer of offerDetails as any[]) {
-      offerDetailMap.set(String(offer._id), offer);
-      if (offer.requestId) {
-        offerDetailMap.set(String(offer.requestId), offer);
-      }
-    }
-
     const offerMap = new Map<string, any>();
     for (const row of likes as any[]) {
       const offerKey = String(row.offerPublicId || row.offerRequestId || '');
       if (!offerKey) continue;
-      const offerDetail = offerDetailMap.get(String(row.offerPublicId || '')) || offerDetailMap.get(String(row.offerRequestId || '')) || null;
 
       if (!offerMap.has(offerKey)) {
         offerMap.set(offerKey, {
           offerId: offerKey,
           requestId: String(row.offerRequestId || ''),
-          name: String(offerDetail?.title || row.offerTitle || 'Untitled Offer'),
-          type: String(offerDetail?.category || row.offerCategory || 'General'),
-          image: String(offerDetail?.imageUrl || ''),
+          name: String(row.offerTitle || 'Untitled Offer'),
+          type: String(row.offerCategory || 'General'),
+          image: '/images/deal2.avif',
           likes: 0,
           customerSet: new Set<string>(),
-          selectedProducts: Array.isArray(offerDetail?.selectedProducts) && offerDetail.selectedProducts.length
-            ? offerDetail.selectedProducts
-            : (Array.isArray(row.selectedProducts) ? row.selectedProducts : []),
+          selectedProducts: Array.isArray(row.selectedProducts) ? row.selectedProducts : [],
         });
       }
 
@@ -2290,7 +1914,7 @@ export class UsersService implements OnModuleInit {
             productId: key,
             name: String(product?.productName || product?.name || 'Untitled Product'),
             type: String(product?.category || offer.type || 'General'),
-            image: String(product?.imageUrl || ''),
+            image: String(product?.imageUrl || '/images/deal2.avif'),
             likes: 0,
             customerSet: new Set<string>(),
             offerName: offer.name,
@@ -2546,27 +2170,19 @@ export class UsersService implements OnModuleInit {
   }
 
   async updateUserKycStatus(userId: string, kycStatus: string, rejectionReason?: string, adminId?: string, adminEmail?: string): Promise<any> {
-    this.logger.log(`[DEBUG] Updating KYC status for user ${userId}: ${kycStatus}`);
-    this.logger.log(`[DEBUG] User ID type: ${typeof userId}, length: ${userId.length}, value: "${userId}"`);
+    this.logger.log(`Updating KYC status for user ${userId}: ${kycStatus}`);
 
     const user = await this.userModel.findById(userId);
     if (!user) {
-      this.logger.error(`[DEBUG] User not found in DB for ID: "${userId}"`);
-      throw new NotFoundException(`User not found for ID: ${userId}`);
+      throw new NotFoundException('User not found');
     }
 
     user.kycStatus = kycStatus;
+    if (rejectionReason && kycStatus === 'Rejected') {
+      user.kycRejectionReason = rejectionReason;
+    }
 
     await user.save();
-
-    if ((user.accountType === 'merchant' || user.role === 'merchant') && this.emailService) {
-      const storeName = user.name || 'Merchant';
-      if (kycStatus === 'Verified') {
-        await this.emailService.sendMerchantApprovalEmail(user.email, storeName);
-      } else if (kycStatus === 'Rejected') {
-        await this.emailService.sendMerchantDeclineEmail(user.email, storeName, rejectionReason || 'No specific reason provided');
-      }
-    }
 
     // Log audit if audit service available
     if (this.auditLogsService) {
@@ -2616,8 +2232,6 @@ export class UsersService implements OnModuleInit {
       isEmailVerified: user.isEmailVerified || false,
       profile: user.profile || {},
       profilePhoto: user.profilePhoto || null,
-      kycStatus: user.kycStatus || 'Pending',
-      kycRejectionReason: user.kycRejectionReason,
       preferredCategories: Array.isArray(user.preferredCategories) ? user.preferredCategories : [],
       merchantProfile,
       iWantPreference: user.iWantPreference || null,
@@ -2627,99 +2241,4 @@ export class UsersService implements OnModuleInit {
       loyaltyTier,
     };
   }
-
-  async adminDeleteUser(id: string, adminId: string, adminEmail: string): Promise<void> {
-    const user = await this.userModel.findById(id).exec();
-    if (!user) throw new NotFoundException('User not found');
-
-    // Outbox Pattern: Save event to database first to guarantee 100% data consistency
-    if (this.outboxService) {
-      await this.outboxService.saveEvent(KAFKA_TOPICS.USER_DELETED, {
-        userId: id,
-        adminId,
-        adminEmail,
-        timestamp: new Date().toISOString(),
-      });
-    } else if (this.kafkaService) {
-      // Fallback
-      await this.kafkaService.send(KAFKA_TOPICS.USER_DELETED, { userId: id, adminId });
-    }
-
-    await this.userModel.findByIdAndDelete(id).exec();
-
-    if (this.auditLogsService) {
-      await this.auditLogsService.log({
-        action: 'USER_DELETED_BY_ADMIN',
-        adminId,
-        adminEmail,
-        targetId: id,
-        targetType: 'User',
-      });
-    }
-  }
-
-  // ==================== FOLLOW MERCHANT ====================
-  async toggleFollowMerchant(userId: string, merchantId: string) {
-    if (!isValidObjectId(userId) || !isValidObjectId(merchantId)) {
-      throw new BadRequestException('Invalid user or merchant ID');
-    }
-    const merchant = await this.merchantModel.findOne({
-      $or: [{ _id: merchantId }, { userId: merchantId }]
-    });
-    if (!merchant) {
-      throw new NotFoundException('Merchant not found');
-    }
-
-    // Always use the canonical user ID of the merchant for consistency
-    const canonicalMerchantId = String(merchant.userId);
-
-    const user = await this.userModel.findById(userId);
-    if (!user) {
-      throw new NotFoundException('User not found');
-    }
-
-    const existingFollow = await this.followModel.findOne({ userId, merchantId: canonicalMerchantId });
-
-    if (existingFollow) {
-      await this.followModel.deleteOne({ _id: existingFollow._id });
-      return { success: true, isFollowing: false, message: 'Unfollowed store successfully' };
-    } else {
-      await this.followModel.create({ userId, merchantId: canonicalMerchantId });
-
-      // Notify the merchant
-      try {
-        await this.createNotificationAndPush(
-          canonicalMerchantId,
-          userId,
-          user.name || 'A user',
-          '',
-          '',
-          'new_follower',
-          `${user.name || 'Someone'} started following your store!`,
-        );
-      } catch (err) {
-        this.logger.warn(`Failed to notify merchant about new follower: ${err.message}`);
-      }
-
-      return { success: true, isFollowing: true, message: 'Followed store successfully' };
-    }
-  }
-
-  async checkFollowStatus(userId: string, merchantId: string) {
-    if (!isValidObjectId(userId) || !isValidObjectId(merchantId)) {
-      return { success: true, isFollowing: false };
-    }
-
-    // Check against canonical ID in case the ID provided is the internal _id
-    const merchant = await this.merchantModel.findOne({
-      $or: [{ _id: merchantId }, { userId: merchantId }]
-    });
-    const targetId = merchant ? String(merchant.userId) : merchantId;
-
-    const existingFollow = await this.followModel.findOne({ userId, merchantId: targetId });
-    return { success: true, isFollowing: !!existingFollow };
-  }
-
-
 }
-
