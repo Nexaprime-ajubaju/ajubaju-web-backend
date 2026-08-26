@@ -334,7 +334,7 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
     // ✅ Kafka OPTIONAL
     @Optional() private readonly kafkaService?: KafkaService,
 
-     // Image Moderation
+    // Image Moderation
     private readonly moderationService?: ModerationService,
     private readonly moderationSecurityService?: ModerationSecurityService,
     @Optional() private readonly textModerationService?: TextModerationService,
@@ -1331,21 +1331,36 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
   async incrementViewCount(adId: string): Promise<void> {
     try {
       const merchantId = await this.resolveMerchantIdForAd(adId);
+
       let updated = await this.adModel
         .findOneAndUpdate(
           { adId },
           { $inc: { views: 1 }, $set: { updatedAt: new Date() } },
+          { new: true },
         )
         .exec();
 
       if (!updated && /^[0-9a-fA-F]{24}$/.test(adId)) {
-        await this.adModel
-          .findByIdAndUpdate(adId, {
-            $inc: { views: 1 },
-            $set: { updatedAt: new Date() },
-          })
+        updated = await this.adModel
+          .findByIdAndUpdate(
+            adId,
+            { $inc: { views: 1 }, $set: { updatedAt: new Date() } },
+            { new: true },
+          )
           .exec();
       }
+
+      if (!updated) {
+        updated = await this.adModel
+          .findOneAndUpdate(
+            { id: adId },
+            { $inc: { views: 1 }, $set: { updatedAt: new Date() } },
+            { new: true },
+          )
+          .exec();
+      }
+
+      this.logger.log(`incrementViewCount for ${adId}: updated=${!!updated}`);
 
       if (merchantId) {
         await this.recordMerchantVisit(merchantId);
@@ -1362,7 +1377,7 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
   ============================================================ */
 
   /**
-   * Track a view for authenticated users only — views always equals viewHistory.length.
+   * Track a view for authenticated users only — records unique visitor userId in viewHistory.
    * visitorId should be userId from JWT token (no anonymous tracking).
    */
   async trackViewWithVisitor(adId: string, userId: string): Promise<void> {
@@ -1374,21 +1389,22 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
         return;
       }
 
-      // Resolve to UUID adId if a MongoDB _id was passed
-      let resolvedAdId = adId;
-      if (/^[0-9a-fA-F]{24}$/.test(adId)) {
-        const found = await this.adModel
-          .findById(adId)
-          .select('adId')
-          .lean()
-          .exec();
-        if (found?.adId) resolvedAdId = found.adId;
+      let targetAd = await this.adModel.findOne({ adId }).select('_id adId').lean().exec();
+      if (!targetAd && /^[0-9a-fA-F]{24}$/.test(adId)) {
+        targetAd = await this.adModel.findById(adId).select('_id adId').lean().exec();
+      }
+      if (!targetAd) {
+        targetAd = await this.adModel.findOne({ id: adId }).select('_id adId').lean().exec();
       }
 
-      // Add userId to viewHistory and sync views = viewHistory.length atomically
-      const updated = await this.adModel
-        .findOneAndUpdate(
-          { adId: resolvedAdId },
+      if (!targetAd) {
+        this.logger.warn(`trackViewWithVisitor: ad not found for adId=${adId}`);
+        return;
+      }
+
+      await this.adModel
+        .findByIdAndUpdate(
+          targetAd._id,
           [
             {
               $set: {
@@ -1407,23 +1423,11 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
                 updatedAt: new Date(),
               },
             },
-            {
-              $set: {
-                views: { $size: '$viewHistory' },
-              },
-            },
           ],
-          { new: true },
         )
         .exec();
 
-      if (!updated) {
-        this.logger.warn(
-          `trackViewWithVisitor: ad not found for adId=${resolvedAdId}`,
-        );
-      }
-
-      const merchantId = await this.resolveMerchantIdForAd(resolvedAdId);
+      const merchantId = await this.resolveMerchantIdForAd(adId);
       if (merchantId) {
         await this.recordMerchantVisit(merchantId);
       }
@@ -1436,15 +1440,13 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
 
   private async resolveMerchantIdForAd(adId: string): Promise<string | null> {
     try {
-      const query = /^[0-9a-fA-F]{24}$/.test(adId)
-        ? { $or: [{ adId }, { _id: adId }] }
-        : { adId };
-
-      const ad = await this.adModel
-        .findOne(query)
-        .select('userId')
-        .lean()
-        .exec();
+      let ad = await this.adModel.findOne({ adId }).select('userId').lean().exec();
+      if (!ad && /^[0-9a-fA-F]{24}$/.test(adId)) {
+        ad = await this.adModel.findById(adId).select('userId').lean().exec();
+      }
+      if (!ad) {
+        ad = await this.adModel.findOne({ id: adId }).select('userId').lean().exec();
+      }
 
       return ad?.userId ? String(ad.userId) : null;
     } catch (error: any) {
@@ -1486,17 +1488,31 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
         .findOneAndUpdate(
           { adId },
           { $inc: { contactClicks: 1 }, $set: { updatedAt: new Date() } },
+          { new: true },
         )
         .exec();
 
       if (!updated && /^[0-9a-fA-F]{24}$/.test(adId)) {
-        await this.adModel
-          .findByIdAndUpdate(adId, {
-            $inc: { contactClicks: 1 },
-            $set: { updatedAt: new Date() },
-          })
+        updated = await this.adModel
+          .findByIdAndUpdate(
+            adId,
+            { $inc: { contactClicks: 1 }, $set: { updatedAt: new Date() } },
+            { new: true },
+          )
           .exec();
       }
+
+      if (!updated) {
+        updated = await this.adModel
+          .findOneAndUpdate(
+            { id: adId },
+            { $inc: { contactClicks: 1 }, $set: { updatedAt: new Date() } },
+            { new: true },
+          )
+          .exec();
+      }
+
+      this.logger.log(`trackContactClick for ${adId}: updated=${!!updated}`);
     } catch (error: any) {
       this.logger.error(
         `Failed to track contact click for ${adId}: ${error.message}`,
@@ -1560,12 +1576,15 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
         a.promotedUntil &&
         new Date(a.promotedUntil) > new Date(),
     ).length;
-    // views = unique visitors only (viewHistory.length is the source of truth)
+    // totalViews = total card clicks / views
     const totalViews = ads.reduce(
+      (sum, a) => sum + Math.max(a.views || 0, a.viewHistory?.length || 0),
+      0,
+    );
+    const uniqueVisitors = ads.reduce(
       (sum, a) => sum + (a.viewHistory?.length || 0),
       0,
     );
-    const uniqueVisitors = totalViews; // same — views IS unique visitors
     const totalContactClicks = ads.reduce(
       (sum, a) => sum + (a.contactClicks || 0),
       0,
@@ -1594,7 +1613,7 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
       imageCount: ad.images?.length || 0,
       videoCount: ad.videos?.length || 0,
       templateId: ad.templateId || 1,
-      views: ad.viewHistory?.length || 0, // unique visitors = views
+      views: Math.max(ad.views || 0, ad.viewHistory?.length || 0),
       uniqueVisitors: ad.viewHistory?.length || 0, // kept for compatibility
       viewerIds: ad.viewHistory || [],
       contactClicks: ad.contactClicks || 0,
