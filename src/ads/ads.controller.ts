@@ -1331,6 +1331,26 @@ export class AdsController {
   }
 
   /**
+   * Track an ad card click / view
+   */
+  @Post(':adId/view')
+  async trackView(@Param('adId') adId: string, @CurrentUser() user?: any) {
+    this.logger.log(`REST: Tracking view/card click for ad: ${adId}`);
+    try {
+      if (user?.id) {
+        this.adsService
+          .trackViewWithVisitor(adId, user.id)
+          .catch((e) => this.logger.error(`Error tracking view visitor: ${e.message}`));
+      }
+      await this.adsService.incrementViewCount(adId);
+      return { success: true };
+    } catch (error) {
+      this.logger.error(`REST: Error tracking view: ${error.message}`);
+      return { success: false, message: 'Failed to track view' };
+    }
+  }
+
+  /**
    * Get wishlist save count for a single ad (public)
    */
   @Get('wishlist-count/:adId')
