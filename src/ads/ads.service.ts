@@ -334,7 +334,7 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
     // ✅ Kafka OPTIONAL
     @Optional() private readonly kafkaService?: KafkaService,
 
-     // Image Moderation
+    // Image Moderation
     private readonly moderationService?: ModerationService,
     private readonly moderationSecurityService?: ModerationSecurityService,
     @Optional() private readonly textModerationService?: TextModerationService,
