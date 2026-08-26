@@ -160,6 +160,9 @@ export class User {
 
   @Prop()
   updatedAt: Date;
+
+  @Prop({ type: [String], default: [] })
+  followedMerchants: string[];
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);
