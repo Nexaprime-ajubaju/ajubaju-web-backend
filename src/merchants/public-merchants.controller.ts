@@ -63,7 +63,7 @@ export class PublicMerchantsController {
       throw new InternalServerErrorException('Email service is not configured. Please contact support.');
     }
 
-    const frontendBaseUrl = (process.env.FRONTEND_URL || 'http://localhost:3001').replace(/\/+$/, '');
+    const frontendBaseUrl = (process.env.FRONTEND_URL || 'https://golo-frontend-inky.vercel.app').replace(/\/+$/, '');
     const registrationLink = `${frontendBaseUrl}/merchant-register`;
     const merchantPageLink = `${frontendBaseUrl}/merchant`;
 

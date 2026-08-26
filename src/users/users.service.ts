@@ -9,8 +9,10 @@ import { User, UserDocument, UserRole } from './schemas/user.schema';
 import { Notification, NotificationDocument } from './schemas/notification.schema';
 import { Merchant, MerchantDocument } from './schemas/merchant.schema';
 import { UserReport, UserReportDocument } from './schemas/user-report.schema';
+import { OTP, OTPDocument } from './schemas/otp.schema';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
+import { SystemSettings, SystemSettingsDocument } from '../system-settings/schemas/system-settings.schema';
 import { SocialAuthDto } from './dto/social-auth.dto';
 import { UserResponseDto } from './dto/user-response.dto';
 import { KafkaService } from '../kafka/kafka.service';
@@ -198,8 +200,9 @@ export class UsersService implements OnModuleInit {
 
   async validateRegistrationStep(dto: any): Promise<{ success: boolean; message?: string }> {
     if (dto.step === 1) {
+      const accountType = dto.accountType || 'user';
       if (dto.email) {
-        const existingEmail = await this.userModel.findOne({ email: dto.email }).lean().exec();
+        const existingEmail = await this.userModel.findOne({ email: dto.email, accountType }).lean().exec();
         if (existingEmail) {
           throw new BadRequestException('Email is already registered.');
         }
@@ -213,7 +216,7 @@ export class UsersService implements OnModuleInit {
           phone = `+${cleaned}`;
         }
 
-        const existingPhone = await this.userModel.findOne({ phone: phone }).lean().exec();
+        const existingPhone = await this.userModel.findOne({ phone: phone, accountType }).lean().exec();
         if (existingPhone) {
           throw new BadRequestException('Phone number is already registered.');
         }
@@ -297,6 +300,7 @@ export class UsersService implements OnModuleInit {
     @InjectModel(User.name) private userModel: Model<UserDocument>,
     @InjectModel(Notification.name) private notificationModel: Model<NotificationDocument>,
     @InjectModel(Merchant.name) private merchantModel: Model<MerchantDocument>,
+    @InjectModel(OTP.name) private otpModel: Model<OTPDocument>,
     @InjectModel(UserReport.name) private userReportModel: Model<UserReportDocument>,
     private jwtService: JwtService,
     private readonly auditLogsService: AuditLogsService,
@@ -308,6 +312,7 @@ export class UsersService implements OnModuleInit {
     @Optional() @InjectModel('PendingMerchantLocation') private pendingLocationModel?: Model<any>,
     @Optional() @InjectModel(OfferLikeHistory.name) private offerLikeHistoryModel?: Model<OfferLikeHistoryDocument>,
     @Optional() @InjectModel(OfferPromotion.name) private offerPromotionModel?: Model<OfferPromotionDocument>,
+    @Optional() @InjectModel(SystemSettings.name) private systemSettingsModel?: Model<SystemSettingsDocument>,
   ) {
     // Support both SMTP_* and EMAIL_* env var conventions.
     // The repo's `.env` currently uses EMAIL_* while OTP flow historically used SMTP_*.
@@ -396,8 +401,10 @@ export class UsersService implements OnModuleInit {
   async register(registerDto: RegisterDto, ip?: string, userAgent?: string): Promise<UserResponseDto> {
     this.logger.log(`Registering new user: ${registerDto.email}`);
 
-    // Check if user exists
-    const existingUser = await this.userModel.findOne({ email: registerDto.email }).exec();
+    const accountType = registerDto.accountType === 'merchant' ? 'merchant' : 'user';
+
+    // Check if user exists for this account type
+    const existingUser = await this.userModel.findOne({ email: registerDto.email, accountType }).exec();
     if (existingUser) {
       throw new ConflictException('User with this email already exists');
     }
@@ -408,8 +415,6 @@ export class UsersService implements OnModuleInit {
     // Check for admin email in config
     const adminEmail = this.configService.get<string>('ADMIN_EMAIL');
     const isSystemAdmin = adminEmail && registerDto.email.toLowerCase() === adminEmail.toLowerCase();
-
-    const accountType = registerDto.accountType === 'merchant' ? 'merchant' : 'user';
 
     if (accountType === 'merchant') {
       if (!registerDto.storeName?.trim()) {
@@ -473,9 +478,16 @@ export class UsersService implements OnModuleInit {
         contactNumber: registerDto.contactNumber?.trim() || registerDto.phone,
         storeCategory: registerDto.storeCategory?.trim() || undefined,
         storeSubCategory: registerDto.storeSubCategory?.trim() || undefined,
+        merchantRole: registerDto.merchantRole || undefined,
+        businessType: registerDto.businessType?.trim() || undefined,
+        yearsInBusiness: registerDto.yearsInBusiness ? Number(registerDto.yearsInBusiness) : undefined,
+        businessDescription: registerDto.businessDescription?.trim() || undefined,
         storeLocation: registerDto.storeLocation?.trim() || undefined,
         storeLocationLatitude: latitude,
         storeLocationLongitude: longitude,
+        profilePhoto: registerDto.profilePhoto || undefined,
+        shopPhoto: registerDto.shopPhoto || undefined,
+        documents: registerDto.documents || undefined,
         status: 'active',
       });
     }
@@ -498,8 +510,23 @@ export class UsersService implements OnModuleInit {
   async login(loginDto: LoginDto, ip?: string, userAgent?: string): Promise<{ accessToken: string; refreshToken: string; user: UserResponseDto }> {
     this.logger.log(`Login attempt: ${loginDto.email} (accountType: ${loginDto.accountType})`);
 
-    const user = await this.userModel.findOne({ email: loginDto.email }).exec();
+    const accountType = loginDto.accountType === 'merchant' ? 'merchant' : 'user';
+    const user = await this.userModel.findOne({ email: loginDto.email, accountType }).exec();
+
     if (!user) {
+      const otherAccountType = accountType === 'merchant' ? 'user' : 'merchant';
+      const otherUser = await this.userModel.findOne({ email: loginDto.email, accountType: otherAccountType }).exec();
+
+      if (otherUser) {
+        if (accountType === 'merchant') {
+          this.logger.warn(`Login failed - merchant login attempted but only user account exists: ${loginDto.email}`);
+          throw new UnauthorizedException('This email is not registered as a merchant. Please use the User login or register as a merchant.');
+        } else {
+          this.logger.warn(`Login failed - user login attempted but only merchant account exists: ${loginDto.email}`);
+          throw new UnauthorizedException('This email is registered as a merchant. Please use Merchant login to continue.');
+        }
+      }
+
       this.logger.warn(`Login failed - user not found: ${loginDto.email}`);
       if (loginDto.accountType === 'merchant') {
         throw new UnauthorizedException('This email is not registered as a merchant. Please register as a merchant first.');
@@ -511,16 +538,6 @@ export class UsersService implements OnModuleInit {
     if (!isPasswordValid) {
       this.logger.warn(`Login failed - invalid password: ${loginDto.email}`);
       throw new UnauthorizedException('Invalid credentials');
-    }
-
-    if (loginDto.accountType === 'merchant' && user.accountType !== 'merchant') {
-      this.logger.warn(`Login failed - merchant login attempted with user account: ${loginDto.email}`);
-      throw new UnauthorizedException('This email is not registered as a merchant. Please use the User login or register as a merchant.');
-    }
-
-    if (loginDto.accountType === 'user' && user.accountType === 'merchant') {
-      this.logger.warn(`Login failed - user login attempted with merchant account: ${loginDto.email}`);
-      throw new UnauthorizedException('This email is registered as a merchant. Please use Merchant login to continue.');
     }
 
     if (user.isBanned) {
@@ -600,7 +617,8 @@ export class UsersService implements OnModuleInit {
   ): Promise<{ accessToken: string; refreshToken: string; user: UserResponseDto }> {
     this.logger.log(`Social auth: ${socialAuthDto.email} via ${socialAuthDto.provider}`);
 
-    let user = await this.userModel.findOne({ email: socialAuthDto.email }).exec();
+    const accountType = socialAuthDto.accountType === 'merchant' ? 'merchant' : 'user';
+    let user = await this.userModel.findOne({ email: socialAuthDto.email, accountType }).exec();
 
     if (!user) {
       const generatedPassword = await bcrypt.hash(
@@ -612,7 +630,8 @@ export class UsersService implements OnModuleInit {
         name: socialAuthDto.name,
         email: socialAuthDto.email,
         password: generatedPassword,
-        role: UserRole.USER,
+        role: accountType === 'merchant' ? UserRole.MERCHANT : UserRole.USER,
+        accountType: accountType,
         isEmailVerified: true,
         profile: {
           phone: socialAuthDto.phone,
@@ -746,11 +765,44 @@ export class UsersService implements OnModuleInit {
 
   async sendEmailOTP(email: string, type: string, accountType?: string, userId?: string) {
     if (!email) throw new BadRequestException('Email is required');
+    const otp = this.generateOTP();
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
+
+    const otpDoc = await this.otpModel.findOneAndUpdate(
+      { email },
+      { otp, expiresAt, verified: false },
+      { upsert: true, new: true }
+    ).exec();
+
+    this.ensureOtpMailerReady();
+    if (this.mailTransporter && this.mailFrom) {
+      await this.mailTransporter.sendMail({
+        from: this.mailFrom,
+        to: email,
+        subject: 'Your GOLO Verification Code',
+        text: `Your OTP is: ${otp}. It expires in 5 minutes.`,
+        html: `<p>Your OTP is: <strong style="font-size: 24px;">${otp}</strong>.</p><p>It expires in 5 minutes.</p>`,
+      });
+      this.logger.log(`OTP email sent successfully to ${email}`);
+    } else {
+      this.logger.warn('Mail transporter not ready, skipping actual email send.');
+      this.logger.log(`Generated OTP for ${email}: ${otp}`);
+    }
+
     return { success: true, message: 'OTP sent to email', expiresIn: 300 };
   }
 
   async verifyEmailOTP(email: string, otp: string) {
     if (!email || !otp) throw new BadRequestException('Email and OTP are required');
+    
+    const record = await this.otpModel.findOne({ email }).exec();
+    if (!record) throw new BadRequestException('No OTP found for this email');
+    if (record.otp !== otp) throw new UnauthorizedException('Invalid OTP');
+    if (new Date() > record.expiresAt) throw new BadRequestException('OTP has expired');
+
+    record.verified = true;
+    await record.save();
+
     return { success: true, message: 'OTP verified' };
   }
 
@@ -766,10 +818,10 @@ export class UsersService implements OnModuleInit {
 
   async resetForgotPassword(email: string, otp: string, newPassword: string) {
     if (!email || !otp || !newPassword) throw new BadRequestException('Email, OTP and new password are required');
-    const user = await this.userModel.findOne({ email }).exec();
-    if (!user) throw new NotFoundException('User not found');
+    const userCount = await this.userModel.countDocuments({ email }).exec();
+    if (userCount === 0) throw new NotFoundException('User not found');
     const hashedPassword = await bcrypt.hash(newPassword, 10);
-    await this.userModel.updateOne({ _id: user._id }, { $set: { password: hashedPassword } }).exec();
+    await this.userModel.updateMany({ email }, { $set: { password: hashedPassword } }).exec();
     return { success: true, message: 'Password reset successfully' };
   }
 
@@ -897,7 +949,7 @@ export class UsersService implements OnModuleInit {
     this.logger.log(`Profile updated successfully for user: ${userId}`);
     this.logger.debug(`Updated fields: ${JSON.stringify(Object.keys(allowedUpdates))}`);
 
-    return this.toResponseDto(user);
+    const merchantProfile = user.accountType === 'merchant' ? await this.merchantModel.findOne({ userId: user._id.toString() }).lean().exec() : null; return this.toResponseDto(user, merchantProfile);
   }
 
   async findById(userId: string): Promise<UserResponseDto> {
@@ -910,10 +962,15 @@ export class UsersService implements OnModuleInit {
       }
 
       const user = await this.userModel.findById(userId).exec();
-      if (!user) {
-        throw new NotFoundException(`User with ID ${userId} not found`);
-      }
-      return this.toResponseDto(user);
+        if (!user) {
+          throw new NotFoundException(`User with ID ${userId} not found`);
+        }
+        
+        const merchantProfile = user.accountType === 'merchant'
+          ? await this.merchantModel.findOne({ userId: user._id.toString() }).lean().exec()
+          : null;
+          
+        return this.toResponseDto(user, merchantProfile);
     } catch (error) {
       if (error.name === 'CastError') {
         throw new BadRequestException('Invalid user ID format');
@@ -944,7 +1001,7 @@ export class UsersService implements OnModuleInit {
       }
 
       this.logger.log(`User found: ${user.email}`);
-      return this.toResponseDto(user);
+      const merchantProfile = user.accountType === 'merchant' ? await this.merchantModel.findOne({ userId: user._id.toString() }).lean().exec() : null; return this.toResponseDto(user, merchantProfile);
 
     } catch (error) {
       // Handle different types of errors
@@ -962,9 +1019,15 @@ export class UsersService implements OnModuleInit {
     }
   }
 
-  async findByEmail(email: string): Promise<UserResponseDto | null> {
-    const user = await this.userModel.findOne({ email }).exec();
-    return user ? this.toResponseDto(user) : null;
+  async findByEmail(email: string, accountType: 'user' | 'merchant' = 'user'): Promise<UserResponseDto | null> {
+    const user = await this.userModel.findOne({ email, accountType }).exec();
+    if (!user) return null;
+    
+    const merchantProfile = user.accountType === 'merchant'
+      ? await this.merchantModel.findOne({ userId: user._id.toString() }).lean().exec()
+      : null;
+      
+    return this.toResponseDto(user, merchantProfile);
   }
 
   async getAllUsers(page: number = 1, limit: number = 10): Promise<{ users: UserResponseDto[]; total: number }> {
@@ -1023,7 +1086,7 @@ export class UsersService implements OnModuleInit {
       details: { updatedFields: updateData }
     });
 
-    return this.toResponseDto(user);
+    const merchantProfile = user.accountType === 'merchant' ? await this.merchantModel.findOne({ userId: user._id.toString() }).lean().exec() : null; return this.toResponseDto(user, merchantProfile);
   }
 
   async adminDeleteUser(userId: string, adminId: string, adminEmail: string): Promise<void> {
@@ -1080,7 +1143,7 @@ export class UsersService implements OnModuleInit {
       details: { reason, banUntil }
     });
 
-    return this.toResponseDto(user);
+    const merchantProfile = user.accountType === 'merchant' ? await this.merchantModel.findOne({ userId: user._id.toString() }).lean().exec() : null; return this.toResponseDto(user, merchantProfile);
   }
 
   async unbanUser(userId: string, adminId: string, adminEmail: string): Promise<UserResponseDto> {
@@ -1103,7 +1166,7 @@ export class UsersService implements OnModuleInit {
       targetType: 'User'
     });
 
-    return this.toResponseDto(user);
+    const merchantProfile = user.accountType === 'merchant' ? await this.merchantModel.findOne({ userId: user._id.toString() }).lean().exec() : null; return this.toResponseDto(user, merchantProfile);
   }
 
   async adminGetStats(): Promise<any> {
@@ -2184,6 +2247,41 @@ export class UsersService implements OnModuleInit {
 
     await user.save();
 
+    if (kycStatus === 'Verified') {
+      const merchant = await this.merchantModel.findOne({ userId: user._id.toString() });
+      if (merchant && (!merchant.subscription || merchant.subscription.status !== 'TRIAL')) {
+        let trialDays = 50;
+        let trialHours = 0;
+        let trialMinutes = 0;
+        
+        if (this.systemSettingsModel) {
+          const settings = await this.systemSettingsModel.findOne();
+          if (settings) {
+            trialDays = settings.merchantTrialDays ?? 50;
+            trialHours = settings.merchantTrialHours ?? 0;
+            trialMinutes = settings.merchantTrialMinutes ?? 0;
+          }
+        }
+        
+        const now = new Date();
+        const msToAdd = (trialDays * 24 * 60 * 60 * 1000) + (trialHours * 60 * 60 * 1000) + (trialMinutes * 60 * 1000);
+        const trialEndsAt = new Date(now.getTime() + msToAdd);
+        
+        merchant.subscription = {
+          planId: 'Premium',
+          status: 'TRIAL',
+          startedAt: now,
+          expiresAt: null as any, // bypassing TS strict null checks if it expects Date
+          trialEndsAt: trialEndsAt,
+          billingCycle: 'monthly',
+          autoRenew: false,
+          assignedBy: adminId || 'system',
+          assignedAt: now,
+        };
+        await merchant.save();
+      }
+    }
+
     // Log audit if audit service available
     if (this.auditLogsService) {
       try {
@@ -2239,6 +2337,9 @@ export class UsersService implements OnModuleInit {
       loyaltyPoints: user.loyaltyPoints || 0,
       merchantLoyaltyPoints: user.merchantLoyaltyPoints || {},
       loyaltyTier,
+      kycStatus: user.kycStatus || 'Pending',
+      kycRejectionReason: user.kycRejectionReason,
     };
   }
 }
+

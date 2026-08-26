@@ -218,15 +218,16 @@ export class ChatsGateway implements OnGatewayConnection, OnGatewayDisconnect {
       `messageId=${message.id}, onlineUsers=${JSON.stringify([...this.onlineUsers.keys()])}`,
     );
 
-    // Emit new_message to the conversation room
+    // Emit new_message to the conversation room (kept for backward compatibility or active participants)
     this.server.to(room).emit('new_message', message);
 
-    // Emit conversation_updated to EACH participant's user room
+    // Emit new_message and conversation_updated to EACH participant's user room
     for (const participantId of participants) {
       const userRoom = `user:${participantId}`;
       this.logger.log(
-        `[BROADCAST] Emitting conversation_updated to ${userRoom} for participant ${participantId}`,
+        `[BROADCAST] Emitting new_message and conversation_updated to ${userRoom} for participant ${participantId}`,
       );
+      this.server.to(userRoom).emit('new_message', message);
       this.server.to(userRoom).emit('conversation_updated', {
         conversationId: conversationId,
         lastMessageText:
