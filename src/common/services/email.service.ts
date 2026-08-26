@@ -213,7 +213,7 @@ export class EmailService {
   }
 
   async sendMerchantApprovalEmail(email: string, storeName: string): Promise<boolean> {
-    const loginLink = this.configService.get('MERCHANT_LOGIN_URL') || 'http://localhost:3001/merchant-login';
+    const loginLink = this.configService.get('MERCHANT_LOGIN_URL') || 'https://golo-frontend-inky.vercel.app/merchant-login';
     const mailOptions = {
       from: `"GOLO No-Reply" <${this.configService.get('EMAIL_FROM') || this.configService.get('SMTP_FROM') || this.configService.get('EMAIL_USER')}>`,
       replyTo: 'noreply@golo.com',
@@ -246,7 +246,7 @@ export class EmailService {
   }
 
   async sendMerchantDeclineEmail(email: string, storeName: string, reason: string): Promise<boolean> {
-    const registerLink = this.configService.get('MERCHANT_REGISTER_URL') || 'http://localhost:3001/merchant-register';
+    const registerLink = this.configService.get('MERCHANT_REGISTER_URL') || 'https://golo-frontend-inky.vercel.app/merchant-register';
     const mailOptions = {
       from: `"GOLO No-Reply" <${this.configService.get('EMAIL_FROM') || this.configService.get('SMTP_FROM') || this.configService.get('EMAIL_USER')}>`,
       replyTo: 'noreply@golo.com',
