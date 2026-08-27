@@ -1595,6 +1595,8 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
     );
 
     const adsWithAnalytics = ads.map((ad) => ({
+      _id: (ad as any)._id,
+      id: (ad as any)._id || ad.adId,
       adId: ad.adId,
       title: ad.title,
       description: ad.description,

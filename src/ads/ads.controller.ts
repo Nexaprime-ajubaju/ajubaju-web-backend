@@ -21,6 +21,7 @@ import {
 } from '@nestjs/common';
 import { AnyFilesInterceptor } from '@nestjs/platform-express';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { OptionalJwtAuthGuard } from '../common/guards/optional-jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
@@ -1295,6 +1296,7 @@ export class AdsController {
     }
   }
 
+  @UseGuards(OptionalJwtAuthGuard)
   @Get('ad-details/:adId')
   async getAdDetails(@Param('adId') adId: string, @CurrentUser() user?: any) {
     this.logger.log(`Fetching ad details for: ${adId}`);
@@ -1333,6 +1335,7 @@ export class AdsController {
   /**
    * Track an ad card click / view
    */
+  @UseGuards(OptionalJwtAuthGuard)
   @Post(':adId/view')
   async trackView(@Param('adId') adId: string, @CurrentUser() user?: any) {
     this.logger.log(`REST: Tracking view/card click for ad: ${adId}`);
