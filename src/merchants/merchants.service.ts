@@ -7,6 +7,7 @@ import {
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Merchant, MerchantDocument } from '../users/schemas/merchant.schema';
+import { MerchantDailyView } from './schemas/merchant-daily-view.schema';
 import { User, UserDocument } from '../users/schemas/user.schema';
 import { OTP, OTPDocument } from '../users/schemas/otp.schema';
 import { UpdateStoreLocationDto } from '../users/dto/update-store-location.dto';
@@ -17,6 +18,7 @@ export class MerchantsService {
     @InjectModel(Merchant.name) private merchantModel: Model<MerchantDocument>,
     @InjectModel(User.name) private userModel: Model<UserDocument>,
     @InjectModel(OTP.name) private otpModel: Model<OTPDocument>,
+    @InjectModel(MerchantDailyView.name) private merchantDailyViewModel: Model<MerchantDailyView>,
   ) {}
 
   /**
@@ -138,6 +140,13 @@ export class MerchantsService {
 
     merchant.profileViews = (merchant.profileViews || 0) + 1;
     await merchant.save();
+
+    const todayStr = new Date().toISOString().split('T')[0];
+    await this.merchantDailyViewModel.updateOne(
+      { merchantId: String(merchant._id), date: todayStr },
+      { $inc: { views: 1 } },
+      { upsert: true }
+    );
 
     const data = merchant.toObject ? merchant.toObject() : merchant;
 

@@ -19,6 +19,7 @@ import { CreateMerchantProductDto } from './dto/create-merchant-product.dto';
 import { ListMerchantProductsDto } from './dto/list-merchant-products.dto';
 import { UpdateMerchantProductDto } from './dto/update-merchant-product.dto';
 import { MerchantProductsService } from './merchant-products.service';
+import { RedisService } from '../common/services/redis.service';
 
 interface CurrentUserPayload {
   id: string;
@@ -30,6 +31,7 @@ interface CurrentUserPayload {
 export class MerchantProductsController {
   constructor(
     private readonly merchantProductsService: MerchantProductsService,
+    private readonly redisService: RedisService,
   ) {}
 
   @Get('public/search/global')
@@ -49,10 +51,18 @@ export class MerchantProductsController {
     @Param('merchantId') merchantId: string,
     @Query() query: ListMerchantProductsDto,
   ) {
-    return this.merchantProductsService.listProductsByMerchantId(
+    const cacheKey = `merchant:products:public:${merchantId}:${JSON.stringify(query)}`;
+    const cached = await this.redisService.get<any>(cacheKey);
+    if (cached) return cached;
+    
+    const result = await this.merchantProductsService.listProductsByMerchantId(
       merchantId,
       query,
     );
+    if (result && result.success) {
+      await this.redisService.set(cacheKey, result, 60);
+    }
+    return result;
   }
 
   @Get('public/item/:productId')

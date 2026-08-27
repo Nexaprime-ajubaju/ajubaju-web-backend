@@ -1,12 +1,16 @@
 import { Controller, Get, Post, Body, Param, Query, BadRequestException, InternalServerErrorException, Logger } from '@nestjs/common';
 import { MerchantsService } from './merchants.service';
+import { RedisService } from '../common/services/redis.service';
 import * as nodemailer from 'nodemailer';
 
 @Controller('merchant')
 export class PublicMerchantsController {
   private readonly logger = new Logger(PublicMerchantsController.name);
 
-  constructor(private readonly merchantsService: MerchantsService) { }
+  constructor(
+    private readonly merchantsService: MerchantsService,
+    private readonly redisService: RedisService,
+  ) { }
 
   @Get('public/search')
   async searchMerchants(
@@ -24,14 +28,30 @@ export class PublicMerchantsController {
 
   @Get('public/:merchantId/profile')
   async getPublicMerchantProfile(@Param('merchantId') merchantId: string) {
-    return this.merchantsService.getPublicMerchantProfile(merchantId);
+    const cacheKey = `merchant:profile:public:${merchantId}`;
+    const cached = await this.redisService.get<any>(cacheKey);
+    if (cached) return cached;
+    
+    const result = await this.merchantsService.getPublicMerchantProfile(merchantId);
+    if (result && result.success) {
+      await this.redisService.set(cacheKey, result, 60);
+    }
+    return result;
   }
 
   @Get('public/:merchantId/store-location')
   async getPublicMerchantStoreLocation(
     @Param('merchantId') merchantId: string,
   ) {
-    return this.merchantsService.getPublicMerchantStoreLocation(merchantId);
+    const cacheKey = `merchant:location:public:${merchantId}`;
+    const cached = await this.redisService.get<any>(cacheKey);
+    if (cached) return cached;
+    
+    const result = await this.merchantsService.getPublicMerchantStoreLocation(merchantId);
+    if (result && result.success) {
+      await this.redisService.set(cacheKey, result, 60);
+    }
+    return result;
   }
 
   /**

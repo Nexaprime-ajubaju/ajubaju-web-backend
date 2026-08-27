@@ -23,6 +23,7 @@ import {
   OfferPromotion,
   OfferPromotionDocument,
 } from '../offers/schemas/offer-promotion.schema';
+import { MerchantDailyView } from '../merchants/schemas/merchant-daily-view.schema';
 
 @Injectable()
 export class MerchantDashboardService {
@@ -44,6 +45,8 @@ export class MerchantDashboardService {
     private readonly followModel: Model<FollowDocument>,
     @InjectModel(OfferPromotion.name)
     private readonly offerPromotionModel: Model<OfferPromotionDocument>,
+    @InjectModel(MerchantDailyView.name)
+    private readonly merchantDailyViewModel: Model<MerchantDailyView>,
     private readonly redisService: RedisService,
     private readonly SubscriptionsService: SubscriptionsService,
   ) { }
@@ -154,9 +157,9 @@ export class MerchantDashboardService {
   }
 
   private getAgeGroup(dateOfBirth?: Date | string) {
-    if (!dateOfBirth) return null;
+    if (!dateOfBirth) return 'Unknown';
     const birthDate = new Date(dateOfBirth);
-    if (Number.isNaN(birthDate.getTime())) return null;
+    if (Number.isNaN(birthDate.getTime())) return 'Unknown';
 
     const today = new Date();
     let age = today.getFullYear() - birthDate.getFullYear();
@@ -384,6 +387,8 @@ export class MerchantDashboardService {
       offersP30,
       followsL30,
       followsP30,
+      todayClaimsCount,
+      todayViewsData,
     ] = await Promise.all([
       this.orderModel
         .find({ merchantId: mId })
@@ -444,7 +449,7 @@ export class MerchantDashboardService {
       ]),
       this.voucherModel.countDocuments({ merchantId: mId, status: 'redeemed', redeemedAt: { $gte: start, $lte: end } }),
       this.offerPromotionModel.countDocuments({ ...activeOfferQuery, createdAt: { $gte: start, $lte: end } }),
-      this.followModel.countDocuments({ merchantId: { $in: [String(merchantId), String(mId), profileId].filter(Boolean) }, createdAt: { $gte: start, $lte: end } }),
+      this.followModel.countDocuments({ merchantId: { $in: [String(merchantId), String(mId), profileId].filter(Boolean) } }),
       this.getMerchantCustomerUserIds(merchantId),
       this.orderModel.aggregate([
         { $match: { merchantId: mId, placedAt: { $gte: startOfDay } } },
@@ -480,7 +485,8 @@ export class MerchantDashboardService {
       this.offerPromotionModel.countDocuments({ ...offerQuery, createdAt: { $gte: sixtyDaysAgo, $lte: thirtyDaysAgo } }),
       this.followModel.countDocuments({ merchantId: { $in: [String(merchantId), String(mId), profileId].filter(Boolean) }, createdAt: { $gte: thirtyDaysAgo, $lte: end } }),
       this.followModel.countDocuments({ merchantId: { $in: [String(merchantId), String(mId), profileId].filter(Boolean) }, createdAt: { $gte: sixtyDaysAgo, $lte: thirtyDaysAgo } }),
-      // Profile views don't have historical timestamps so we'll estimate using order ratio
+      this.voucherModel.countDocuments({ merchantId: mId, createdAt: { $gte: startOfDay } }),
+      this.merchantDailyViewModel.findOne({ merchantId: String(merchantId), date: new Date().toISOString().split('T')[0] }).lean(),
     ]);
 
     const offerIds = topPerformingOffers.map((o: any) => o._id);
@@ -577,8 +583,10 @@ export class MerchantDashboardService {
           todayOrders: todayOrderStats?.[0]?.todayOrders || 0,
           todayRevenue: todayOrderStats?.[0]?.todayRevenue || 0,
           todayRedemptions: todayRedemptionsCount || 0,
-          todayVisitors: 0, // Profile views per day not historically tracked
-          todayConversionRate: 0,
+          todayVisitors: todayViewsData?.views || 0,
+          todayConversionRate: todayClaimsCount > 0 
+            ? Number(((todayRedemptionsCount / todayClaimsCount) * 100).toFixed(2)) 
+            : 0,
           todayAvgOrderValue: todayOrderStats?.[0]?.todayOrders
             ? Number((todayOrderStats[0].todayRevenue / todayOrderStats[0].todayOrders).toFixed(2))
             : 0,
@@ -793,7 +801,7 @@ export class MerchantDashboardService {
     const customers = await this.getMerchantCustomerUsers(merchantId);
     // Note: User demographics are relatively static, but we can filter by the customers active in date range if needed.
     // For now, we will return the demographics of all customers.
-    const labels = ['18-24', '25-34', '35-44', '45-64', '65+'];
+    const labels = ['18-24', '25-34', '35-44', '45-64', '65+', 'Unknown'];
     const buckets = new Map(
       labels.map((label) => [
         label,
@@ -1056,14 +1064,7 @@ export class MerchantDashboardService {
     }
     const topOffers = await this.offerPromotionModel.find(offerQuery).sort({ createdAt: -1 }).limit(50).lean();
 
-    const fallbackOffers = [
-      { _id: '1', requestId: '1', title: 'Summer Sale', category: 'Seasonal Offer' },
-      { _id: '2', requestId: '2', title: 'Buy 1 Get 1', category: 'Buy One Get One (BOGO)' },
-      { _id: '3', requestId: '3', title: 'Flat 20% Off', category: 'Flat Discount' },
-      { _id: '4', requestId: '4', title: 'Weekend Special', category: 'Weekend Offer' }
-    ];
-
-    const displayOffers = topOffers.length > 0 ? topOffers : fallbackOffers;
+    const displayOffers = topOffers;
 
     const offerIds = topOffers.map((o: any) => String(o._id));
 
@@ -1075,9 +1076,24 @@ export class MerchantDashboardService {
     }
     const offerVouchers = await this.voucherModel.find(voucherQuery).select('offerId status createdAt redeemedAt').lean();
 
+    const likeQuery: any = { offerPublicId: { $in: offerIds } };
+    if (start || end) {
+      likeQuery.createdAt = {};
+      if (start) likeQuery.createdAt.$gte = startDate;
+      if (end) likeQuery.createdAt.$lte = endDate;
+    }
+    const offerLikes = await this.offerLikeHistoryModel.find(likeQuery).select('offerPublicId createdAt').lean();
+
     const offerStats = new Map();
     for (const offer of displayOffers) {
-      offerStats.set(String(offer._id), { claimed: 0, redeemed: 0, liked: 0, claimedTrend: new Array(12).fill(0), redeemedTrend: new Array(12).fill(0), likedTrend: new Array(12).fill(0) });
+      offerStats.set(String(offer._id), { 
+        claimed: 0, 
+        redeemed: 0, 
+        liked: 0, 
+        claimedTrend: { weekly: new Array(7).fill(0), monthly: new Array(4).fill(0), yearly: new Array(12).fill(0) }, 
+        redeemedTrend: { weekly: new Array(7).fill(0), monthly: new Array(4).fill(0), yearly: new Array(12).fill(0) }, 
+        likedTrend: { weekly: new Array(7).fill(0), monthly: new Array(4).fill(0), yearly: new Array(12).fill(0) } 
+      });
     }
 
     const now = new Date();
@@ -1089,19 +1105,87 @@ export class MerchantDashboardService {
       stats.claimed += 1;
 
       if ((v as any).createdAt) {
-        const daysAgo = Math.floor((now.getTime() - new Date((v as any).createdAt).getTime()) / (1000 * 3600 * 24));
-        if (daysAgo >= 0 && daysAgo < 12) {
-          stats.claimedTrend[11 - daysAgo] += 1;
+        const date = new Date((v as any).createdAt);
+        
+        // Yearly (Jan-Dec)
+        if (date.getFullYear() === now.getFullYear()) {
+          stats.claimedTrend.yearly[date.getMonth()] += 1;
+        }
+        
+        // Monthly (Wk 1 - Wk 4)
+        if (date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth()) {
+          const weekIdx = Math.min(3, Math.floor((date.getDate() - 1) / 7));
+          stats.claimedTrend.monthly[weekIdx] += 1;
+        }
+        
+        // Weekly (Mon-Sun of current week)
+        const nowMonday = new Date(now);
+        const currentDayOfWeek = now.getDay() === 0 ? 6 : now.getDay() - 1;
+        nowMonday.setDate(now.getDate() - currentDayOfWeek);
+        nowMonday.setHours(0, 0, 0, 0);
+        
+        if (date >= nowMonday) {
+          const dateDayIndex = date.getDay() === 0 ? 6 : date.getDay() - 1;
+          stats.claimedTrend.weekly[dateDayIndex] += 1;
         }
       }
 
       if (v.status === 'redeemed') {
         stats.redeemed += 1;
         if (v.redeemedAt) {
-          const daysAgo = Math.floor((now.getTime() - new Date(v.redeemedAt).getTime()) / (1000 * 3600 * 24));
-          if (daysAgo >= 0 && daysAgo < 12) {
-            stats.redeemedTrend[11 - daysAgo] += 1;
+          const date = new Date(v.redeemedAt);
+          
+          if (date.getFullYear() === now.getFullYear()) {
+            stats.redeemedTrend.yearly[date.getMonth()] += 1;
           }
+          
+          if (date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth()) {
+            const weekIdx = Math.min(3, Math.floor((date.getDate() - 1) / 7));
+            stats.redeemedTrend.monthly[weekIdx] += 1;
+          }
+          
+          const nowMonday = new Date(now);
+          const currentDayOfWeek = now.getDay() === 0 ? 6 : now.getDay() - 1;
+          nowMonday.setDate(now.getDate() - currentDayOfWeek);
+          nowMonday.setHours(0, 0, 0, 0);
+          
+          if (date >= nowMonday) {
+            const dateDayIndex = date.getDay() === 0 ? 6 : date.getDay() - 1;
+            stats.redeemedTrend.weekly[dateDayIndex] += 1;
+          }
+        }
+      }
+    }
+
+    for (const like of offerLikes) {
+      const oId = String((like as any).offerPublicId);
+      if (!offerStats.has(oId)) continue;
+      const stats = offerStats.get(oId);
+      stats.liked += 1;
+
+      if ((like as any).createdAt) {
+        const date = new Date((like as any).createdAt);
+        
+        // Yearly (Jan-Dec)
+        if (date.getFullYear() === now.getFullYear()) {
+          stats.likedTrend.yearly[date.getMonth()] += 1;
+        }
+        
+        // Monthly (Wk 1 - Wk 4)
+        if (date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth()) {
+          const weekIdx = Math.min(3, Math.floor((date.getDate() - 1) / 7));
+          stats.likedTrend.monthly[weekIdx] += 1;
+        }
+        
+        // Weekly (Mon-Sun of current week)
+        const nowMonday = new Date(now);
+        const currentDayOfWeek = now.getDay() === 0 ? 6 : now.getDay() - 1;
+        nowMonday.setDate(now.getDate() - currentDayOfWeek);
+        nowMonday.setHours(0, 0, 0, 0);
+        
+        if (date >= nowMonday) {
+          const dateDayIndex = date.getDay() === 0 ? 6 : date.getDay() - 1;
+          stats.likedTrend.weekly[dateDayIndex] += 1;
         }
       }
     }
@@ -1110,22 +1194,11 @@ export class MerchantDashboardService {
       const stats = offerStats.get(String(offer._id));
       const claimed = stats.claimed;
       const redeemed = stats.redeemed;
-      const liked = Math.floor(claimed * 1.5) + (offer.title.length % 5);
-
-      // A deterministic distribution based on total so it doesn't bounce on refresh
-      const generateDeterministicTrend = (total) => {
-        let arr = new Array(12).fill(0);
-        let charCode = String(offer._id).charCodeAt(0) || 65;
-        for (let i = 0; i < total; i++) {
-          const index = Math.floor(Math.abs(Math.sin(i * charCode)) * 12);
-          arr[Math.min(11, index)]++;
-        }
-        return arr;
-      };
+      const liked = stats.liked;
 
       const claimedTrend = stats.claimedTrend;
       const redeemedTrend = stats.redeemedTrend;
-      const likedTrend = generateDeterministicTrend(liked);
+      const likedTrend = stats.likedTrend;
 
       return {
         _id: String(offer._id),

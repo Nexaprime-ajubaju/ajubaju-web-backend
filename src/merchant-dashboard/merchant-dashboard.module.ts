@@ -8,6 +8,7 @@ import { MerchantProduct, MerchantProductSchema } from '../merchant-products/sch
 import { Review, ReviewSchema } from '../reviews/schemas/review.schema';
 import { User, UserSchema } from '../users/schemas/user.schema';
 import { Voucher, VoucherSchema } from '../vouchers/schemas/voucher.schema';
+import { MerchantDailyView, MerchantDailyViewSchema } from '../merchants/schemas/merchant-daily-view.schema';
 import {
   OfferLikeHistory,
   OfferLikeHistorySchema,
@@ -30,6 +31,7 @@ import { MerchantDashboardService } from './merchant-dashboard.service';
       { name: Review.name, schema: ReviewSchema },
       { name: User.name, schema: UserSchema },
       { name: Voucher.name, schema: VoucherSchema },
+      { name: MerchantDailyView.name, schema: MerchantDailyViewSchema },
       { name: OfferLikeHistory.name, schema: OfferLikeHistorySchema },
       { name: Merchant.name, schema: MerchantSchema },
       { name: Follow.name, schema: FollowSchema },

@@ -22,6 +22,7 @@ import * as nodemailer from 'nodemailer';
 import { AdsService } from '../ads/ads.service';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import { Payment, PaymentDocument, PaymentStatus } from '../payments/schemas/payment.schema';
+import { Follow, FollowDocument } from './schemas/follow.schema';
 import { OfferLikeHistory, OfferLikeHistoryDocument } from '../offers/schemas/offer-like-history.schema';
 import { OfferPromotion, OfferPromotionDocument } from '../offers/schemas/offer-promotion.schema';
 import { RedisService } from '../common/services/redis.service';
@@ -302,6 +303,7 @@ export class UsersService implements OnModuleInit {
     @InjectModel(Merchant.name) private merchantModel: Model<MerchantDocument>,
     @InjectModel(OTP.name) private otpModel: Model<OTPDocument>,
     @InjectModel(UserReport.name) private userReportModel: Model<UserReportDocument>,
+    @InjectModel(Follow.name) private followModel: Model<FollowDocument>,
     private jwtService: JwtService,
     private readonly auditLogsService: AuditLogsService,
     private configService: ConfigService,
@@ -553,6 +555,16 @@ export class UsersService implements OnModuleInit {
       }
     }
 
+    if (user.accountType === 'merchant' && user.role !== UserRole.ADMIN) {
+      if (user.kycStatus?.toLowerCase() === 'pending') {
+        this.logger.warn(`Login failed - merchant account pending KYC: ${loginDto.email}`);
+        throw new ForbiddenException('Your merchant account is pending admin approval. You will receive an email once approved.');
+      } else if (user.kycStatus?.toLowerCase() === 'rejected') {
+        this.logger.warn(`Login failed - merchant account rejected KYC: ${loginDto.email}`);
+        throw new ForbiddenException(`Your merchant account was rejected. Reason: ${user.kycRejectionReason || 'Contact support'}`);
+      }
+    }
+
     if (user.accountType === 'merchant' && user.role !== UserRole.ADMIN && user.role !== UserRole.MERCHANT) {
       user.role = UserRole.MERCHANT;
       await user.save();
@@ -749,8 +761,10 @@ export class UsersService implements OnModuleInit {
     let isFollowing = followedMerchants.includes(merchantId);
     if (isFollowing) {
       followedMerchants = followedMerchants.filter((id: string) => id !== merchantId);
+      await this.followModel.deleteOne({ userId, merchantId }).exec();
     } else {
       followedMerchants.push(merchantId);
+      await this.followModel.updateOne({ userId, merchantId }, { $set: { userId, merchantId } }, { upsert: true }).exec();
     }
     await this.userModel.updateOne({ _id: userId }, { $set: { followedMerchants } }).exec();
     return { success: true, isFollowing: !isFollowing };
@@ -2295,6 +2309,54 @@ export class UsersService implements OnModuleInit {
         });
       } catch (err) {
         this.logger.warn(`Failed to log KYC update: ${err.message}`);
+      }
+    }
+
+    if (this.mailTransporter) {
+      const fromEmail = this.configService.get<string>('EMAIL_USER');
+      try {
+        const statusLower = kycStatus.toLowerCase();
+        if (statusLower === 'verified' || statusLower === 'approved') {
+          await this.mailTransporter.sendMail({
+            from: `"GOLO Admin" <${fromEmail}>`,
+            to: user.email,
+            subject: 'Your GOLO Merchant Account is Approved!',
+            html: `
+              <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+                <h2>Welcome to GOLO!</h2>
+                <p>Hello ${user.name},</p>
+                <p>Great news! Your merchant account has been <strong>approved</strong> by our team.</p>
+                <p>You can now log in to your dashboard and start managing your store, products, and offers.</p>
+                <br/>
+                <p>Best regards,<br/><strong>The GOLO Team</strong></p>
+              </div>
+            `,
+          });
+          this.logger.log(`Sent KYC approval email to ${user.email}`);
+        } else if (statusLower === 'rejected' || statusLower === 'declined') {
+          await this.mailTransporter.sendMail({
+            from: `"GOLO Admin" <${fromEmail}>`,
+            to: user.email,
+            subject: 'Update on your GOLO Merchant Account',
+            html: `
+              <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+                <h2>Account Update</h2>
+                <p>Hello ${user.name},</p>
+                <p>We have reviewed your merchant account registration.</p>
+                <p>Unfortunately, your application was declined for the following reason:</p>
+                <blockquote style="border-left: 4px solid #ef4444; padding-left: 10px; color: #555; background-color: #fee2e2; padding: 10px;">
+                  ${rejectionReason || 'Please contact support for more details.'}
+                </blockquote>
+                <p>If you have any questions, please contact our support team.</p>
+                <br/>
+                <p>Best regards,<br/><strong>The GOLO Team</strong></p>
+              </div>
+            `,
+          });
+          this.logger.log(`Sent KYC rejection email to ${user.email}`);
+        }
+      } catch (emailError) {
+        this.logger.error(`Failed to send KYC email to ${user.email}: ${emailError.message}`);
       }
     }
 

@@ -1454,11 +1454,13 @@ export class VouchersService implements OnModuleInit {
         vouchers.map(async (v) => {
           const user = await this.userModel
             .findById(v.userId)
-            .select('name email');
+            .select('name email profile profilePhoto');
           return {
             ...v.toObject(),
             userName: user?.name,
             userEmail: user?.email,
+            userPhone: user?.profile?.phone || null,
+            userAvatar: user?.profilePhoto || user?.profile?.avatar || null,
           };
         }),
       );

@@ -22,6 +22,7 @@ import { KafkaService } from '../kafka/kafka.service';
 import { KAFKA_TOPICS } from '../common/constants/kafka-topics';
 import { SubmitOfferPromotionDto } from './dto/submit-offer-promotion.dto';
 import { UpdateOfferPromotionDto } from './dto/update-offer-promotion.dto';
+import { RedisService } from '../common/services/redis.service';
 
 @Controller('offers')
 export class OffersController {
@@ -29,6 +30,7 @@ export class OffersController {
     private readonly offersService: OffersService,
     private readonly bannersService: BannersService,
     private readonly kafkaService: KafkaService,
+    private readonly redisService: RedisService,
   ) { }
 
   @Post('request')
@@ -160,6 +162,10 @@ export class OffersController {
     @Query('page') page?: string,
     @Query('limit') limit?: string,
   ) {
+    const cacheKey = `ads:nearby:${merchantId || ''}:${lat || ''}:${lng || ''}:${radiusKm || ''}:${location || ''}:${q || ''}:${category || ''}:${sort || ''}:${topDiscount || ''}:${activeNow || ''}:${maxPrice || ''}:${page || '1'}:${limit || '20'}`;
+    const cached = await this.redisService.get<any>(cacheKey);
+    if (cached) return { success: true, ...cached, timestamp: new Date().toISOString() };
+
     const requestPayload = {
       merchantId,
       latitude: lat ? Number(lat) : undefined,
@@ -206,6 +212,8 @@ export class OffersController {
         'Failed to load nearby deals. Please try again.',
       );
     }
+    
+    await this.redisService.set(cacheKey, data, 60);
 
     return { success: true, ...data, timestamp: new Date().toISOString() };
   }

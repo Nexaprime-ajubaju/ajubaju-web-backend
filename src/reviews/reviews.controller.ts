@@ -12,11 +12,15 @@ import {
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { ReviewsService } from './reviews.service';
+import { RedisService } from '../common/services/redis.service';
 import { ReviewStatus } from './schemas/review.schema';
 
 @Controller('reviews')
 export class ReviewsController {
-  constructor(private readonly reviewsService: ReviewsService) {}
+  constructor(
+    private readonly reviewsService: ReviewsService,
+    private readonly redisService: RedisService,
+  ) {}
 
   @Get('offers/:offerId')
   async getOfferReviews(
@@ -74,7 +78,15 @@ export class ReviewsController {
 
   @Get('merchant/:merchantId/public-stats')
   async getPublicMerchantReviewStats(@Param('merchantId') merchantId: string) {
-    return this.reviewsService.getPublicMerchantReviewStats(merchantId);
+    const cacheKey = `reviews:stats:public:${merchantId}`;
+    const cached = await this.redisService.get<any>(cacheKey);
+    if (cached) return cached;
+
+    const result = await this.reviewsService.getPublicMerchantReviewStats(merchantId);
+    if (result && result.success) {
+      await this.redisService.set(cacheKey, result, 60);
+    }
+    return result;
   }
 
   @Patch(':reviewId/status')

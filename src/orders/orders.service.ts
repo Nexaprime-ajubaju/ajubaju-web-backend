@@ -266,19 +266,35 @@ export class OrdersService {
       }),
     );
 
+    let voucherMap = new Map();
+    try {
+      const VoucherModel = this.orderModel.db.model('Voucher');
+      const voucherIds = orders.map((o) => o.voucherId).filter(Boolean);
+      if (voucherIds.length > 0) {
+        const vouchers = await VoucherModel.find({ voucherId: { $in: voucherIds } }).lean();
+        voucherMap = new Map(vouchers.map((v: any) => [v.voucherId, v]));
+      }
+    } catch (e) {
+      this.logger?.warn('Could not fetch vouchers for orders: ' + e.message);
+    }
+
     const result = {
       success: true,
-      data: orders.map((o: any) => ({
-        _id: String(o._id),
-        orderNumber: o.orderNumber,
-        amount: o.amount,
-        itemsCount: o.itemsCount,
-        status: o.status,
-        placedAt: o.placedAt,
-        customerName: userMapName.get(String(o.userId)) || 'Unknown Customer',
-        customerPhone: userMapPhone.get(String(o.userId)) || null,
-        customerAvatar: userMapAvatar.get(String(o.userId)) || null,
-      })),
+      data: orders.map((o: any) => {
+        const v = o.voucherId ? voucherMap.get(o.voucherId) : null;
+        return {
+          _id: String(o._id),
+          orderNumber: o.voucherId || o.orderNumber,
+          offerTitle: v ? v.offerTitle : "Special Offer",
+          amount: o.amount,
+          itemsCount: o.itemsCount,
+          status: o.status === 'completed' ? 'redeemed' : o.status,
+          placedAt: o.placedAt,
+          customerName: userMapName.get(String(o.userId)) || 'Unknown Customer',
+          customerPhone: userMapPhone.get(String(o.userId)) || null,
+          customerAvatar: userMapAvatar.get(String(o.userId)) || null,
+        };
+      }),
       pagination: {
         page,
         limit,
