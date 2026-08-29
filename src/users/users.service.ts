@@ -1,8 +1,8 @@
 
 
 import { Injectable, ConflictException, UnauthorizedException, NotFoundException, BadRequestException, ForbiddenException, Logger, InternalServerErrorException, Optional, forwardRef, Inject, OnModuleInit } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { isValidObjectId, Model } from 'mongoose';
+import { InjectConnection, InjectModel } from '@nestjs/mongoose';
+import { Connection, isValidObjectId, Model, Types } from 'mongoose';
 import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
 import { User, UserDocument, UserRole } from './schemas/user.schema';
@@ -12,6 +12,8 @@ import { UserReport, UserReportDocument } from './schemas/user-report.schema';
 import { OTP, OTPDocument } from './schemas/otp.schema';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
+import { DeleteAccountDto } from './dto/delete-account.dto';
+import { DeletedAccount, DeletedAccountDocument } from './schemas/deleted-account.schema';
 import { SystemSettings, SystemSettingsDocument } from '../system-settings/schemas/system-settings.schema';
 import { SocialAuthDto } from './dto/social-auth.dto';
 import { UserResponseDto } from './dto/user-response.dto';
@@ -315,6 +317,8 @@ export class UsersService implements OnModuleInit {
     @Optional() @InjectModel(OfferLikeHistory.name) private offerLikeHistoryModel?: Model<OfferLikeHistoryDocument>,
     @Optional() @InjectModel(OfferPromotion.name) private offerPromotionModel?: Model<OfferPromotionDocument>,
     @Optional() @InjectModel(SystemSettings.name) private systemSettingsModel?: Model<SystemSettingsDocument>,
+    @Optional() @InjectConnection() private connection?: Connection,
+    @Optional() @InjectModel(DeletedAccount.name) private deletedAccountModel?: Model<DeletedAccountDocument>,
   ) {
     // Support both SMTP_* and EMAIL_* env var conventions.
     // The repo's `.env` currently uses EMAIL_* while OTP flow historically used SMTP_*.
@@ -1105,6 +1109,30 @@ export class UsersService implements OnModuleInit {
 
   async adminDeleteUser(userId: string, adminId: string, adminEmail: string): Promise<void> {
     this.logger.log(`Admin deleting user: ${userId}`);
+
+    const user = await this.userModel.findById(userId).exec();
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    if (this.deletedAccountModel) {
+      const merchant = user.accountType === 'merchant' ? await this.merchantModel.findOne({ userId: String(user._id) }).lean().exec() : null;
+      await this.deletedAccountModel.create({
+        accountId: String(user._id),
+        accountType: user.accountType || (user.role === 'merchant' ? 'merchant' : 'user'),
+        name: user.name || 'User',
+        email: user.email,
+        phone: user.profile?.phone || (user as any).phone || '',
+        storeName: merchant?.storeName || undefined,
+        storeCategory: merchant?.storeCategory || undefined,
+        storeLocation: merchant?.storeLocation || undefined,
+        reason: 'Deleted by System Administrator',
+        customReason: `Deleted by admin (${adminEmail})`,
+        deletedBy: 'admin',
+        deletedByAdminEmail: adminEmail,
+        deletedAt: new Date(),
+      });
+    }
 
     const result = await this.userModel.deleteOne({ _id: userId }).exec();
     if (result.deletedCount === 0) {
@@ -2054,17 +2082,58 @@ export class UsersService implements OnModuleInit {
       try {
         const offer = await this.offerPromotionModel?.findById(id).lean().exec();
         if (offer) {
+          let merchantInfo: any = { name: offer.merchantName };
+          let storeLocation = (offer as any).storeLocation || (offer as any).location || '';
+          let lat = (offer as any).storeLocationLatitude || (offer as any).latitude;
+          let lng = (offer as any).storeLocationLongitude || (offer as any).longitude;
+
+          try {
+            const merchantDoc = await this.merchantModel?.findOne({
+              $or: [
+                { userId: String(offer.merchantId) },
+                { _id: offer.merchantId },
+              ]
+            }).lean().exec();
+            if (merchantDoc) {
+              merchantInfo = {
+                ...merchantInfo,
+                storeLocation: merchantDoc.storeLocation,
+                address: merchantDoc.storeLocation,
+                storeName: merchantDoc.storeName || offer.merchantName,
+                profilePhoto: merchantDoc.profilePhoto,
+              };
+              storeLocation = storeLocation || merchantDoc.storeLocation || '';
+              lat = lat ?? merchantDoc.storeLocationLatitude;
+              lng = lng ?? merchantDoc.storeLocationLongitude;
+            }
+          } catch {
+            // ignore
+          }
+
+          const resolvedPrice =
+            offer.selectedProducts?.[0]?.offerPrice ??
+            offer.totalPrice ??
+            0;
+
           offers.push({
             ...offer,
             _type: 'offer',
             adId: String(offer._id),
             title: offer.title,
-            price: offer.totalPrice,
-            images: offer.imageUrl ? [offer.imageUrl] : [],
-            category: offer.category,
-            merchant: {
-              name: offer.merchantName,
-            },
+            price: resolvedPrice,
+            totalPrice: offer.totalPrice,
+            images: offer.imageUrl
+              ? [offer.imageUrl]
+              : (offer.selectedProducts?.[0]?.imageUrl ? [offer.selectedProducts[0].imageUrl] : []),
+            category: offer.category || offer.businessCategory || '',
+            promoTag: offer.promoTag || '',
+            storeLocation,
+            location: storeLocation,
+            latitude: lat,
+            longitude: lng,
+            storeLocationLatitude: lat,
+            storeLocationLongitude: lng,
+            merchant: merchantInfo,
           });
         }
       } catch (error) {
@@ -2402,6 +2471,102 @@ export class UsersService implements OnModuleInit {
       kycStatus: user.kycStatus || 'Pending',
       kycRejectionReason: user.kycRejectionReason,
     };
+  }
+
+  // ==================== DELETE USER ACCOUNT ====================
+  async deleteUserAccount(userId: string, dto: DeleteAccountDto) {
+    if (dto.confirmation !== 'DELETE') {
+      throw new BadRequestException('You must type DELETE to confirm account deletion.');
+    }
+
+    const user = await this.userModel.findById(userId).exec();
+    if (!user) {
+      throw new NotFoundException('User account not found.');
+    }
+
+    this.logger.warn(`Permanently deleting user account: ${userId} (${user.email}). Reason: ${dto.reason}. Details: ${dto.customReason || 'N/A'}`);
+
+    try {
+      // 0. Record deletion in DeletedAccount collection for admin auditing
+      if (this.deletedAccountModel) {
+        await this.deletedAccountModel.create({
+          accountId: String(user._id),
+          accountType: 'user',
+          name: user.name || 'User',
+          email: user.email,
+          phone: user.profile?.phone || (user as any).phone || '',
+          reason: dto.reason || 'Not specified',
+          customReason: dto.customReason || '',
+          deletedBy: 'user',
+          deletedAt: new Date(),
+        });
+      }
+
+      // 1. Delete user record
+      await this.userModel.deleteOne({ _id: user._id }).exec();
+
+      // 2. Delete notifications
+      if (this.notificationModel) {
+        await this.notificationModel.deleteMany({
+          $or: [{ recipientId: String(userId) }, { senderId: String(userId) }],
+        }).exec();
+      }
+
+      // 3. Delete follows
+      if (this.followModel) {
+        await this.followModel.deleteMany({ followerId: String(userId) }).exec();
+      }
+
+      // 4. Delete offer like history
+      if (this.offerLikeHistoryModel) {
+        await this.offerLikeHistoryModel.deleteMany({ userId: String(userId) }).exec();
+      }
+
+      // 5. Delete user reports
+      if (this.userReportModel) {
+        await this.userReportModel.deleteMany({
+          $or: [{ reporterUserId: String(userId) }, { reportedUserId: String(userId) }],
+        }).exec();
+      }
+
+      // 6. Delete claimed vouchers
+      if (this.connection) {
+        await this.connection.collection('vouchers').deleteMany({
+          $or: [
+            { userId: String(userId) },
+            Types.ObjectId.isValid(userId) ? { userId: new Types.ObjectId(userId) } : undefined,
+          ].filter(Boolean),
+        });
+      }
+
+      // 7. Clear Redis cache
+      if (this.redisService) {
+        await this.redisService.del(`user:${userId}`);
+        await this.redisService.del(`user:profile:${userId}`);
+      }
+    } catch (error) {
+      this.logger.error(`Error deleting user data for ${userId}: ${error.message}`);
+      throw new InternalServerErrorException('Failed to delete account data.');
+    }
+
+    return {
+      success: true,
+      message: 'Your account has been permanently deleted.',
+    };
+  }
+
+  // ==================== GET DELETED ACCOUNTS (ADMIN) ====================
+  async getDeletedAccounts(accountType?: string) {
+    if (!this.deletedAccountModel) return [];
+    const filter: any = {};
+    if (accountType) {
+      if (accountType === 'merchant') {
+        filter.accountType = 'merchant';
+      } else {
+        filter.accountType = { $in: ['user', 'customer'] };
+      }
+    }
+    return this.deletedAccountModel.find(filter).sort({ deletedAt: -1 }).lean().exec();
   }
 }
 

@@ -3,6 +3,7 @@ import {
   Put,
   Get,
   Post,
+  Delete,
   Body,
   UseGuards,
   BadRequestException,
@@ -12,6 +13,7 @@ import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { UpdateStoreLocationDto } from '../users/dto/update-store-location.dto';
 import { UpdateMerchantProfileDto } from './dto/update-merchant-profile.dto';
+import { DeleteAccountDto } from '../users/dto/delete-account.dto';
 
 @Controller('merchant')
 @UseGuards(JwtAuthGuard)
@@ -121,5 +123,22 @@ export class MerchantsController {
       userId,
       settings,
     );
+  }
+
+  /**
+   * Delete merchant account and all associated store data
+   * DELETE /merchant/account
+   */
+  @Delete('account')
+  async deleteAccount(
+    @CurrentUser() user: any,
+    @Body() dto: DeleteAccountDto,
+  ) {
+    if (!user?.id && !user?._id) {
+      throw new BadRequestException('User authentication required');
+    }
+
+    const userId = user.id || user._id;
+    return await this.merchantsService.deleteMerchantAccount(userId, dto);
   }
 }

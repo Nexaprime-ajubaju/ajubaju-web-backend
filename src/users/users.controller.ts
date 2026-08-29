@@ -19,6 +19,7 @@ import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { SocialAuthDto } from './dto/social-auth.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
+import { DeleteAccountDto } from './dto/delete-account.dto';
 
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
@@ -541,6 +542,16 @@ export class UsersController {
     return { success: true, data: await this.usersService.adminGetAllUsers(pageNum, limitNum) };
   }
 
+  @Get('admin/deleted-accounts')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  async getDeletedAccounts(
+    @Query('accountType') accountType?: string
+  ) {
+    const data = await this.usersService.getDeletedAccounts(accountType);
+    return { success: true, data };
+  }
+
   @Delete('admin/users/:id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
@@ -567,6 +578,20 @@ export class UsersController {
     const adminEmail = admin?.email || 'test@admin.com';
     const data = await this.usersService.updateUserKycStatus(id, kycStatus, rejectionReason, adminId, adminEmail);
     return { success: true, data };
+  }
+
+  // ==================== USER SELF ACCOUNT DELETION ====================
+  @Delete('account')
+  @UseGuards(JwtAuthGuard)
+  async deleteAccount(
+    @CurrentUser() user: any,
+    @Body() dto: DeleteAccountDto,
+  ) {
+    const userId = user?.id || user?._id;
+    if (!userId) {
+      throw new BadRequestException('User authentication required');
+    }
+    return this.usersService.deleteUserAccount(userId, dto);
   }
 
   // ==================== DYNAMIC ====================

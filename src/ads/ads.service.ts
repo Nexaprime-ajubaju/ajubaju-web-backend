@@ -855,6 +855,23 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
     return ad;
   }
 
+  getCategoryMatchCondition(category: string) {
+    if (!category) return null;
+    const clean = String(category).trim();
+    if (!clean) return null;
+
+    // Handle common category variations (e.g. Electronics & Home appliances)
+    if (/^electronics/i.test(clean)) {
+      return /^(electronics|electronics\s*(&|and)\s*home\s*appliances)$/i;
+    }
+    if (/^greetings/i.test(clean)) {
+      return /^(greetings|greetings\s*(&|and)\s*tributes)$/i;
+    }
+
+    const escaped = clean.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return new RegExp(`^${escaped}$`, 'i');
+  }
+
   async getAdsByCategory(
     category: string,
     page = 1,
@@ -867,17 +884,20 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
     const sort: { [key: string]: SortOrder } = {};
     sort[sortBy] = sortOrder === 'desc' ? -1 : 1;
 
+    const catCondition = this.getCategoryMatchCondition(category);
+    const filter: any = { status: 'active' };
+    if (catCondition) {
+      filter.category = catCondition;
+    }
+
     const [ads, total] = await Promise.all([
       this.adModel
-        .find({ category, status: 'active' })
+        .find(filter)
         .sort(sort)
         .skip(skip)
         .limit(limit)
         .exec(),
-      this.adModel.countDocuments({
-        category,
-        status: 'active',
-      }),
+      this.adModel.countDocuments(filter),
     ]);
 
     return { ads, total };
@@ -901,7 +921,12 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
 
     const mongoQuery: any = { status: 'active' };
 
-    if (filters?.category) mongoQuery.category = filters.category;
+    if (filters?.category) {
+      const catCond = this.getCategoryMatchCondition(filters.category);
+      if (catCond) {
+        mongoQuery.category = catCond;
+      }
+    }
     if (filters?.location && String(filters.location).trim()) {
       const LOCATION_ALIASES: Record<string, string[]> = {
         kolhapur: [

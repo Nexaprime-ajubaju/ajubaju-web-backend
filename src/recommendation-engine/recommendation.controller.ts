@@ -58,6 +58,9 @@ export class RecommendationController {
         ? parseFloat(query.lng)
         : undefined;
 
+    const rawCity = query.city || query.location || query.locationName;
+    const normalizedCity = rawCity ? rawCity.toLowerCase().trim() : undefined;
+
     return {
       userId: req.user?.id || query.userId,
       latitude,
@@ -66,7 +69,7 @@ export class RecommendationController {
         latitude !== undefined && longitude !== undefined
           ? { latitude, longitude }
           : undefined,
-      city: query.city || query.location || query.locationName,
+      city: normalizedCity,
       area: query.area || query.region,
       pincode: query.pincode,
       page: query.page ? parseInt(query.page, 10) : 1,

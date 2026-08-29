@@ -7,6 +7,7 @@ import { Merchant, MerchantSchema } from '../users/schemas/merchant.schema';
 import { MerchantDailyView, MerchantDailyViewSchema } from './schemas/merchant-daily-view.schema';
 import { User, UserSchema } from '../users/schemas/user.schema';
 import { OTP, OTPSchema } from '../users/schemas/otp.schema';
+import { DeletedAccount, DeletedAccountSchema } from '../users/schemas/deleted-account.schema';
 
 import { RedisModule } from '../common/services/redis.module';
 
@@ -17,6 +18,7 @@ import { RedisModule } from '../common/services/redis.module';
       { name: User.name, schema: UserSchema },
       { name: OTP.name, schema: OTPSchema },
       { name: MerchantDailyView.name, schema: MerchantDailyViewSchema },
+      { name: DeletedAccount.name, schema: DeletedAccountSchema },
     ]),
     RedisModule,
   ],

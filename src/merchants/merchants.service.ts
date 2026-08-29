@@ -3,22 +3,32 @@ import {
   BadRequestException,
   NotFoundException,
   ConflictException,
+  Optional,
+  Logger,
 } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
+import { InjectConnection, InjectModel } from '@nestjs/mongoose';
+import { Connection, Model, Types } from 'mongoose';
 import { Merchant, MerchantDocument } from '../users/schemas/merchant.schema';
 import { MerchantDailyView } from './schemas/merchant-daily-view.schema';
 import { User, UserDocument } from '../users/schemas/user.schema';
 import { OTP, OTPDocument } from '../users/schemas/otp.schema';
 import { UpdateStoreLocationDto } from '../users/dto/update-store-location.dto';
+import { DeleteAccountDto } from '../users/dto/delete-account.dto';
+import { DeletedAccount, DeletedAccountDocument } from '../users/schemas/deleted-account.schema';
+import { RedisService } from '../common/services/redis.service';
 
 @Injectable()
 export class MerchantsService {
+  private readonly logger = new Logger(MerchantsService.name);
+
   constructor(
     @InjectModel(Merchant.name) private merchantModel: Model<MerchantDocument>,
     @InjectModel(User.name) private userModel: Model<UserDocument>,
     @InjectModel(OTP.name) private otpModel: Model<OTPDocument>,
     @InjectModel(MerchantDailyView.name) private merchantDailyViewModel: Model<MerchantDailyView>,
+    @Optional() @InjectConnection() private connection?: Connection,
+    @Optional() private readonly redisService?: RedisService,
+    @Optional() @InjectModel(DeletedAccount.name) private deletedAccountModel?: Model<DeletedAccountDocument>,
   ) {}
 
   /**
@@ -478,5 +488,124 @@ export class MerchantsService {
         `Failed to update notification settings: ${error.message}`,
       );
     }
+  }
+
+  /**
+   * Delete merchant account and permanently wipe all store data
+   */
+  async deleteMerchantAccount(userId: string, dto: DeleteAccountDto) {
+    if (dto.confirmation !== 'DELETE') {
+      throw new BadRequestException('You must type DELETE to confirm account deletion.');
+    }
+
+    const userIdStr = String(userId);
+    const merchant = await this.merchantModel.findOne({
+      $or: [
+        { userId: userIdStr },
+        Types.ObjectId.isValid(userIdStr) ? { _id: new Types.ObjectId(userIdStr) } : undefined,
+      ].filter(Boolean),
+    }).exec();
+
+    const merchantIdStr = merchant ? String(merchant._id) : '';
+    const merchantUserId = merchant ? String(merchant.userId) : userIdStr;
+
+    this.logger.warn(`Permanently deleting merchant account: ${userIdStr}. Store: ${merchant?.storeName || 'Unknown'}. Reason: ${dto.reason}. Details: ${dto.customReason || 'N/A'}`);
+
+    // 0. Record in DeletedAccount collection for admin audit
+    if (this.deletedAccountModel) {
+      try {
+        await this.deletedAccountModel.create({
+          accountId: merchantIdStr || userIdStr,
+          accountType: 'merchant',
+          name: (merchant as any)?.ownerName || (merchant as any)?.name || 'Merchant',
+          email: (merchant as any)?.storeEmail || (merchant as any)?.email || '',
+          phone: (merchant as any)?.storePhone || (merchant as any)?.phone || '',
+          storeName: merchant?.storeName || 'Merchant Store',
+          storeCategory: merchant?.storeCategory || '',
+          storeLocation: merchant?.storeLocation || '',
+          reason: dto.reason || 'Not specified',
+          customReason: dto.customReason || '',
+          deletedBy: 'merchant',
+          deletedAt: new Date(),
+        });
+      } catch (err) {
+        this.logger.error(`Failed to record merchant deletion audit: ${err?.message}`);
+      }
+    }
+
+    // Delete associated data
+    await Promise.allSettled([
+      // 1. Delete Merchant doc
+      merchant ? this.merchantModel.deleteOne({ _id: merchant._id }).exec() : Promise.resolve(),
+      // 2. Delete merchant User doc
+      this.userModel.deleteMany({
+        $or: [
+          { _id: merchantUserId, accountType: 'merchant' },
+          { _id: userIdStr, accountType: 'merchant' },
+          { _id: userIdStr },
+        ],
+      }).exec(),
+      // 3. Delete products
+      this.connection?.collection('merchantproducts').deleteMany({
+        $or: [
+          { merchantId: merchantUserId },
+          { merchantId: merchantIdStr },
+          merchant ? { merchantId: merchant._id } : undefined,
+        ].filter(Boolean),
+      }),
+      // 4. Delete offer promotions
+      this.connection?.collection('offerpromotions').deleteMany({
+        $or: [
+          { merchantId: merchantUserId },
+          { merchantId: merchantIdStr },
+          merchant ? { merchantId: merchant._id } : undefined,
+        ].filter(Boolean),
+      }),
+      // 5. Delete banner promotions
+      this.connection?.collection('bannerpromotions').deleteMany({
+        $or: [
+          { merchantId: merchantUserId },
+          { merchantId: merchantIdStr },
+        ],
+      }),
+      // 6. Delete vouchers
+      this.connection?.collection('vouchers').deleteMany({
+        $or: [
+          { merchantId: merchantUserId },
+          { merchantId: merchantIdStr },
+        ],
+      }),
+      // 7. Delete reviews
+      this.connection?.collection('reviews').deleteMany({
+        $or: [
+          { merchantId: merchantUserId },
+          { merchantId: merchantIdStr },
+        ],
+      }),
+      // 8. Delete follows & views
+      this.merchantDailyViewModel.deleteMany({
+        merchantId: merchantIdStr || userIdStr,
+      }).exec(),
+      this.connection?.collection('follows').deleteMany({
+        merchantId: merchantIdStr || userIdStr,
+      }),
+    ]);
+
+    // Redis invalidation
+    if (this.redisService) {
+      try {
+        await this.redisService.del(`merchant:${merchantIdStr}`);
+        await this.redisService.del(`merchant:profile:${merchantUserId}`);
+        await this.redisService.del(`merchant:stats:${merchantIdStr}`);
+        await this.redisService.del(`merchant:reviews:${merchantIdStr}`);
+      } catch (e) {
+        // ignore
+      }
+    }
+
+    return {
+      success: true,
+      message: 'Your merchant account and all store data have been permanently deleted.',
+    };
   }
 }

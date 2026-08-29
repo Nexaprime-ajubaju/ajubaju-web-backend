@@ -35,7 +35,7 @@ export class HomepageRecommendationService {
 
     const promises = enabledSections.map(async (section) => {
       try {
-        return await this.executeSectionWithFallback(
+        return await this.executeSection(
           section,
           context,
           requestId,
@@ -63,7 +63,7 @@ export class HomepageRecommendationService {
     return homepagePayload;
   }
 
-  private async executeSectionWithFallback(
+  private async executeSection(
     section: any,
     context: RecommendationContext,
     requestId: string,
@@ -71,56 +71,40 @@ export class HomepageRecommendationService {
     minConfidence: number,
   ): Promise<RecommendationSectionDto | null> {
     const primaryStrategy = section.strategy || section.key;
-    const fallbackStrategies = [
-      'trending',
-      'best_selling',
-      'new_arrivals',
-      'flash_deals',
-    ].filter((strategy) => strategy !== primaryStrategy);
-
-    let strategiesToTry = [primaryStrategy, ...fallbackStrategies];
-
-    // Disable fallbacks for strictly personalized strategies
-    const strictPersonalized = ['recently_viewed', 'continue_shopping', 'repeat_purchase'];
-    if (strictPersonalized.includes(primaryStrategy)) {
-        strategiesToTry = [primaryStrategy];
-    }
     const strategyContext = { ...context, limit: section.limit || 10 };
 
-    for (const strategyKey of strategiesToTry) {
-      const sectionResult = await this.recommendationService.executeStrategy(
-        strategyKey,
-        strategyContext,
-        section.title,
-        requestId,
-      );
+    const sectionResult = await this.recommendationService.executeStrategy(
+      primaryStrategy,
+      strategyContext,
+      section.title,
+      requestId,
+    );
 
-      const products = sectionResult?.products || [];
-      const confidence = sectionResult?.metadata?.confidence || 0;
+    const products = sectionResult?.products || [];
+    const confidence = sectionResult?.metadata?.confidence || 0;
 
-      if (products.length >= minProducts && confidence >= minConfidence) {
-        this.logger.debug(
-          `Section ${section.key} resolved with strategy ${strategyKey} (${products.length} products, confidence ${confidence})`,
-        );
-
-        return {
-          ...sectionResult,
-          key: section.key,
-          title: section.title,
-          strategy: strategyKey,
-          metadata: {
-            ...sectionResult.metadata,
-            requestedStrategy: primaryStrategy,
-            resolvedStrategy: strategyKey,
-            sectionKey: section.key,
-          },
-        };
-      }
-
+    if (products.length >= minProducts && confidence >= minConfidence) {
       this.logger.debug(
-        `Section ${section.key} using strategy ${strategyKey} produced ${products.length} products with confidence ${confidence}; trying next fallback`,
+        `Section ${section.key} resolved with strategy ${primaryStrategy} (${products.length} products, confidence ${confidence})`,
       );
+
+      return {
+        ...sectionResult,
+        key: section.key,
+        title: section.title,
+        strategy: primaryStrategy,
+        metadata: {
+          ...sectionResult.metadata,
+          requestedStrategy: primaryStrategy,
+          resolvedStrategy: primaryStrategy,
+          sectionKey: section.key,
+        },
+      };
     }
+
+    this.logger.debug(
+      `Section ${section.key} using strategy ${primaryStrategy} produced ${products.length} products with confidence ${confidence}; returning null to omit section`,
+    );
 
     return null;
   }
