@@ -6,8 +6,12 @@ export class UserResponseDto {
   accountType: 'user' | 'merchant';
   isBanned?: boolean;
   banReason?: string;
+  banUntil?: string | Date | null;
   isEmailVerified: boolean;
   profile?: any;
+  city?: string | null;
+  phone?: string | null;
+  joinedDate?: Date | string;
   profilePhoto?: string | null;
   kycStatus?: string;
   kycRejectionReason?: string;

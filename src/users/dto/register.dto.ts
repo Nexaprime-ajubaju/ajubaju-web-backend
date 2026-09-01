@@ -8,12 +8,14 @@ import {
   IsIn,
   IsDateString,
 } from 'class-validator';
+import { Transform } from 'class-transformer';
 
 export class RegisterDto {
   @IsString()
   @IsNotEmpty()
   name: string;
 
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim().toLowerCase() : value))
   @IsEmail()
   @IsNotEmpty()
   email: string;

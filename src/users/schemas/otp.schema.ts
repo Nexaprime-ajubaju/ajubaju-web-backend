@@ -8,7 +8,7 @@ export class OTP {
   @Prop({ required: false, index: true })
   phone?: string;
 
-  @Prop({ required: false, index: true })
+  @Prop({ required: false, index: true, lowercase: true, trim: true })
   email?: string;
 
   @Prop({ required: true })

@@ -11,7 +11,7 @@ export class Merchant {
   @Prop({ required: true })
   storeName: string;
 
-  @Prop({ required: true })
+  @Prop({ required: true, trim: true, lowercase: true })
   storeEmail: string;
 
   @Prop()

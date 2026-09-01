@@ -30,6 +30,15 @@ import { OfferPromotion, OfferPromotionDocument } from '../offers/schemas/offer-
 import { RedisService } from '../common/services/redis.service';
 import { validatePreferredCategories, normalizeCategories } from '../common/constants/categories';
 
+function escapeRegex(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function emailCaseInsensitiveQuery(email: string) {
+  const normalized = (email || '').trim();
+  return { $regex: new RegExp(`^${escapeRegex(normalized)}$`, 'i') };
+}
+
 @Injectable()
 export class UsersService implements OnModuleInit {
 
@@ -205,7 +214,8 @@ export class UsersService implements OnModuleInit {
     if (dto.step === 1) {
       const accountType = dto.accountType || 'user';
       if (dto.email) {
-        const existingEmail = await this.userModel.findOne({ email: dto.email, accountType }).lean().exec();
+        const emailLower = (dto.email || '').trim().toLowerCase();
+        const existingEmail = await this.userModel.findOne({ email: emailCaseInsensitiveQuery(emailLower), accountType }).lean().exec();
         if (existingEmail) {
           throw new BadRequestException('Email is already registered.');
         }
@@ -405,12 +415,16 @@ export class UsersService implements OnModuleInit {
     return { total, pending, underInvestigation, resolved };
   }
   async register(registerDto: RegisterDto, ip?: string, userAgent?: string): Promise<UserResponseDto> {
-    this.logger.log(`Registering new user: ${registerDto.email}`);
+    const emailLower = (registerDto.email || '').trim().toLowerCase();
+    this.logger.log(`Registering new user: ${emailLower}`);
 
     const accountType = registerDto.accountType === 'merchant' ? 'merchant' : 'user';
 
-    // Check if user exists for this account type
-    const existingUser = await this.userModel.findOne({ email: registerDto.email, accountType }).exec();
+    // Check if user exists for this account type (case-insensitive)
+    const existingUser = await this.userModel.findOne({ 
+      email: emailCaseInsensitiveQuery(emailLower), 
+      accountType 
+    }).exec();
     if (existingUser) {
       throw new ConflictException('User with this email already exists');
     }
@@ -420,13 +434,13 @@ export class UsersService implements OnModuleInit {
 
     // Check for admin email in config
     const adminEmail = this.configService.get<string>('ADMIN_EMAIL');
-    const isSystemAdmin = adminEmail && registerDto.email.toLowerCase() === adminEmail.toLowerCase();
+    const isSystemAdmin = adminEmail && emailLower === adminEmail.toLowerCase();
 
     if (accountType === 'merchant') {
       if (!registerDto.storeName?.trim()) {
         throw new BadRequestException('Store name is required for merchant registration');
       }
-      if (!registerDto.storeEmail?.trim()) {
+      if (!registerDto.storeEmail?.trim() && !emailLower) {
         throw new BadRequestException('Store email is required for merchant registration');
       }
       if (!registerDto.storeLocation?.trim()) {
@@ -457,7 +471,7 @@ export class UsersService implements OnModuleInit {
     // Create user (Admin if matches config, else based on account type)
     const user = new this.userModel({
       name: registerDto.name,
-      email: registerDto.email,
+      email: emailLower,
       password: hashedPassword,
       role: assignedRole,
       accountType,
@@ -479,7 +493,7 @@ export class UsersService implements OnModuleInit {
       await this.merchantModel.create({
         userId: savedUser._id.toString(),
         storeName: registerDto.storeName?.trim(),
-        storeEmail: registerDto.storeEmail?.trim() || registerDto.email,
+        storeEmail: (registerDto.storeEmail?.trim() || emailLower).toLowerCase(),
         gstNumber: registerDto.gstNumber?.trim() || undefined,
         contactNumber: registerDto.contactNumber?.trim() || registerDto.phone,
         storeCategory: registerDto.storeCategory?.trim() || undefined,
@@ -514,26 +528,27 @@ export class UsersService implements OnModuleInit {
   }
 
   async login(loginDto: LoginDto, ip?: string, userAgent?: string): Promise<{ accessToken: string; refreshToken: string; user: UserResponseDto }> {
-    this.logger.log(`Login attempt: ${loginDto.email} (accountType: ${loginDto.accountType})`);
+    const emailLower = (loginDto.email || '').trim().toLowerCase();
+    this.logger.log(`Login attempt: ${emailLower} (accountType: ${loginDto.accountType})`);
 
     const accountType = loginDto.accountType === 'merchant' ? 'merchant' : 'user';
-    const user = await this.userModel.findOne({ email: loginDto.email, accountType }).exec();
+    const user = await this.userModel.findOne({ email: emailCaseInsensitiveQuery(emailLower), accountType }).exec();
 
     if (!user) {
       const otherAccountType = accountType === 'merchant' ? 'user' : 'merchant';
-      const otherUser = await this.userModel.findOne({ email: loginDto.email, accountType: otherAccountType }).exec();
+      const otherUser = await this.userModel.findOne({ email: emailCaseInsensitiveQuery(emailLower), accountType: otherAccountType }).exec();
 
       if (otherUser) {
         if (accountType === 'merchant') {
-          this.logger.warn(`Login failed - merchant login attempted but only user account exists: ${loginDto.email}`);
+          this.logger.warn(`Login failed - merchant login attempted but only user account exists: ${emailLower}`);
           throw new UnauthorizedException('This email is not registered as a merchant. Please use the User login or register as a merchant.');
         } else {
-          this.logger.warn(`Login failed - user login attempted but only merchant account exists: ${loginDto.email}`);
+          this.logger.warn(`Login failed - user login attempted but only merchant account exists: ${emailLower}`);
           throw new UnauthorizedException('This email is registered as a merchant. Please use Merchant login to continue.');
         }
       }
 
-      this.logger.warn(`Login failed - user not found: ${loginDto.email}`);
+      this.logger.warn(`Login failed - user not found: ${emailLower}`);
       if (loginDto.accountType === 'merchant') {
         throw new UnauthorizedException('This email is not registered as a merchant. Please register as a merchant first.');
       }
@@ -1038,7 +1053,8 @@ export class UsersService implements OnModuleInit {
   }
 
   async findByEmail(email: string, accountType: 'user' | 'merchant' = 'user'): Promise<UserResponseDto | null> {
-    const user = await this.userModel.findOne({ email, accountType }).exec();
+    const emailLower = (email || '').trim().toLowerCase();
+    const user = await this.userModel.findOne({ email: emailCaseInsensitiveQuery(emailLower), accountType }).exec();
     if (!user) return null;
     
     const merchantProfile = user.accountType === 'merchant'
@@ -1048,32 +1064,54 @@ export class UsersService implements OnModuleInit {
     return this.toResponseDto(user, merchantProfile);
   }
 
-  async getAllUsers(page: number = 1, limit: number = 10): Promise<{ users: UserResponseDto[]; total: number }> {
-    this.logger.log(`Getting all users - Page: ${page}, Limit: ${limit}`);
+  async getAllUsers(
+    page: number = 1,
+    limit: number = 10,
+    filterOptions?: { accountType?: string; role?: string }
+  ): Promise<{ users: UserResponseDto[]; total: number }> {
+    this.logger.log(`Getting all users - Page: ${page}, Limit: ${limit}, filter: ${JSON.stringify(filterOptions || {})}`);
 
     const skip = (page - 1) * limit;
+    const query: any = {};
+
+    if (filterOptions?.accountType === 'user' || filterOptions?.accountType === 'customer') {
+      query.accountType = { $ne: 'merchant' };
+      query.role = { $nin: [UserRole.MERCHANT, UserRole.ADMIN] };
+    } else if (filterOptions?.accountType === 'merchant') {
+      query.$or = [{ accountType: 'merchant' }, { role: UserRole.MERCHANT }];
+    } else if (filterOptions?.accountType) {
+      query.accountType = filterOptions.accountType;
+    }
+
+    if (filterOptions?.role) {
+      query.role = filterOptions.role;
+    }
 
     const [users, total] = await Promise.all([
       this.userModel
-        .find()
+        .find(query)
         .skip(skip)
         .limit(limit)
         .sort({ createdAt: -1 })
         .exec(),
-      this.userModel.countDocuments()
+      this.userModel.countDocuments(query),
     ]);
 
     return {
-      users: users.map(user => this.toResponseDto(user)),
+      users: users.map((user) => this.toResponseDto(user)),
       total,
     };
   }
 
   // ==================== ADMIN METHODS ====================
 
-  async adminGetAllUsers(page: number = 1, limit: number = 10): Promise<{ users: UserResponseDto[]; total: number }> {
+  async adminGetAllUsers(
+    page: number = 1,
+    limit: number = 10,
+    filterOptions?: { accountType?: string; role?: string }
+  ): Promise<{ users: UserResponseDto[]; total: number }> {
     this.logger.log(`Admin getting all users - Page: ${page}, Limit: ${limit}`);
-    return this.getAllUsers(page, limit);
+    return this.getAllUsers(page, limit, filterOptions);
   }
 
   async adminGetUserById(userId: string): Promise<UserResponseDto> {
@@ -2450,6 +2488,9 @@ export class UsersService implements OnModuleInit {
     else if (points >= 5000) loyaltyTier = 'Gold';
     else if (points >= 1000) loyaltyTier = 'Silver';
 
+    const city = user.profile?.city || (user as any).city || null;
+    const phone = user.profile?.phone || (user as any).phone || null;
+
     return {
       id: user._id.toString(),
       name: user.name,
@@ -2458,13 +2499,17 @@ export class UsersService implements OnModuleInit {
       accountType: user.accountType || 'user',
       isBanned: user.isBanned || false,
       banReason: user.banReason,
+      banUntil: user.banUntil || null,
       isEmailVerified: user.isEmailVerified || false,
       profile: user.profile || {},
+      city,
+      phone,
       profilePhoto: user.profilePhoto || null,
       preferredCategories: Array.isArray(user.preferredCategories) ? user.preferredCategories : [],
       merchantProfile,
       iWantPreference: user.iWantPreference || null,
       createdAt: user.createdAt,
+      joinedDate: user.createdAt,
       loyaltyPoints: user.loyaltyPoints || 0,
       merchantLoyaltyPoints: user.merchantLoyaltyPoints || {},
       loyaltyTier,
