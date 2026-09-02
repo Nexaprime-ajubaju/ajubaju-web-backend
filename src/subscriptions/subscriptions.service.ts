@@ -1,10 +1,11 @@
-import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, BadRequestException, Optional } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { SubscriptionPlan, SubscriptionPlanDocument } from './schemas/subscription-plan.schema';
 import { MerchantSubscriptionHistory, MerchantSubscriptionHistoryDocument } from './schemas/merchant-subscription-history.schema';
 import { MerchantBannerCredits, MerchantBannerCreditsDocument } from './schemas/merchant-banner-credits.schema';
 import { Merchant, MerchantDocument } from '../users/schemas/merchant.schema';
+import { RedisService } from '../common/services/redis.service';
 import * as moment from 'moment';
 
 @Injectable()
@@ -16,7 +17,18 @@ export class SubscriptionsService {
     @InjectModel(MerchantSubscriptionHistory.name) private readonly historyModel: Model<MerchantSubscriptionHistoryDocument>,
     @InjectModel(MerchantBannerCredits.name) private readonly bannerCreditsModel: Model<MerchantBannerCreditsDocument>,
     @InjectModel(Merchant.name) private readonly merchantModel: Model<MerchantDocument>,
+    @Optional() private readonly redisService?: RedisService,
   ) {}
+
+  private async invalidatePlansCache() {
+    if (this.redisService) {
+      try {
+        await this.redisService.deleteByPattern('golo:subscriptions:plans:*');
+      } catch (e) {
+        // Ignore cache deletion error
+      }
+    }
+  }
 
   /**
    * Retrieves the active subscription plan for a given merchant.
@@ -78,10 +90,20 @@ export class SubscriptionsService {
   }
 
   async getAllPublicPlans(isAdmin = false) {
+    const cacheKey = `golo:subscriptions:plans:${isAdmin ? 'admin' : 'public'}`;
+    if (this.redisService) {
+      try {
+        const cached = await this.redisService.get<any>(cacheKey);
+        if (cached) return cached;
+      } catch (e) {
+        // Safe fallback
+      }
+    }
+
     const query = isAdmin ? {} : { isActive: true };
     const plans = await this.subscriptionPlanModel.find(query).sort({ price: 1 }).lean().exec();
     
-    return plans.map(plan => {
+    const result = plans.map(plan => {
       const displayFeatures = [];
       const f = plan.features as any;
       
@@ -142,6 +164,16 @@ export class SubscriptionsService {
         features: plan.features
       };
     });
+
+    if (this.redisService) {
+      try {
+        await this.redisService.set(cacheKey, result, 1800); // 30 mins TTL
+      } catch (e) {
+        // Ignore cache write failure
+      }
+    }
+
+    return result;
   }
 
   async getPlanById(id: string) {
@@ -169,6 +201,7 @@ export class SubscriptionsService {
     }
     
     await plan.save();
+    await this.invalidatePlansCache();
     return plan;
   }
 
@@ -196,6 +229,7 @@ export class SubscriptionsService {
     });
     
     await newPlan.save();
+    await this.invalidatePlansCache();
     return newPlan;
   }
 
@@ -403,6 +437,7 @@ export class SubscriptionsService {
     }
     
     await this.subscriptionPlanModel.deleteOne({ _id: plan._id });
+    await this.invalidatePlansCache();
     return { success: true };
   }
 

@@ -81,6 +81,8 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     return this.redisClient;
   }
 
+  private memoryFallback = new Map<string, { value: any; expiresAt: number }>();
+
   /**
    * Check if Redis is enabled and connected
    */
@@ -89,67 +91,81 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
-   * Cache a value with TTL
+   * Cache a value with TTL (Uses Redis if connected, memory fallback if offline)
    */
   async set(key: string, value: any, ttlSeconds?: number): Promise<boolean> {
-    if (!this.enabled || !this.redisClient) {
-      return false;
+    const ttl =
+      ttlSeconds ||
+      Number(this.configService.get('REDIS_CACHE_TTL_DEFAULT')) ||
+      300;
+
+    if (this.enabled && this.redisClient) {
+      try {
+        await this.redisClient.setEx(key, ttl, JSON.stringify(value));
+        this.logger.debug(`Cache SET (Redis): ${key} (TTL: ${ttl}s)`);
+        return true;
+      } catch (error: any) {
+        this.logger.error(`Cache SET failed for ${key}: ${error.message}`);
+      }
     }
 
-    try {
-      const ttl =
-        ttlSeconds ||
-        Number(this.configService.get('REDIS_CACHE_TTL_DEFAULT')) ||
-        300;
-      await this.redisClient.setEx(key, ttl, JSON.stringify(value));
-      this.logger.debug(`Cache SET: ${key} (TTL: ${ttl}s)`);
-      return true;
-    } catch (error: any) {
-      this.logger.error(`Cache SET failed for ${key}: ${error.message}`);
-      return false;
-    }
+    // In-memory fallback
+    this.memoryFallback.set(key, {
+      value,
+      expiresAt: Date.now() + ttl * 1000,
+    });
+    return true;
   }
 
   /**
    * Get a cached value
    */
   async get<T>(key: string): Promise<T | null> {
-    if (!this.enabled || !this.redisClient) {
-      return null;
-    }
-
-    try {
-      const data = await this.redisClient.get(key);
-      if (data === null) {
-        this.logger.debug(`Cache MISS: ${key}`);
-        return null;
-      }
-      this.logger.debug(`Cache HIT: ${key}`);
-      if (typeof data === 'string') {
-        try {
-          return JSON.parse(data) as T;
-        } catch {
+    if (this.enabled && this.redisClient) {
+      try {
+        const data = await this.redisClient.get(key);
+        if (data !== null) {
+          this.logger.debug(`Cache HIT (Redis): ${key}`);
+          if (typeof data === 'string') {
+            try {
+              return JSON.parse(data) as T;
+            } catch {
+              return data as T;
+            }
+          }
           return data as T;
         }
+      } catch (error: any) {
+        this.logger.error(`Cache GET failed for ${key}: ${error.message}`);
       }
-      return data as T;
-    } catch (error: any) {
-      this.logger.error(`Cache GET failed for ${key}: ${error.message}`);
-      return null;
     }
+
+    // In-memory fallback check
+    const entry = this.memoryFallback.get(key);
+    if (entry) {
+      if (Date.now() < entry.expiresAt) {
+        this.logger.debug(`Cache HIT (Memory): ${key}`);
+        return entry.value as T;
+      }
+      this.memoryFallback.delete(key);
+    }
+
+    return null;
   }
 
   /**
    * Delete a cached value
    */
   async del(key: string): Promise<boolean> {
+    this.memoryFallback.delete(key);
+
     if (!this.enabled || !this.redisClient) {
-      return false;
+      return true;
     }
 
     try {
       await this.redisClient.del(key);
-      this.logger.debug(`Cache DEL: ${key}`);
+      this.logger.debug(`Cache DEL (Redis): ${key}`);
       return true;
     } catch (error: any) {
       this.logger.error(`Cache DEL failed for ${key}: ${error.message}`);
@@ -162,12 +178,22 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
    * NEVER use KEYS in production — it blocks Redis for the full scan duration.
    */
   async deleteByPattern(pattern: string): Promise<number> {
+    let deletedCount = 0;
+
+    // Memory pattern deletion
+    const regexPattern = new RegExp('^' + pattern.replace(/\*/g, '.*') + '$');
+    for (const k of Array.from(this.memoryFallback.keys())) {
+      if (regexPattern.test(k)) {
+        this.memoryFallback.delete(k);
+        deletedCount++;
+      }
+    }
+
     if (!this.enabled || !this.redisClient) {
-      return 0;
+      return deletedCount;
     }
 
     try {
-      let deletedCount = 0;
       let cursor = '0';
 
       do {
@@ -178,7 +204,6 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
 
         cursor = String(reply.cursor);
         const keys = reply.keys;
-
         if (keys.length > 0) {
           await this.redisClient.del(keys);
           deletedCount += keys.length;
@@ -186,14 +211,14 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
       } while (cursor !== '0');
 
       this.logger.debug(
-        `Cache SCAN-DEL pattern "${pattern}": deleted ${deletedCount} keys`,
+        `Cache DELETE BY PATTERN: ${pattern} (deleted ${deletedCount} keys)`,
       );
       return deletedCount;
     } catch (error: any) {
       this.logger.error(
-        `Cache SCAN-DEL failed for pattern "${pattern}": ${error.message}`,
+        `Cache DELETE BY PATTERN failed for ${pattern}: ${error.message}`,
       );
-      return 0;
+      return deletedCount;
     }
   }
 

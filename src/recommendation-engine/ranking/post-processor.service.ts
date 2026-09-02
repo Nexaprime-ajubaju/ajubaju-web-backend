@@ -47,23 +47,31 @@ export class PostProcessorService {
 
       if (offer.selectedProducts && offer.selectedProducts.length > 0) {
         if (hasOfferImage) {
-          // If the offer has its own banner, present the offer as a single card using offer details
-          const firstProduct = offer.selectedProducts[0];
+          // If the offer has its own banner, present the offer as a single card using offer total price
+          const totalOfferPrice = offer.selectedProducts.reduce((sum: number, p: any) => sum + (Number(p.offerPrice) || 0), 0);
+          const totalOriginalPrice = offer.selectedProducts.reduce((sum: number, p: any) => sum + (Number(p.originalPrice) || 0), 0);
           let discountPercent = 0;
-          if (firstProduct.originalPrice && firstProduct.offerPrice && firstProduct.originalPrice > firstProduct.offerPrice) {
-            discountPercent = Math.round(((firstProduct.originalPrice - firstProduct.offerPrice) / firstProduct.originalPrice) * 100);
+          if (totalOriginalPrice > 0 && totalOfferPrice > 0 && totalOriginalPrice > totalOfferPrice) {
+            discountPercent = Math.round(((totalOriginalPrice - totalOfferPrice) / totalOriginalPrice) * 100);
           }
           finalProducts.push({
             id: offer._id?.toString() || offer.id,
             type: 'offer',
-            title: offer.title || firstProduct.productName,
+            title: offer.title || offer.selectedProducts[0]?.productName,
+            description: offer.description || '',
             category: offer.category,
             imageUrl: offer.imageUrl || (offer.images && offer.images[0]),
-            price: firstProduct.offerPrice,
-            originalPrice: firstProduct.originalPrice,
+            price: totalOfferPrice > 0 ? totalOfferPrice : null,
+            originalPrice: totalOriginalPrice > 0 ? totalOriginalPrice : null,
             discountPercent,
             merchantId: offer.merchantId,
-            merchantName: offer.merchantName,
+            merchantName: offer.merchantName || offer.storeName || (offer.merchant && (offer.merchant.storeName || offer.merchant.name)) || '',
+            location: offer.storeLocation || offer.merchantLocation || offer.location || offer.city || (offer.merchant && (offer.merchant.storeLocation || offer.merchant.city)) || '',
+            storeLocation: offer.storeLocation || offer.merchantLocation || offer.location || offer.city || (offer.merchant && (offer.merchant.storeLocation || offer.merchant.city)) || '',
+            startDate: offer.startDate,
+            endDate: offer.endDate,
+            validUntil: offer.endDate,
+            promoTag: offer.promoTag || '',
             offerId: offer._id?.toString() || offer.id,
             recommendationExplainability: explainability
           });
@@ -81,13 +89,20 @@ export class PostProcessorService {
               id: `${offer._id?.toString()}_${sp.productId || sp._id?.toString() || Math.random().toString(36).substring(7)}`,
               type: 'offer',
               title: sp.productName,
+              description: offer.description || '',
               category: offer.category,
               imageUrl: sp.imageUrl || '/images/placeholder.webp',
-              price: sp.offerPrice,
-              originalPrice: sp.originalPrice,
+              price: sp.offerPrice !== undefined && sp.offerPrice !== null ? sp.offerPrice : null,
+              originalPrice: sp.originalPrice !== undefined && sp.originalPrice !== null ? sp.originalPrice : null,
               discountPercent,
               merchantId: offer.merchantId,
-              merchantName: offer.merchantName,
+              merchantName: offer.merchantName || offer.storeName || (offer.merchant && (offer.merchant.storeName || offer.merchant.name)) || '',
+              location: offer.storeLocation || offer.merchantLocation || offer.location || offer.city || (offer.merchant && (offer.merchant.storeLocation || offer.merchant.city)) || '',
+              storeLocation: offer.storeLocation || offer.merchantLocation || offer.location || offer.city || (offer.merchant && (offer.merchant.storeLocation || offer.merchant.city)) || '',
+              startDate: offer.startDate,
+              endDate: offer.endDate,
+              validUntil: offer.endDate,
+              promoTag: offer.promoTag || '',
               offerId: offer._id?.toString() || offer.id,
               recommendationExplainability: explainability
             });
@@ -97,10 +112,22 @@ export class PostProcessorService {
         // Fallback to presenting the offer itself if no specific products are selected
         const p = { ...offer };
         p.id = p.userId ? p.userId.toString() : (p._id ? p._id.toString() : p.id);
+        p.offerId = p._id?.toString() || p.id;
         p.merchantId = p.merchantId || p.userId;
+        p.merchantName = p.merchantName || p.storeName || (p.merchant && (p.merchant.storeName || p.merchant.name)) || '';
         p.type = p.type || 'offer';
         p.imageUrl = p.imageUrl || (p.images && p.images[0]) || '/images/placeholder.webp';
         p.badge = p.promoTag || null;
+        p.price = p.price ?? p.offerPrice ?? p.discountedPrice ?? null;
+        p.originalPrice = p.originalPrice ?? null;
+        if (p.price && p.originalPrice && p.originalPrice > p.price) {
+          p.discountPercent = Math.round(((p.originalPrice - p.price) / p.originalPrice) * 100);
+        } else {
+          p.discountPercent = p.discountPercent || p.discount || 0;
+        }
+        p.location = offer.storeLocation || offer.merchantLocation || offer.location || offer.city || (p.merchant && (p.merchant.storeLocation || p.merchant.city)) || '';
+        p.storeLocation = p.location;
+        p.validUntil = p.endDate;
         p.recommendationExplainability = explainability;
         finalProducts.push(p);
       }

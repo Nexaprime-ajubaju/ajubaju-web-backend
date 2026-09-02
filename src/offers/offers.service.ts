@@ -85,8 +85,38 @@ export class OffersService implements OnModuleInit {
     return `golo:offers:nearby:${Math.abs(hash).toString(36)}`;
   }
 
+  private merchantsMemoryCache: any[] = [];
+  private merchantsLastFetched: number = 0;
+
+  private async getAllMerchantsCached(): Promise<any[]> {
+    const now = Date.now();
+    if (this.merchantsMemoryCache.length > 0 && now - this.merchantsLastFetched < 300000) {
+      return this.merchantsMemoryCache;
+    }
+
+    try {
+      const merchants = await this.merchantModel
+        .find({})
+        .select('userId storeName storeCategory storeSubCategory storeLocation storeLocationLatitude storeLocationLongitude profilePhoto shopPhoto')
+        .lean()
+        .exec();
+      if (merchants && merchants.length > 0) {
+        this.merchantsMemoryCache = merchants;
+        this.merchantsLastFetched = now;
+      }
+      return this.merchantsMemoryCache;
+    } catch (e: any) {
+      this.logger.error(`Error loading merchants: ${e?.message || e}`);
+      return this.merchantsMemoryCache;
+    }
+  }
+
   private async readCache<T>(key: string): Promise<T | null> {
-    return this.redisService.get<T>(key);
+    try {
+      return await this.redisService.get<T>(key);
+    } catch {
+      return null;
+    }
   }
 
   private async writeCache(key: string, value: any, ttlSeconds: number) {
@@ -777,14 +807,15 @@ export class OffersService implements OnModuleInit {
   }) {
     const safePage = Math.max(1, Number(params.page) || 1);
     const safeLimit = Math.min(50, Math.max(1, Number(params.limit) || 20));
-    const prefetchLimit = Math.min(300, Math.max(120, safeLimit * 8));
     const safeRadiusKm = Math.min(100, Math.max(1, Number(params.radiusKm) || 5));
     const locationNeedle = String(params.location || '').trim().toLowerCase();
-    const locationSegments = locationNeedle.split(',').map((s) => s.trim()).filter(Boolean);
-    const locationCity = locationSegments[0] || locationNeedle;
-    const locationTokens = locationCity
-      .split(/\s+/)
-      .map((token) => token.trim())
+    const locationSegments = locationNeedle
+      .split(/[,|]+/)
+      .map((s) => s.trim().toLowerCase())
+      .filter((s) => s.length >= 2);
+    const locationTokens = locationNeedle
+      .split(/[\s,|+]+/)
+      .map((token) => token.trim().toLowerCase())
       .filter((token) => token.length >= 3);
     const queryNeedle = String(params.query || '').trim().toLowerCase();
     const categoryNeedle = String(params.category || '').trim().toLowerCase();
@@ -798,7 +829,7 @@ export class OffersService implements OnModuleInit {
         .filter(Boolean)
       : [];
     const topDiscountOnly = Boolean(params.topDiscount);
-    const activeNowOnly = params.activeNow === undefined ? true : Boolean(params.activeNow);
+    const activeNowOnly = Boolean(params.activeNow);
     const cacheKey = this.nearbyOffersCacheKey(params);
     const cached = await this.readCache<{ data: any[]; pagination: { page: number; limit: number; total: number; pages: number } }>(cacheKey);
     if (cached) {
@@ -824,7 +855,15 @@ export class OffersService implements OnModuleInit {
     const locationMatchesAddress = (addressValue: string) => {
       const address = String(addressValue || '').toLowerCase();
       if (!locationNeedle) return true;
+      if (!address) return true;
       if (address.includes(locationNeedle) || locationNeedle.includes(address)) return true;
+      
+      for (const seg of locationSegments) {
+        if (seg.length >= 3 && (address.includes(seg) || seg.includes(address))) {
+          return true;
+        }
+      }
+
       return locationTokens.some((token) => address.includes(token));
     };
 
@@ -865,6 +904,17 @@ export class OffersService implements OnModuleInit {
       );
     };
 
+    // Adaptive prefetch: for targeted queries (category or text search), fetch
+    // more than the page size but not the maximum — the in-memory filter runs
+    // after the merchant join, so we need a wide enough net.
+    // Category matching works against merchant.storeCategory (joined after the
+    // DB query), so we cannot filter by category at the DB level — we rely
+    // entirely on the in-memory matchesSelectedCategory() pass.
+    const isTargetedQuery = Boolean(categoryNeedle || queryNeedle);
+    const prefetchLimit = isTargetedQuery
+      ? Math.min(200, Math.max(60, safeLimit * 5))    // targeted: wide net for post-join filter
+      : Math.min(300, Math.max(120, safeLimit * 8));  // unfiltered browse: same as before
+
     let offerRows: any[] = [];
     try {
       offerRows = await this.offerModel
@@ -889,8 +939,8 @@ export class OffersService implements OnModuleInit {
         },
       };
 
-      // CACHE BYPASSED
-      // await this.writeCache(cacheKey, emptyResult, this.cacheTtlSeconds.nearbyOffers);
+      // Cache errors too so we don't hammer a failing DB
+      await this.writeCache(cacheKey, emptyResult, 30);
       return emptyResult;
     }
 
@@ -905,26 +955,34 @@ export class OffersService implements OnModuleInit {
         },
       };
 
-      // CACHE BYPASSED
-      // await this.writeCache(cacheKey, emptyResult, this.cacheTtlSeconds.nearbyOffers);
+      // Fix 4: Cache empty results so repeated category misses don't re-hit DB
+      await this.writeCache(cacheKey, emptyResult, this.cacheTtlSeconds.nearbyOffers);
       return emptyResult;
     }
 
-    const merchantIds = Array.from(new Set(offerRows.map((row) => String(row.merchantId))));
+    // Fix 6: Targeted merchant join — only load merchants that appear in the
+    // offer rows instead of loading the entire merchant collection.
+    // Falls back to getAllMerchantsCached() if the targeted query fails.
+    const uniqueMerchantIds = [...new Set(offerRows.map((r) => String(r.merchantId)).filter(Boolean))];
     let merchants: any[] = [];
     try {
-      merchants = await this.merchantModel
-        .find({ userId: { $in: merchantIds } })
-        .select('userId storeName storeCategory storeSubCategory storeLocation storeLocationLatitude storeLocationLongitude profilePhoto shopPhoto')
-        .maxTimeMS(8000)
-        .lean()
-        .exec();
-    } catch (error: any) {
-      this.logger.error(`Nearby merchants query failed: ${error?.message || error}`);
-      merchants = [];
+      if (uniqueMerchantIds.length > 0) {
+        merchants = await this.merchantModel
+          .find({ $or: [{ userId: { $in: uniqueMerchantIds } }, { _id: { $in: uniqueMerchantIds } }] })
+          .select('userId storeName storeCategory storeSubCategory storeLocation storeLocationLatitude storeLocationLongitude profilePhoto shopPhoto')
+          .lean()
+          .exec();
+      }
+    } catch (e: any) {
+      this.logger.warn(`Targeted merchant join failed, falling back to cache: ${e?.message || e}`);
+      merchants = await this.getAllMerchantsCached();
     }
 
-    const merchantsByUserId = new Map<string, any>(merchants.map((m) => [String(m.userId), m]));
+    const merchantsByUserId = new Map<string, any>();
+    merchants.forEach((m) => {
+      if (m.userId) merchantsByUserId.set(String(m.userId), m);
+      if (m._id) merchantsByUserId.set(String(m._id), m);
+    });
 
     const now = new Date();
 
@@ -934,7 +992,7 @@ export class OffersService implements OnModuleInit {
         const pricing = this.computeOfferPricing(row);
         const startsAt = row.startDate ? new Date(row.startDate) : null;
         const endsAt = row.endDate ? new Date(row.endDate) : null;
-        const isActiveNow = Boolean(startsAt && endsAt) && startsAt <= now && endsAt >= now;
+        const isActiveNow = (!startsAt || startsAt <= now) && (!endsAt || endsAt >= now);
         return {
           offerId: String(row._id),
           requestId: row.requestId,
@@ -1023,7 +1081,7 @@ export class OffersService implements OnModuleInit {
 
       const startsAt = row.startDate ? new Date(row.startDate) : null;
       const endsAt = row.endDate ? new Date(row.endDate) : null;
-      const isActiveNow = Boolean(startsAt && endsAt) && startsAt <= now && endsAt >= now;
+      const isActiveNow = (!startsAt || startsAt <= now) && (!endsAt || endsAt >= now);
 
       return {
         offerId: String(row._id),
@@ -1063,15 +1121,26 @@ export class OffersService implements OnModuleInit {
       normalized = normalized.filter((row) => row.isActiveNow);
     }
 
-    if (hasUserCoordinates) {
-      normalized = normalized.filter((row) => {
+    let filtered = normalized;
+    if (hasUserCoordinates && !locationNeedle) {
+      filtered = normalized.filter((row) => {
         if (row.distanceKm === null) {
           return true;
         }
         return row.distanceKm <= safeRadiusKm;
       });
+    } else if (hasUserCoordinates && locationNeedle) {
+      filtered = normalized.filter((row) => {
+        const withinRadius = row.distanceKm !== null ? row.distanceKm <= safeRadiusKm : false;
+        const matchesAddress = locationMatchesAddress(row.merchant.address || '');
+        return withinRadius || matchesAddress;
+      });
     } else if (locationNeedle) {
-      normalized = normalized.filter((row) => locationMatchesAddress(row.merchant.address || ''));
+      filtered = normalized.filter((row) => locationMatchesAddress(row.merchant.address || ''));
+    }
+
+    if (filtered.length > 0) {
+      normalized = filtered;
     }
 
     if (queryNeedle) {

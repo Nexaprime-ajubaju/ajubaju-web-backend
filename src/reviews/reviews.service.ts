@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Injectable,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
@@ -13,6 +14,7 @@ import {
   VoucherDocument,
   VoucherStatus,
 } from '../vouchers/schemas/voucher.schema';
+import { RedisService } from '../common/services/redis.service';
 
 @Injectable()
 export class ReviewsService {
@@ -24,7 +26,18 @@ export class ReviewsService {
     @InjectModel('User') private readonly userModel: Model<UserDocument>,
     @InjectModel(Voucher.name)
     private readonly voucherModel: Model<VoucherDocument>,
+    @Optional() private readonly redisService?: RedisService,
   ) {}
+
+  private async invalidateMerchantStatsCache(merchantId: string | Types.ObjectId) {
+    if (this.redisService && merchantId) {
+      try {
+        await this.redisService.del(`golo:reviews:stats:public:${merchantId.toString()}`);
+      } catch (e) {
+        // Ignore cache deletion error
+      }
+    }
+  }
 
   private async findVoucherByIdentifier(voucherId: string) {
     if (/^[0-9a-fA-F]{24}$/.test(voucherId)) {
@@ -85,6 +98,7 @@ export class ReviewsService {
     }
 
     await review.save();
+    await this.invalidateMerchantStatsCache(voucher.merchantId);
 
     return {
       success: true,
@@ -267,6 +281,16 @@ export class ReviewsService {
   }
 
   async getPublicMerchantReviewStats(merchantId: string) {
+    const cacheKey = `golo:reviews:stats:public:${merchantId}`;
+    if (this.redisService) {
+      try {
+        const cached = await this.redisService.get<any>(cacheKey);
+        if (cached) return cached;
+      } catch (e) {
+        // Safe fallback
+      }
+    }
+
     const mId = new Types.ObjectId(merchantId);
 
     const [totalReviews, averageAgg] = await Promise.all([
@@ -285,13 +309,23 @@ export class ReviewsService {
       ]),
     ]);
 
-    return {
+    const result = {
       success: true,
       data: {
         totalReviews,
         averageRating: Number((averageAgg?.[0]?.avgRating || 0).toFixed(1)),
       },
     };
+
+    if (this.redisService) {
+      try {
+        await this.redisService.set(cacheKey, result, 180); // 3 minutes TTL
+      } catch (e) {
+        // Ignore cache write failure
+      }
+    }
+
+    return result;
   }
 
   async updateReviewStatus(
@@ -314,6 +348,7 @@ export class ReviewsService {
 
     review.status = status;
     await review.save();
+    await this.invalidateMerchantStatsCache(merchantId);
 
     return {
       success: true,

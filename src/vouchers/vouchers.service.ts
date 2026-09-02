@@ -523,11 +523,33 @@ export class VouchersService implements OnModuleInit {
           },
         );
 
+        const selectedProducts = offer.selectedProducts || [];
+        const originalPriceSum = selectedProducts.reduce(
+          (acc: number, p: any) => acc + (Number(p.originalPrice) || 0),
+          0,
+        );
+        const offerPriceSum = selectedProducts.reduce(
+          (acc: number, p: any) => acc + (Number(p.offerPrice) || 0),
+          0,
+        );
+        const resolvedOfferPrice =
+          offer.displayPrice ||
+          offer.totalPrice ||
+          offerPriceSum ||
+          offer.offerPrice ||
+          0;
+        const resolvedOriginalPrice =
+          originalPriceSum ||
+          offer.originalPrice ||
+          offer.totalPrice ||
+          0;
+
         return {
           success: true,
           data: {
             _id: voucher._id,
             voucherId: voucher.voucherId,
+            offerId: voucher.offerId,
             qrCode: voucher.qrCode,
             verificationCode,
             qrImage, // Data URL for display
@@ -535,9 +557,17 @@ export class VouchersService implements OnModuleInit {
             merchantName: voucher.merchantName,
             merchantId: voucher.merchantId,
             discount: voucher.discount,
+            offerImage: voucher.offerImage,
             status: voucher.status,
             expiresAt: voucher.expiresAt,
             claimedAt: voucher.claimedAt,
+            offerPrice: resolvedOfferPrice,
+            displayPrice: resolvedOfferPrice,
+            totalPrice: resolvedOfferPrice,
+            originalPrice: resolvedOriginalPrice,
+            selectedProducts,
+            description: offer.description || offer.termsAndConditions || '',
+            exampleUsage: offer.exampleUsage || '',
           },
         };
       } finally {
@@ -707,10 +737,59 @@ export class VouchersService implements OnModuleInit {
         await voucher.save();
       }
 
+      let offerData: any = null;
+      if (voucher.offerId) {
+        try {
+          const offerResult = await this.findOfferById(String(voucher.offerId));
+          if (offerResult?.offer) {
+            const offer = offerResult.offer;
+            const selectedProducts = offer.selectedProducts || [];
+            const originalPriceSum = selectedProducts.reduce(
+              (acc: number, p: any) => acc + (Number(p.originalPrice) || 0),
+              0,
+            );
+            const offerPriceSum = selectedProducts.reduce(
+              (acc: number, p: any) => acc + (Number(p.offerPrice) || 0),
+              0,
+            );
+
+            offerData = {
+              offerPrice:
+                offer.displayPrice ||
+                offer.totalPrice ||
+                offerPriceSum ||
+                offer.offerPrice ||
+                0,
+              displayPrice:
+                offer.displayPrice ||
+                offer.totalPrice ||
+                offerPriceSum ||
+                0,
+              totalPrice:
+                offer.totalPrice ||
+                offer.displayPrice ||
+                offerPriceSum ||
+                0,
+              originalPrice:
+                originalPriceSum ||
+                offer.originalPrice ||
+                offer.totalPrice ||
+                0,
+              selectedProducts,
+              description: offer.description || offer.termsAndConditions || '',
+              exampleUsage: offer.exampleUsage || '',
+            };
+          }
+        } catch (e) {
+          // ignore error
+        }
+      }
+
       return {
         success: true,
         data: {
           ...voucher.toObject(),
+          ...(offerData || {}),
           qrImage,
         },
       };

@@ -9,9 +9,12 @@ import { SubscriptionsController } from './subscriptions.controller';
 import { MerchantSubscriptionsController } from './merchant-subscriptions.controller';
 import { SubscriptionSeed } from './subscription.seed';
 
+import { RedisModule } from '../common/services/redis.module';
+
 @Global()
 @Module({
   imports: [
+    RedisModule,
     MongooseModule.forFeature([
       { name: SubscriptionPlan.name, schema: SubscriptionPlanSchema },
       { name: MerchantSubscriptionHistory.name, schema: MerchantSubscriptionHistorySchema },
