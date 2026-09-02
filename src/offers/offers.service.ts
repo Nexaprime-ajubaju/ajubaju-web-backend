@@ -61,8 +61,10 @@ export class OffersService implements OnModuleInit {
     const normalizedKey = {
       activeNow: params?.activeNow === undefined ? true : Boolean(params.activeNow),
       category: String(params?.category || '').trim().toLowerCase(),
-      lat: hasCoordinates ? Number(Number(params.latitude).toFixed(2)) : null,
-      lng: hasCoordinates ? Number(Number(params.longitude).toFixed(2)) : null,
+      // Round to 1 decimal (≈11 km grid cell) so nearby users share the same cache bucket.
+      // Previously used 2 decimals (≈1 km), which caused near-zero hit rate on first load.
+      lat: hasCoordinates ? Math.round(Number(params.latitude) * 10) / 10 : null,
+      lng: hasCoordinates ? Math.round(Number(params.longitude) * 10) / 10 : null,
       limit: Math.min(50, Math.max(1, Number(params?.limit) || 20)),
       location: String(params?.location || '').trim().toLowerCase(),
       maxPrice: Number.isFinite(Number(params?.maxPrice)) && Number(params.maxPrice) > 0 ? Number(params.maxPrice) : null,
@@ -904,16 +906,32 @@ export class OffersService implements OnModuleInit {
       );
     };
 
-    // Adaptive prefetch: for targeted queries (category or text search), fetch
-    // more than the page size but not the maximum — the in-memory filter runs
-    // after the merchant join, so we need a wide enough net.
-    // Category matching works against merchant.storeCategory (joined after the
-    // DB query), so we cannot filter by category at the DB level — we rely
-    // entirely on the in-memory matchesSelectedCategory() pass.
-    const isTargetedQuery = Boolean(categoryNeedle || queryNeedle);
-    const prefetchLimit = isTargetedQuery
-      ? Math.min(200, Math.max(60, safeLimit * 5))    // targeted: wide net for post-join filter
-      : Math.min(300, Math.max(120, safeLimit * 8));  // unfiltered browse: same as before
+    // ── DB-level category filter using denormalized businessCategory field ──────
+    // businessCategory is copied from merchant.storeCategory at offer creation time,
+    // so we can filter at DB level instead of fetching 200+ docs and filtering in memory.
+    // Falls back to a broader fetch if no category needle is provided (browse mode).
+    const buildCategoryFilter = () => {
+      if (!categoryNeedle) return {};
+      // Match against the denormalized businessCategory field using the compound index.
+      // Also include a regex fallback so offers created before denormalization still appear.
+      return {
+        $or: [
+          { businessCategory: { $regex: new RegExp(categoryNeedle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i') } },
+          { category: { $regex: new RegExp(categoryNeedle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i') } },
+        ],
+      };
+    };
+
+    const categoryDbFilter = buildCategoryFilter();
+    const hasCategoryDbFilter = Boolean(categoryNeedle);
+
+    // When we can filter at DB level, we only need a small batch.
+    // Without a category, fetch a wider net for distance/location post-filtering.
+    const prefetchLimit = hasCategoryDbFilter
+      ? Math.min(100, Math.max(safeLimit * 2, 30))   // narrow: category pre-filtered by DB
+      : queryNeedle
+        ? Math.min(150, Math.max(safeLimit * 4, 60)) // text search: moderate net
+        : Math.min(300, Math.max(safeLimit * 8, 120)); // browse: wide net for geo filtering
 
     let offerRows: any[] = [];
     try {
@@ -921,6 +939,7 @@ export class OffersService implements OnModuleInit {
         .find({
           status: { $in: ['under_review', 'approved', 'active'] },
           ...(params.merchantId ? { merchantId: params.merchantId } : {}),
+          ...categoryDbFilter,
         })
         .select('requestId merchantId merchantName title category businessCategory businessSubCategory totalPrice startDate endDate status createdAt imageUrl videoUrl selectedProducts')
         .limit(prefetchLimit)
