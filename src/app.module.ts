@@ -144,8 +144,10 @@ const logger = new Logger('MongoDB');
         return {
           uri: uri,
           family: 4,
-          serverSelectionTimeoutMS: 10000,
-          connectTimeoutMS: 10000,
+          maxPoolSize: 20,
+          minPoolSize: 2,
+          serverSelectionTimeoutMS: 15000,
+          connectTimeoutMS: 15000,
           socketTimeoutMS: 45000,
           connectionFactory: (connection) => {
             connection.on('connected', () => {

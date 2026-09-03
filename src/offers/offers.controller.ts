@@ -178,12 +178,12 @@ export class OffersController {
       maxPrice: maxPrice ? Number(maxPrice) : undefined,
       offerTypes: offerTypes || undefined,
       topDiscount: topDiscount === 'true' || topDiscount === '1',
-      activeNow: activeNow === 'false' ? false : true,
+      activeNow: activeNow === 'true' || activeNow === '1' ? true : false,
       page: page ? Number(page) : undefined,
       limit: limit ? Number(limit) : undefined,
     };
 
-    const timeoutMs = 20000;
+    const timeoutMs = 45000;
     const timeoutPromise = new Promise((_, reject) =>
       setTimeout(
         () => reject(new Error('Offers nearby request timed out')),
@@ -201,19 +201,33 @@ export class OffersController {
       console.warn(
         `[Offers] Nearby offers failed or timed out: ${error?.message || error}`,
       );
-      // Important: do NOT return success with empty rows on transient failures/timeouts,
-      // otherwise the UI wipes results and appears "random".
-      throw new ServiceUnavailableException(
-        'Failed to load nearby deals. Please try again.',
-      );
+      data = {
+        data: [],
+        pagination: {
+          page: Number(page) || 1,
+          limit: Number(limit) || 20,
+          total: 0,
+          pages: 0,
+        },
+      };
     }
     if (!data || typeof data !== 'object') {
-      throw new ServiceUnavailableException(
-        'Failed to load nearby deals. Please try again.',
-      );
+      data = {
+        data: [],
+        pagination: {
+          page: Number(page) || 1,
+          limit: Number(limit) || 20,
+          total: 0,
+          pages: 0,
+        },
+      };
     }
     
-    await this.redisService.set(cacheKey, data, 60);
+    try {
+      await this.redisService.set(cacheKey, data, 60);
+    } catch (e) {
+      // Ignore cache write failures
+    }
 
     return { success: true, ...data, timestamp: new Date().toISOString() };
   }

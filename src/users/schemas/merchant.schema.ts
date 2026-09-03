@@ -11,7 +11,7 @@ export class Merchant {
   @Prop({ required: true })
   storeName: string;
 
-  @Prop({ required: true })
+  @Prop({ required: true, trim: true, lowercase: true })
   storeEmail: string;
 
   @Prop()
@@ -154,3 +154,11 @@ export const MerchantSchema = SchemaFactory.createForClass(Merchant);
 
 MerchantSchema.index({ userId: 1 }, { unique: true });
 MerchantSchema.index({ storeEmail: 1 });
+// Indexes for category-level queries (used in nearby offers join + search)
+MerchantSchema.index({ storeCategory: 1 });
+MerchantSchema.index({ storeCategory: 1, storeSubCategory: 1 });
+// Text index for fast full-text search (replaces regex collection scans)
+MerchantSchema.index(
+  { storeName: 'text', storeCategory: 'text', storeSubCategory: 'text', storeLocation: 'text' },
+  { name: 'merchant_text_search', weights: { storeName: 10, storeCategory: 5, storeSubCategory: 3, storeLocation: 1 } },
+);

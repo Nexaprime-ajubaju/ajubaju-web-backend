@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, Optional } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import {
@@ -8,6 +8,7 @@ import {
 } from './schemas/homepage-config.schema';
 import { UpdateHomepageConfigDto } from './dto/update-homepage-config.dto';
 import { TransactionService } from '../common/services/transaction.service';
+import { RedisService } from '../common/services/redis.service';
 
 const DEFAULT_SECTIONS: HomepageSection[] = [
   {
@@ -126,16 +127,41 @@ const DEFAULT_SECTIONS: HomepageSection[] = [
 export class HomepageConfigService {
   private readonly logger = new Logger(HomepageConfigService.name);
   private cachedConfig: HomepageConfig | null = null;
+  private readonly CACHE_KEY = 'golo:homepage:config';
 
   constructor(
     @InjectModel(HomepageConfig.name)
     private configModel: Model<HomepageConfigDocument>,
     private readonly transactionService: TransactionService,
+    @Optional() private readonly redisService?: RedisService,
   ) {}
+
+  private async invalidateCache() {
+    this.cachedConfig = null;
+    if (this.redisService) {
+      try {
+        await this.redisService.del(this.CACHE_KEY);
+      } catch (e) {
+        // Ignore cache deletion error
+      }
+    }
+  }
 
   async getConfig(): Promise<HomepageConfig> {
     if (this.cachedConfig) {
       return this.cachedConfig;
+    }
+
+    if (this.redisService) {
+      try {
+        const cached = await this.redisService.get<HomepageConfig>(this.CACHE_KEY);
+        if (cached) {
+          this.cachedConfig = cached;
+          return cached;
+        }
+      } catch (e) {
+        // Safe fallback
+      }
     }
 
     const config = await this.transactionService.execute(async (session) => {
@@ -163,6 +189,13 @@ export class HomepageConfigService {
     });
 
     this.cachedConfig = config;
+    if (this.redisService && config) {
+      try {
+        await this.redisService.set(this.CACHE_KEY, config, 300); // 5 minutes TTL
+      } catch (e) {
+        // Ignore cache write failure
+      }
+    }
     return config;
   }
 
@@ -219,6 +252,7 @@ export class HomepageConfigService {
       return cfg;
     });
 
+    await this.invalidateCache();
     this.cachedConfig = updated;
     return updated;
   }
@@ -259,6 +293,7 @@ export class HomepageConfigService {
       return cfg;
     });
 
+    await this.invalidateCache();
     this.cachedConfig = updated;
     return updated;
   }

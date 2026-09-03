@@ -1,9 +1,10 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
+import { Model } from 'mongoose';
 import { Merchant, MerchantDocument } from '../users/schemas/merchant.schema';
 import { MerchantProduct, MerchantProductDocument } from '../merchant-products/schemas/merchant-product.schema';
 import { OfferPromotion, OfferPromotionDocument } from '../offers/schemas/offer-promotion.schema';
+import { RedisService } from '../common/services/redis.service';
 
 @Injectable()
 export class SearchService {
@@ -13,101 +14,169 @@ export class SearchService {
     @InjectModel(Merchant.name) private readonly merchantModel: Model<MerchantDocument>,
     @InjectModel(MerchantProduct.name) private readonly merchantProductModel: Model<MerchantProductDocument>,
     @InjectModel(OfferPromotion.name) private readonly offerModel: Model<OfferPromotionDocument>,
+    @Optional() private readonly redisService?: RedisService,
   ) {}
 
   async unifiedSearch(query: string, type: string, page: number, limit: number) {
-    const regex = new RegExp(query, 'i');
-    const skip = (page - 1) * limit;
+    if (!query || !query.trim()) {
+      return { success: true, data: { merchants: [], products: [], offers: [] } };
+    }
 
-    // 1. Find directly matching items to extract their merchantIds
-    const [matchingMerchants, matchingProducts, matchingOffers] = await Promise.all([
-      this.merchantModel.find({
-        $or: [{ storeName: { $regex: regex } }, { name: { $regex: regex } }, { category: { $regex: regex } }],
-      }).select('_id userId').lean().exec(),
-      this.merchantProductModel.find({
-        $or: [{ name: { $regex: regex } }, { description: { $regex: regex } }, { category: { $regex: regex } }],
-      }).select('merchantId').lean().exec(),
-      this.offerModel.find({
-        status: 'active',
-        $or: [{ title: { $regex: regex } }, { description: { $regex: regex } }],
-      }).select('merchantId').lean().exec(),
-    ]);
+    const rawQuery = query.trim();
+    const escapedQuery = rawQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regexFallback = new RegExp(escapedQuery, 'i');
+    const safePage = Math.max(1, Number(page) || 1);
+    const safeLimit = Math.min(50, Math.max(1, Number(limit) || 16));
+    const skip = (safePage - 1) * safeLimit;
 
-    // 2. Aggregate unique merchantIds
-    const merchantIdSet = new Set<string>();
-    matchingMerchants.forEach((m: any) => { 
-      const id = m.userId || (m._id ? m._id.toString() : null);
-      if (id) merchantIdSet.add(id); 
+    const cacheKey = `golo:search:unified:${escapedQuery.toLowerCase()}:${type}:${safePage}:${safeLimit}`;
+    if (this.redisService) {
+      try {
+        const cached = await this.redisService.get<any>(cacheKey);
+        if (cached) return cached;
+      } catch (_e) { /* safe fallback */ }
+    }
+
+    // ── Helper: attempt $text search, fall back to regex if text index is missing ──
+    const textOrRegex = (regexFields: Record<string, any>) => ({
+      $or: [
+        { $text: { $search: rawQuery } },
+        ...Object.entries(regexFields).map(([field, _]) => ({ [field]: { $regex: regexFallback } })),
+      ],
     });
-    matchingProducts.forEach((p: any) => { if (p.merchantId) merchantIdSet.add(p.merchantId); });
-    matchingOffers.forEach((o: any) => { if (o.merchantId) merchantIdSet.add(o.merchantId); });
 
-    const merchantIds = Array.from(merchantIdSet);
+    try {
+      // Run the 3 collection searches in parallel — NO full merchant scan anymore.
+      const [merchants, products, offers] = await Promise.all([
+        (type === 'all' || type === 'merchants')
+          ? this.merchantModel
+              .find(textOrRegex({ storeName: 1, storeCategory: 1, storeSubCategory: 1, storeLocation: 1 }))
+              .skip(type === 'all' ? 0 : skip)
+              .limit(safeLimit)
+              .maxTimeMS(5000)
+              .lean()
+              .exec()
+              .catch(() =>
+                // Pure regex fallback if $text index doesn't exist yet
+                this.merchantModel.find({
+                  $or: [
+                    { storeName: { $regex: regexFallback } },
+                    { storeCategory: { $regex: regexFallback } },
+                    { storeLocation: { $regex: regexFallback } },
+                  ],
+                }).skip(type === 'all' ? 0 : skip).limit(safeLimit).maxTimeMS(5000).lean().exec()
+              )
+          : Promise.resolve([]),
 
-    // 3. Prepare response data
-    const responseData: any = { merchants: [], products: [], offers: [] };
+        (type === 'all' || type === 'products')
+          ? this.merchantProductModel
+              .find(textOrRegex({ name: 1, description: 1, category: 1 }))
+              .skip(type === 'all' ? 0 : skip)
+              .limit(safeLimit)
+              .maxTimeMS(5000)
+              .lean()
+              .exec()
+              .catch(() =>
+                this.merchantProductModel.find({
+                  $or: [
+                    { name: { $regex: regexFallback } },
+                    { description: { $regex: regexFallback } },
+                    { category: { $regex: regexFallback } },
+                  ],
+                }).skip(type === 'all' ? 0 : skip).limit(safeLimit).maxTimeMS(5000).lean().exec()
+              )
+          : Promise.resolve([]),
 
-    // 4. Fetch requested type(s)
-    const merchantsMap = new Map();
-    if (merchantIds.length > 0) {
-      const allMerchants = await this.merchantModel.find({
-        $or: [
-          { userId: { $in: merchantIds } },
-          { _id: { $in: merchantIds } }
-        ]
-      }).lean().exec();
-      allMerchants.forEach((m: any) => {
-        if (m.userId) merchantsMap.set(m.userId.toString(), m);
-        if (m._id) merchantsMap.set(m._id.toString(), m);
-      });
-    }
+        (type === 'all' || type === 'offers')
+          ? this.offerModel
+              .find({
+                status: { $in: ['approved', 'active'] },
+                ...textOrRegex({ title: 1, description: 1, category: 1, businessCategory: 1, promoTag: 1 }),
+              })
+              .skip(type === 'all' ? 0 : skip)
+              .limit(safeLimit)
+              .maxTimeMS(5000)
+              .lean()
+              .exec()
+              .catch(() =>
+                this.offerModel.find({
+                  status: { $in: ['approved', 'active'] },
+                  $or: [
+                    { title: { $regex: regexFallback } },
+                    { category: { $regex: regexFallback } },
+                    { businessCategory: { $regex: regexFallback } },
+                  ],
+                }).skip(type === 'all' ? 0 : skip).limit(safeLimit).maxTimeMS(5000).lean().exec()
+              )
+          : Promise.resolve([]),
+      ]);
 
-    if (type === 'all' || type === 'merchants') {
-      const merchants = await this.merchantModel.find({
-        $or: [
-          { userId: { $in: merchantIds } },
-          { _id: { $in: merchantIds } }
-        ]
-      }).skip(type === 'all' ? 0 : skip).limit(limit).lean().exec();
-      responseData.merchants = merchants;
-    }
+      // ── Targeted merchant join: only load merchants for the offers we got ────
+      // Previously this did merchantModel.find({}) loading ALL merchants every search.
+      const merchantIdsNeeded = [
+        ...new Set(
+          (offers || []).map((o: any) => String(o.merchantId || '')).filter(Boolean)
+        ),
+      ];
 
-    if (type === 'all' || type === 'products') {
-      const products = await this.merchantProductModel.find({
-        merchantId: { $in: merchantIds }
-      }).skip(type === 'all' ? 0 : skip).limit(limit).lean().exec();
-      responseData.products = products;
-    }
+      const merchantsMap = new Map<string, any>();
+      if (merchantIdsNeeded.length > 0) {
+        try {
+          const offerMerchants = await this.merchantModel
+            .find({ $or: [{ userId: { $in: merchantIdsNeeded } }, { _id: { $in: merchantIdsNeeded } }] })
+            .select('userId storeName storeCategory storeSubCategory storeLocation storeLocationLatitude storeLocationLongitude profilePhoto shopPhoto')
+            .maxTimeMS(3000)
+            .lean()
+            .exec();
 
-    if (type === 'all' || type === 'offers') {
-      const offers = await this.offerModel.find({
-        merchantId: { $in: merchantIds },
-        status: 'active',
-      }).skip(type === 'all' ? 0 : skip).limit(limit).lean().exec();
-      
-      responseData.offers = offers.map((offer: any) => {
-        const m = merchantsMap.get(offer.merchantId);
+          (offerMerchants || []).forEach((m: any) => {
+            if (m.userId) merchantsMap.set(m.userId.toString(), m);
+            if (m._id) merchantsMap.set(m._id.toString(), m);
+          });
+        } catch (e) {
+          this.logger.warn('Search: merchant enrichment failed, offers will lack merchant detail');
+        }
+      }
+
+      const mappedOffers = (offers || []).map((offer: any) => {
+        const m = merchantsMap.get(String(offer.merchantId || ''));
         return {
           ...offer,
+          offerId: offer._id?.toString() || offer.id,
           startsAt: offer.startDate,
           endsAt: offer.endDate,
           merchant: {
             merchantId: offer.merchantId,
             name: m?.storeName || offer.merchantName || 'Merchant',
-            category: m?.storeCategory || '',
-            subCategory: m?.storeSubCategory || '',
+            category: m?.storeCategory || offer.businessCategory || offer.category || '',
+            subCategory: m?.storeSubCategory || offer.businessSubCategory || '',
             address: m?.storeLocation || '',
             latitude: m?.storeLocationLatitude || null,
             longitude: m?.storeLocationLongitude || null,
             profilePhoto: m?.profilePhoto || m?.shopPhoto || '',
-          }
+          },
         };
       });
-    }
 
-    return {
-      success: true,
-      data: responseData,
-    };
+      const result = {
+        success: true,
+        data: {
+          merchants: merchants || [],
+          products: products || [],
+          offers: mappedOffers,
+        },
+      };
+
+      if (this.redisService) {
+        try {
+          await this.redisService.set(cacheKey, result, 120);
+        } catch (_e) { /* ignore */ }
+      }
+
+      return result;
+    } catch (error: any) {
+      this.logger.error(`Unified search error: ${error?.message || error}`);
+      return { success: true, data: { merchants: [], products: [], offers: [] } };
+    }
   }
 }

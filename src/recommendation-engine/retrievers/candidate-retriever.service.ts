@@ -27,6 +27,55 @@ export class CandidateRetrieverService {
     return 'title description category businessCategory businessSubCategory promoTag imageUrl selectedProducts status views viewHistory createdAt startDate endDate merchantId merchantName merchantEmail';
   }
 
+  private get merchantSelect() {
+    return {
+      userId: 1,
+      storeName: 1,
+      storeLocation: 1,
+      storeLocationLatitude: 1,
+      storeLocationLongitude: 1,
+      profilePhoto: 1,
+      shopPhoto: 1,
+      storeCategory: 1,
+      storeSubCategory: 1,
+    };
+  }
+
+  private async enrichOffersWithMerchants(offers: any[]): Promise<any[]> {
+    if (!offers || offers.length === 0) return [];
+    const merchantIds = [...new Set(offers.map((o) => o.merchantId).filter(Boolean))];
+    const merchantMap = new Map();
+    if (merchantIds.length > 0) {
+      const merchants = await this.connection
+        .collection('merchants')
+        .find(
+          { userId: { $in: merchantIds } },
+          { projection: this.merchantSelect },
+        )
+        .toArray();
+      merchants.forEach((m) => merchantMap.set(m.userId, m));
+    }
+
+    return offers.map((offer) => {
+      const o: any = offer;
+      const merchant = merchantMap.get(o.merchantId);
+      const enriched: any = {
+        ...offer,
+        merchantName: o.merchantName || merchant?.storeName || '',
+        storeLocation: merchant?.storeLocation || o.storeLocation || o.merchantLocation || '',
+        location: merchant?.storeLocation || o.storeLocation || o.merchantLocation || '',
+        merchantLocation: merchant?.storeLocation || o.storeLocation || o.merchantLocation || '',
+      };
+      if (merchant && merchant.storeLocationLatitude && merchant.storeLocationLongitude) {
+        enriched.locationCoordinates = {
+          type: 'Point',
+          coordinates: [merchant.storeLocationLongitude, merchant.storeLocationLatitude],
+        };
+      }
+      return enriched;
+    });
+  }
+
   async findByProductIds(
     ids: string[],
     limit: number = 20,
@@ -76,7 +125,7 @@ export class CandidateRetrieverService {
         .collection('merchants')
         .find(
           merchantQuery,
-          { projection: { userId: 1, storeLocationLatitude: 1, storeLocationLongitude: 1 } },
+          { projection: this.merchantSelect },
         )
         .toArray();
 
@@ -92,17 +141,22 @@ export class CandidateRetrieverService {
       : offers;
 
     return filteredOffers.map((offer) => {
-      const merchant = merchantMap.get(offer.merchantId);
+      const o: any = offer;
+      const merchant = merchantMap.get(o.merchantId);
+      const enriched: any = {
+        ...offer,
+        merchantName: o.merchantName || merchant?.storeName || '',
+        storeLocation: merchant?.storeLocation || o.storeLocation || o.merchantLocation || '',
+        location: merchant?.storeLocation || o.storeLocation || o.merchantLocation || '',
+        merchantLocation: merchant?.storeLocation || o.storeLocation || o.merchantLocation || '',
+      };
       if (merchant && merchant.storeLocationLatitude && merchant.storeLocationLongitude) {
-        return {
-          ...offer,
-          locationCoordinates: {
-            type: 'Point',
-            coordinates: [merchant.storeLocationLongitude, merchant.storeLocationLatitude],
-          },
+        enriched.locationCoordinates = {
+          type: 'Point',
+          coordinates: [merchant.storeLocationLongitude, merchant.storeLocationLatitude],
         };
       }
-      return offer;
+      return enriched;
     });
   }
 
@@ -110,14 +164,15 @@ export class CandidateRetrieverService {
     merchantIds: string[],
     limit: number = 20,
   ): Promise<any[]> {
-    return this.offerModel
+    const offers = await this.offerModel
       .find({ merchantId: { $in: merchantIds }, status: { $in: ['approved', 'active'] }, endDate: { $gte: new Date() } })
       .limit(limit)
       .select(this.baseSelect)
       .lean();
+    return this.enrichOffersWithMerchants(offers);
   }
   async findByTags(tags: string[], limit: number = 20): Promise<any[]> {
-    return this.offerModel
+    const offers = await this.offerModel
       .find({
         $or: [{ category: { $in: tags } }, { businessCategory: { $in: tags } }],
         status: { $in: ['approved', 'active'] }, endDate: { $gte: new Date() }
@@ -125,17 +180,19 @@ export class CandidateRetrieverService {
       .limit(limit)
       .select(this.baseSelect)
       .lean();
+    return this.enrichOffersWithMerchants(offers);
   }
 
   async findByCategories(
     categories: string[],
     limit: number = 20,
   ): Promise<any[]> {
-    return this.offerModel
+    const offers = await this.offerModel
       .find({ category: { $in: categories }, status: { $in: ['approved', 'active'] }, endDate: { $gte: new Date() } })
       .limit(limit)
       .select(this.baseSelect)
       .lean();
+    return this.enrichOffersWithMerchants(offers);
   }
 
   async findNearby(
@@ -163,7 +220,7 @@ export class CandidateRetrieverService {
           storeLocationLatitude: { $gte: minLat, $lte: maxLat },
           storeLocationLongitude: { $gte: minLon, $lte: maxLon },
         },
-        { projection: { userId: 1, storeLocationLatitude: 1, storeLocationLongitude: 1 } },
+        { projection: this.merchantSelect },
       )
       .toArray();
 
@@ -184,17 +241,22 @@ export class CandidateRetrieverService {
       .lean();
 
     return offers.map((offer) => {
-      const merchant = merchantMap.get(offer.merchantId);
+      const o: any = offer;
+      const merchant = merchantMap.get(o.merchantId);
+      const enriched: any = {
+        ...offer,
+        merchantName: o.merchantName || merchant?.storeName || '',
+        storeLocation: merchant?.storeLocation || o.storeLocation || o.merchantLocation || '',
+        location: merchant?.storeLocation || o.storeLocation || o.merchantLocation || '',
+        merchantLocation: merchant?.storeLocation || o.storeLocation || o.merchantLocation || '',
+      };
       if (merchant && merchant.storeLocationLatitude && merchant.storeLocationLongitude) {
-        return {
-          ...offer,
-          locationCoordinates: {
-            type: 'Point',
-            coordinates: [merchant.storeLocationLongitude, merchant.storeLocationLatitude],
-          },
+        enriched.locationCoordinates = {
+          type: 'Point',
+          coordinates: [merchant.storeLocationLongitude, merchant.storeLocationLatitude],
         };
       }
-      return offer;
+      return enriched;
     });
   }
 
@@ -229,7 +291,7 @@ export class CandidateRetrieverService {
             storeLocationLatitude: { $gte: minLat, $lte: maxLat },
             storeLocationLongitude: { $gte: minLon, $lte: maxLon },
           },
-          { projection: { userId: 1, storeLocationLatitude: 1, storeLocationLongitude: 1 } },
+          { projection: this.merchantSelect },
         )
         .toArray();
 
@@ -261,7 +323,7 @@ export class CandidateRetrieverService {
           .collection('merchants')
           .find(
             { userId: { $in: merchantIds } },
-            { projection: { userId: 1, storeLocationLatitude: 1, storeLocationLongitude: 1 } },
+            { projection: this.merchantSelect },
           )
           .toArray();
         merchants.forEach((m) => merchantMap.set(m.userId, m));
@@ -269,17 +331,22 @@ export class CandidateRetrieverService {
     }
 
     return offers.map((offer) => {
-      const merchant = merchantMap.get(offer.merchantId);
+      const o: any = offer;
+      const merchant = merchantMap.get(o.merchantId);
+      const enriched: any = {
+        ...offer,
+        merchantName: o.merchantName || merchant?.storeName || '',
+        storeLocation: merchant?.storeLocation || o.storeLocation || o.merchantLocation || '',
+        location: merchant?.storeLocation || o.storeLocation || o.merchantLocation || '',
+        merchantLocation: merchant?.storeLocation || o.storeLocation || o.merchantLocation || '',
+      };
       if (merchant && merchant.storeLocationLatitude && merchant.storeLocationLongitude) {
-        return {
-          ...offer,
-          locationCoordinates: {
-            type: 'Point',
-            coordinates: [merchant.storeLocationLongitude, merchant.storeLocationLatitude],
-          },
+        enriched.locationCoordinates = {
+          type: 'Point',
+          coordinates: [merchant.storeLocationLongitude, merchant.storeLocationLatitude],
         };
       }
-      return offer;
+      return enriched;
     });
   }
 
@@ -310,7 +377,7 @@ export class CandidateRetrieverService {
             storeLocationLatitude: { $gte: minLat, $lte: maxLat },
             storeLocationLongitude: { $gte: minLon, $lte: maxLon },
           },
-          { projection: { userId: 1, storeLocationLatitude: 1, storeLocationLongitude: 1 } },
+          { projection: this.merchantSelect },
         )
         .toArray();
 
@@ -332,8 +399,6 @@ export class CandidateRetrieverService {
       .select(this.baseSelect)
       .lean();
 
-    // If coordinates weren't provided in the request, we still need to fetch merchants
-    // to attach locationCoordinates so DistanceComponent can work globally.
     if (!coordinates) {
       const merchantIds = [...new Set(offers.map((o) => o.merchantId).filter(Boolean))];
       if (merchantIds.length > 0) {
@@ -341,7 +406,7 @@ export class CandidateRetrieverService {
           .collection('merchants')
           .find(
             { userId: { $in: merchantIds } },
-            { projection: { userId: 1, storeLocationLatitude: 1, storeLocationLongitude: 1 } },
+            { projection: this.merchantSelect },
           )
           .toArray();
         merchants.forEach((m) => merchantMap.set(m.userId, m));
@@ -349,17 +414,22 @@ export class CandidateRetrieverService {
     }
 
     return offers.map((offer) => {
-      const merchant = merchantMap.get(offer.merchantId);
+      const o: any = offer;
+      const merchant = merchantMap.get(o.merchantId);
+      const enriched: any = {
+        ...offer,
+        merchantName: o.merchantName || merchant?.storeName || '',
+        storeLocation: merchant?.storeLocation || o.storeLocation || o.merchantLocation || '',
+        location: merchant?.storeLocation || o.storeLocation || o.merchantLocation || '',
+        merchantLocation: merchant?.storeLocation || o.storeLocation || o.merchantLocation || '',
+      };
       if (merchant && merchant.storeLocationLatitude && merchant.storeLocationLongitude) {
-        return {
-          ...offer,
-          locationCoordinates: {
-            type: 'Point',
-            coordinates: [merchant.storeLocationLongitude, merchant.storeLocationLatitude],
-          },
+        enriched.locationCoordinates = {
+          type: 'Point',
+          coordinates: [merchant.storeLocationLongitude, merchant.storeLocationLatitude],
         };
       }
-      return offer;
+      return enriched;
     });
   }
 
@@ -390,7 +460,7 @@ export class CandidateRetrieverService {
             storeLocationLatitude: { $gte: minLat, $lte: maxLat },
             storeLocationLongitude: { $gte: minLon, $lte: maxLon },
           },
-          { projection: { userId: 1, storeLocationLatitude: 1, storeLocationLongitude: 1 } },
+          { projection: this.merchantSelect },
         )
         .toArray();
 
@@ -463,7 +533,7 @@ export class CandidateRetrieverService {
           .collection('merchants')
           .find(
             { userId: { $in: merchantIds } },
-            { projection: { userId: 1, storeLocationLatitude: 1, storeLocationLongitude: 1 } },
+            { projection: this.merchantSelect },
           )
           .toArray();
         merchants.forEach((m) => merchantMap.set(m.userId, m));
@@ -471,22 +541,27 @@ export class CandidateRetrieverService {
     }
 
     return offers.map((offer) => {
-      const merchant = merchantMap.get(offer.merchantId);
+      const o: any = offer;
+      const merchant = merchantMap.get(o.merchantId);
+      const enriched: any = {
+        ...offer,
+        merchantName: o.merchantName || merchant?.storeName || '',
+        storeLocation: merchant?.storeLocation || o.storeLocation || o.merchantLocation || '',
+        location: merchant?.storeLocation || o.storeLocation || o.merchantLocation || '',
+        merchantLocation: merchant?.storeLocation || o.storeLocation || o.merchantLocation || '',
+      };
       if (merchant && merchant.storeLocationLatitude && merchant.storeLocationLongitude) {
-        return {
-          ...offer,
-          locationCoordinates: {
-            type: 'Point',
-            coordinates: [merchant.storeLocationLongitude, merchant.storeLocationLatitude],
-          },
+        enriched.locationCoordinates = {
+          type: 'Point',
+          coordinates: [merchant.storeLocationLongitude, merchant.storeLocationLatitude],
         };
       }
-      return offer;
+      return enriched;
     });
   }
 
   async findSponsored(limit: number = 20): Promise<any[]> {
-    return this.offerModel
+    const offers = await this.offerModel
       .find({
         status: { $in: ['approved', 'active'] }, endDate: { $gte: new Date() },
         isActive: true,
@@ -494,6 +569,7 @@ export class CandidateRetrieverService {
       .limit(limit)
       .select(this.baseSelect)
       .lean();
+    return this.enrichOffersWithMerchants(offers);
   }
 
   async findOfflineCollection(
@@ -730,7 +806,7 @@ export class CandidateRetrieverService {
             storeLocationLatitude: { $gte: minLat, $lte: maxLat },
             storeLocationLongitude: { $gte: minLon, $lte: maxLon },
           },
-          { projection: { userId: 1, storeLocationLatitude: 1, storeLocationLongitude: 1 } },
+          { projection: this.merchantSelect },
         )
         .toArray();
 
@@ -757,7 +833,7 @@ export class CandidateRetrieverService {
           .collection('merchants')
           .find(
             { userId: { $in: merchantIds } },
-            { projection: { userId: 1, storeLocationLatitude: 1, storeLocationLongitude: 1 } },
+            { projection: this.merchantSelect },
           )
           .toArray();
         merchants.forEach((m) => merchantMap.set(m.userId, m));
@@ -765,17 +841,22 @@ export class CandidateRetrieverService {
     }
 
     return offers.map((offer) => {
-      const merchant = merchantMap.get(offer.merchantId);
+      const o: any = offer;
+      const merchant = merchantMap.get(o.merchantId);
+      const enriched: any = {
+        ...offer,
+        merchantName: o.merchantName || merchant?.storeName || '',
+        storeLocation: merchant?.storeLocation || o.storeLocation || o.merchantLocation || '',
+        location: merchant?.storeLocation || o.storeLocation || o.merchantLocation || '',
+        merchantLocation: merchant?.storeLocation || o.storeLocation || o.merchantLocation || '',
+      };
       if (merchant && merchant.storeLocationLatitude && merchant.storeLocationLongitude) {
-        return {
-          ...offer,
-          locationCoordinates: {
-            type: 'Point',
-            coordinates: [merchant.storeLocationLongitude, merchant.storeLocationLatitude],
-          },
+        enriched.locationCoordinates = {
+          type: 'Point',
+          coordinates: [merchant.storeLocationLongitude, merchant.storeLocationLatitude],
         };
       }
-      return offer;
+      return enriched;
     });
   }
 }

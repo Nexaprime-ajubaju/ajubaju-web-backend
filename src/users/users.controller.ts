@@ -535,11 +535,16 @@ export class UsersController {
   @Roles(UserRole.ADMIN)
   async adminGetAllUsers(
     @Query('page') page?: string,
-    @Query('limit') limit?: string
+    @Query('limit') limit?: string,
+    @Query('accountType') accountType?: string,
+    @Query('role') role?: string,
   ) {
     const pageNum = parseInt(page) || 1;
     const limitNum = parseInt(limit) || 10;
-    return { success: true, data: await this.usersService.adminGetAllUsers(pageNum, limitNum) };
+    return {
+      success: true,
+      data: await this.usersService.adminGetAllUsers(pageNum, limitNum, { accountType, role }),
+    };
   }
 
   @Get('admin/deleted-accounts')

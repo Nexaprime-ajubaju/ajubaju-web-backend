@@ -6,8 +6,11 @@ import { Merchant, MerchantSchema } from '../users/schemas/merchant.schema';
 import { MerchantProduct, MerchantProductSchema } from '../merchant-products/schemas/merchant-product.schema';
 import { OfferPromotion, OfferPromotionSchema } from '../offers/schemas/offer-promotion.schema';
 
+import { RedisModule } from '../common/services/redis.module';
+
 @Module({
   imports: [
+    RedisModule,
     MongooseModule.forFeature([
       { name: Merchant.name, schema: MerchantSchema },
       { name: MerchantProduct.name, schema: MerchantProductSchema },

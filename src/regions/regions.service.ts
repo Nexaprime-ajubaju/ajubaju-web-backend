@@ -1,7 +1,8 @@
-import { Injectable, HttpException, HttpStatus, Logger } from '@nestjs/common';
+import { Injectable, HttpException, HttpStatus, Logger, Optional } from '@nestjs/common';
 import axios from 'axios';
 import { BannerPricingService } from '../banners/services/banner-pricing.service';
 import { AdPricingService } from '../ads/services/ad-pricing.service';
+import { RedisService } from '../common/services/redis.service';
 
 const LOCAL_CITIES_FALLBACK = [
   { name: 'Kolhapur', displayName: 'Kolhapur, Maharashtra', lat: 16.7050, lng: 74.2433, population: 549283 },
@@ -29,11 +30,23 @@ export class RegionsService {
   constructor(
     private readonly pricingService: BannerPricingService,
     private readonly adPricingService: AdPricingService,
+    @Optional() private readonly redisService?: RedisService,
   ) {}
 
   async searchLocations(query: string, scale: string, mode?: string) {
-    if (!query) {
+    if (!query || !query.trim()) {
       return [];
+    }
+
+    const cleanQuery = query.trim().toLowerCase();
+    const cacheKey = `golo:regions:search:${cleanQuery}:${scale || 'all'}:${mode || 'default'}`;
+    if (this.redisService) {
+      try {
+        const cached = await this.redisService.get<any>(cacheKey);
+        if (cached) return cached;
+      } catch (e) {
+        // Safe fallback
+      }
     }
 
     try {
@@ -113,6 +126,14 @@ export class RegionsService {
 
         // Limit results to 10 max after filtering
         if (results.length >= 10) break;
+      }
+
+      if (this.redisService && results.length > 0) {
+        try {
+          await this.redisService.set(cacheKey, results, 86400); // 24 hours TTL
+        } catch (e) {
+          // Ignore cache write failure
+        }
       }
 
       return results;

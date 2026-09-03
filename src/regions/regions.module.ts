@@ -4,8 +4,14 @@ import { RegionsService } from './regions.service';
 import { BannersModule } from '../banners/banners.module';
 import { AdsModule } from '../ads/ads.module';
 
+import { RedisModule } from '../common/services/redis.module';
+
 @Module({
-  imports: [forwardRef(() => BannersModule), forwardRef(() => AdsModule)],
+  imports: [
+    RedisModule,
+    forwardRef(() => BannersModule),
+    forwardRef(() => AdsModule),
+  ],
   controllers: [RegionsController],
   providers: [RegionsService],
   exports: [RegionsService],
