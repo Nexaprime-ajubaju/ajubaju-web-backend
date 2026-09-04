@@ -34,6 +34,39 @@ import { ModerationSecurityService } from '../security/moderation/moderation-sec
 import { TextModerationService } from '../moderation/text-moderation.service';
 import * as crypto from 'crypto';
 
+const stripDiacritics = (str: string): string =>
+  String(str || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+
+function makeDiacriticFlexibleRegex(term: string): RegExp {
+  const normalized = stripDiacritics(term);
+  const map: Record<string, string> = {
+    a: '[aāáàâä]',
+    i: '[iīíìîï]',
+    u: '[uūúùûü]',
+    e: '[eēéèêë]',
+    o: '[oōóòôö]',
+    n: '[nṇñ]',
+    s: '[sśṣ]',
+    t: '[tṭ]',
+    d: '[dḍ]',
+    r: '[rṛ]',
+    l: '[lḷ]',
+    h: '[hḥ]',
+  };
+  let pattern = '';
+  for (const ch of normalized) {
+    if (map[ch]) {
+      pattern += map[ch];
+    } else {
+      pattern += ch.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+  }
+  return new RegExp(pattern, 'i');
+}
+
 @Injectable()
 export class AdsService implements OnModuleInit, OnModuleDestroy {
   /**
@@ -967,10 +1000,13 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
       let resolvedCity = '';
       let resolvedAliases: string[] = [];
       for (const segment of segments) {
+        const normalizedSegment = stripDiacritics(segment);
         for (const [city, aliases] of Object.entries(LOCATION_ALIASES)) {
           if (
             aliases.some(
-              (alias) => segment.includes(alias) || alias.includes(segment),
+              (alias) =>
+                normalizedSegment.includes(alias) ||
+                alias.includes(normalizedSegment),
             )
           ) {
             resolvedCity = city;
@@ -985,7 +1021,7 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
       // plus any resolved broad city/district aliases.
       const isBroadTerm = (term: string) => {
         const broad = ['india', 'maharashtra', 'state', 'district', 'country'];
-        return broad.includes(term.toLowerCase()) || /^\d+$/.test(term);
+        return broad.includes(stripDiacritics(term)) || /^\d+$/.test(term);
       };
       const firstMeaningfulSegment = segments.find((s) => s.length >= 2 && !isBroadTerm(s)) || segments[0];
       const termsToMatch: string[] = [];
@@ -998,17 +1034,14 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
         }
       }
 
-      const escapeTerm = (term: string) =>
-        term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-
       const locationOrConditions = termsToMatch.flatMap((term) => {
-        const regex = new RegExp(escapeTerm(term), 'i');
+        const regex = makeDiacriticFlexibleRegex(term);
         return [
           { location: regex },
           { city: regex },
           { state: regex },
           {
-            cities: { $elemMatch: { $regex: escapeTerm(term), $options: 'i' } },
+            cities: { $elemMatch: { $regex: regex.source, $options: 'i' } },
           },
         ];
       });
@@ -1159,12 +1192,11 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
 
         // Build text conditions for ads without coordinates
         const textFallbackConditions: any[] = cityAliasesInRange.flatMap((alias) => {
-          const escaped = alias.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-          const regex = new RegExp(escaped, 'i');
+          const regex = makeDiacriticFlexibleRegex(alias);
           return [
             { location: regex },
             { city: regex },
-            { cities: { $elemMatch: { $regex: escaped, $options: 'i' } } },
+            { cities: { $elemMatch: { $regex: regex.source, $options: 'i' } } },
           ];
         });
 

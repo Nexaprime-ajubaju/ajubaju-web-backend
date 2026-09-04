@@ -115,8 +115,14 @@ export class ChatsService {
       if (otherUserId) otherUserIds.add(otherUserId);
     });
 
-    const users = otherUserIds.size
-      ? await this.userModel.find({ _id: { $in: [...otherUserIds] } }).exec()
+    // Only query users whose IDs are valid ObjectIds — malformed IDs (e.g.
+    // stored as non-hex strings) would cause a Mongoose CastError that crashes
+    // the entire endpoint and makes the mobile app show "No chats yet".
+    const validOtherUserIds = [...otherUserIds].filter((id) =>
+      Types.ObjectId.isValid(id),
+    );
+    const users = validOtherUserIds.length
+      ? await this.userModel.find({ _id: { $in: validOtherUserIds } }).exec()
       : [];
     const userMap = new Map(users.map((u) => [String(u._id), u]));
 
@@ -192,8 +198,10 @@ export class ChatsService {
     ]);
 
     const senderIds = [...new Set(messages.map((message) => message.senderId))];
-    const senders = senderIds.length
-      ? await this.userModel.find({ _id: { $in: senderIds } }).exec()
+    // Filter to valid ObjectIds only — malformed senderIds cause CastError
+    const validSenderIds = senderIds.filter((id) => Types.ObjectId.isValid(id));
+    const senders = validSenderIds.length
+      ? await this.userModel.find({ _id: { $in: validSenderIds } }).exec()
       : [];
     const senderMap = new Map(
       senders.map((sender) => [String(sender._id), sender]),
