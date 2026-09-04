@@ -2302,6 +2302,11 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
             'ad.title': 1,
             'ad.status': 1,
             'ad.reportCount': 1,
+            'ad.category': 1,
+            'ad.price': 1,
+            'ad.city': 1,
+            'ad.userId': 1,
+            'ad.location': 1,
           },
         },
         { $sort: { createdAt: -1 } },
@@ -2820,6 +2825,38 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
 
   private validateCategoryData(category: string, data: any): void {
     if (!data) return;
+  }
+
+  /**
+   * Get Ads trend for dashboard chart
+   */
+  async getAdsTrend(days: number = 7): Promise<any[]> {
+    this.logger.log(`Fetching ads trend for last ${days} days`);
+    const trend = [];
+    const now = new Date();
+    for (let i = days - 1; i >= 0; i--) {
+      const date = new Date(now);
+      date.setDate(date.getDate() - i);
+      const startOfDay = new Date(date.setHours(0, 0, 0, 0));
+      const endOfDay = new Date(date.setHours(23, 59, 59, 999));
+
+      const intake = await this.adModel.countDocuments({
+        createdAt: { $gte: startOfDay, $lte: endOfDay }
+      });
+      const active = await this.adModel.countDocuments({
+        status: 'active',
+        createdAt: { $lte: endOfDay }
+      });
+
+      const formattedDate = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      trend.push({
+        name: formattedDate, // using "name" for recharts XAxis if needed, or date
+        date: formattedDate,
+        intakeAds: intake,
+        activeLoad: active
+      });
+    }
+    return trend;
   }
 
   /**

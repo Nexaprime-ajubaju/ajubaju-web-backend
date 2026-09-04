@@ -108,6 +108,17 @@ export class UsersController {
     return this.usersService.getUserReportById(reportId);
   }
 
+  @Put('admin/reports/:reportId/status')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  async updateUserReportStatus(
+    @Param('reportId') reportId: string,
+    @Body('status') status: any,
+  ) {
+    const updated = await this.usersService.updateUserReportStatus(reportId, status);
+    return { success: true, data: updated };
+  }
+
   // ==================== ADMIN SUSPEND/UNSUSPEND ====================
   @Post('admin/users/:id/ban')
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -126,6 +137,28 @@ export class UsersController {
       duration,
     );
     return { success: true, data: user };
+  }
+
+  @Post('admin/users/:id/warn')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  async warnUser(
+    @Param('id') id: string,
+    @Body('message') message: string,
+    @CurrentUser() admin: any,
+  ) {
+    const adminId = admin.id || admin._id;
+    // Send in-app warning notification directly to the specific user
+    await this.usersService.adminBroadcastNotification(
+      adminId,
+      admin.email,
+      'specific',
+      'warning',
+      'Policy Warning from GOLO Admin',
+      message || 'Your account has received a policy warning. Please review our community guidelines.',
+      id, // specificUserId
+    );
+    return { success: true, message: 'Warning notification dispatched to user.' };
   }
 
   @Post('admin/users/:id/unban')
@@ -262,6 +295,19 @@ export class UsersController {
     const stats = await this.usersService.getDashboardStatsPublic();
     await this.redisService.set(cacheKey, stats, 90);
     return { success: true, data: stats };
+  }
+
+  @Get('dashboard/trend')
+  async getDashboardTrend() {
+    const cacheKey = 'golo:users:dashboard:trend';
+    const cached = await this.redisService.get<any>(cacheKey);
+    if (cached) {
+      return { success: true, data: cached, fromCache: true };
+    }
+
+    const trend = await this.usersService.getDashboardTrend();
+    await this.redisService.set(cacheKey, trend, 300); // cache for 5 mins
+    return { success: true, data: trend };
   }
 
   // ==================== USER ROUTES ====================

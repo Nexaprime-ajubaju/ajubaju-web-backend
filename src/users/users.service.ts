@@ -1373,6 +1373,18 @@ export class UsersService implements OnModuleInit {
     };
   }
 
+  async getDashboardTrend(): Promise<any[]> {
+    if (this.adsService) {
+      try {
+        return await this.adsService.getAdsTrend(7);
+      } catch (error) {
+        this.logger.warn(`Failed to fetch ads trend: ${error.message}`);
+        return [];
+      }
+    }
+    return [];
+  }
+
   // ==================== PASSWORD CHANGE with OTP ====================
 
   private generateOTP(): string {
@@ -1845,14 +1857,22 @@ export class UsersService implements OnModuleInit {
     type: string,
     title: string,
     message: string,
+    specificUserId?: string,
   ): Promise<{ success: boolean; count: number }> {
     this.logger.log(`Admin broadcast notification from ${adminEmail} to audience ${audience}`);
 
     let userQuery: any = {};
-    if (audience === 'merchants') {
+    if (audience === 'merchants' || audience === 'merchant') {
       userQuery = { accountType: 'merchant' };
-    } else if (audience === 'customers' || audience === 'users') {
+    } else if (audience === 'customers' || audience === 'users' || audience === 'customer') {
       userQuery = { accountType: { $ne: 'merchant' } };
+    } else if (audience === 'all') {
+      userQuery = {}; // All users
+    } else if (audience === 'specific' && specificUserId) {
+      const { Types } = require('mongoose');
+      userQuery = Types.ObjectId.isValid(specificUserId) ? { _id: specificUserId } : { _id: null };
+    } else {
+      throw new BadRequestException('Invalid audience or missing specific user id');
     }
 
     const targetUsers = await this.userModel.find(userQuery).select('_id').lean().exec();
@@ -2263,11 +2283,15 @@ export class UsersService implements OnModuleInit {
       const formattedReports = reports.map((report: any) => ({
         id: report._id?.toString() || '',
         reportId: report.reportId || '',
+        reportedUserId: report.reportedUserId || '',
+        reportedBy: report.reportedBy || '',
         entity: userMap.get(report.reportedUserId) || `User ${report.reportedUserId?.slice(0, 8)}...`,
         by: userMap.get(report.reportedBy) || `by ${report.reportedBy?.slice(0, 8) || 'Unknown User'}...`,
         type: reasonLabels[report.reason] || 'Other',
         priority: report.priority === 0 ? 'Medium' : 'High',
         status: report.status || 'Pending',
+        description: report.description || '',
+        reason: report.reason || '',
         createdAt: report.createdAt,
       }));
 
@@ -2316,6 +2340,30 @@ export class UsersService implements OnModuleInit {
       throw error;
     }
   }
+
+  async updateUserReportStatus(reportId: string, status: any) {
+    try {
+      const { Types } = require('mongoose');
+      const isObjId = Types.ObjectId.isValid(reportId);
+      const query = isObjId 
+        ? { $or: [{ _id: reportId }, { reportId }] } 
+        : { reportId };
+
+      const report = await this.userReportModel.findOneAndUpdate(
+        query,
+        { status },
+        { new: true }
+      );
+      if (!report) {
+        throw new NotFoundException('Report not found');
+      }
+      return report;
+    } catch (error) {
+      this.logger.error(`Error updating user report status: ${error.message}`);
+      throw error;
+    }
+  }
+
 
   // ==================== HELPER METHODS ====================
 
