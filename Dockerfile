@@ -19,7 +19,7 @@ COPY . .
 RUN npm run build
 
 # Production image (only production deps + dist)
-FROM node:20-bullseye-slim AS runner
+FROM node:20-bookworm-slim AS runner
 
 ENV NODE_ENV=production
 WORKDIR /app
