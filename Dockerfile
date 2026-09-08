@@ -1,5 +1,5 @@
 # Backend Dockerfile - multi-stage (build + runtime)
-FROM node:20-bullseye-slim AS builder
+FROM node:20-bookworm-slim AS builder
 
 ENV DEBIAN_FRONTEND=noninteractive
 WORKDIR /app
