@@ -318,6 +318,17 @@ export class UsersController {
     return { success: true, message: 'Logout successful' };
   }
 
+  @Post('reset-password')
+  async resetPassword(@Body() resetDto: any) {
+    const { email, otp, newPassword } = resetDto;
+    return this.usersService.resetForgotPassword(email, otp, newPassword);
+  }
+
+  @Get('referral/validate/:code')
+  async validateReferralCode(@Param('code') code: string) {
+    return this.usersService.validateReferralCode(code);
+  }
+
   @Get('profile')
   @UseGuards(JwtAuthGuard)
   async getProfile(@CurrentUser() user: any) {

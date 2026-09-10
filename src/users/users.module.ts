@@ -21,6 +21,7 @@ import { AdsModule } from '../ads/ads.module';
 import { Payment, PaymentSchema } from '../payments/schemas/payment.schema';
 import { RedisModule } from '../common/services/redis.module';
 import { EmailModule } from '../common/services/email.service';
+import { ReferralsModule } from '../referrals/referrals.module';
 
 @Module({
   imports: [
@@ -62,6 +63,7 @@ import { EmailModule } from '../common/services/email.service';
     forwardRef(() => AdsModule),
     RedisModule, // Cache user profiles, wishlist, preferences
     EmailModule, // Email service
+    ReferralsModule, // For handling referral codes during signup
   ],
   controllers: [UsersController],
   providers: [UsersService, JwtStrategy],

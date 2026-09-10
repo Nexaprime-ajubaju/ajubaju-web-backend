@@ -15,6 +15,7 @@ import {
   HttpStatus,
   UseGuards,
   Request,
+  Req,
   ForbiddenException,
   UseInterceptors,
   UploadedFiles,
@@ -1654,6 +1655,33 @@ export class AdsController {
         success: false,
         message: 'Failed to resync report counts',
         error: error.message,
+      };
+    }
+  }
+
+  /**
+   * Cancel an Ad and calculate refund
+   */
+  @Post(':id/cancel')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.USER, UserRole.MERCHANT)
+  async cancelAd(
+    @Param('id') adId: string,
+    @Req() req,
+  ) {
+    const userId = (req.user?.id || req.user?._id).toString();
+    try {
+      const cancelledAd = await this.adsService.cancelAd(adId, userId);
+      return {
+        success: true,
+        message: 'Ad cancelled successfully. Any eligible refund has been credited to your wallet.',
+        data: cancelledAd,
+      };
+    } catch (error: any) {
+      this.logger.error(`Error cancelling ad: ${error.message}`);
+      return {
+        success: false,
+        message: error.message || 'Failed to cancel ad',
       };
     }
   }

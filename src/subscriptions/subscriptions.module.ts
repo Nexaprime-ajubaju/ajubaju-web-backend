@@ -10,11 +10,13 @@ import { MerchantSubscriptionsController } from './merchant-subscriptions.contro
 import { SubscriptionSeed } from './subscription.seed';
 
 import { RedisModule } from '../common/services/redis.module';
+import { ReferralsModule } from '../referrals/referrals.module';
 
 @Global()
 @Module({
   imports: [
     RedisModule,
+    ReferralsModule,
     MongooseModule.forFeature([
       { name: SubscriptionPlan.name, schema: SubscriptionPlanSchema },
       { name: MerchantSubscriptionHistory.name, schema: MerchantSubscriptionHistorySchema },

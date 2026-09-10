@@ -11,6 +11,7 @@ export enum BannerPromotionStatus {
   ACTIVE = 'active',
   EXPIRED = 'expired',
   DELETED = 'deleted',
+  CANCELLED = 'cancelled',
 }
 
 export enum BannerPaymentStatus {

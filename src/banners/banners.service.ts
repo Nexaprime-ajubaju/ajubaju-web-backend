@@ -36,6 +36,8 @@ import { TransactionService } from '../common/services/transaction.service';
 import { BannerQueueService } from './services/banner-queue.service';
 import { BannerServingService } from './services/banner-serving.service';
 import { BannerCacheService } from './services/banner-cache.service';
+import { WalletsService } from '../wallets/wallets.service';
+import { ReferralsService } from '../referrals/referrals.service';
 
 @Injectable()
 export class BannersService implements OnModuleInit {
@@ -65,6 +67,8 @@ export class BannersService implements OnModuleInit {
     @Optional() private readonly servingService?: BannerServingService,
     @Optional() private readonly cacheService?: BannerCacheService,
     @Optional() private readonly kafkaService?: KafkaService,
+    private readonly walletsService?: WalletsService,
+    @Optional() private readonly referralsService?: ReferralsService,
   ) { }
 
   private toRadians(value: number): number {
@@ -633,6 +637,11 @@ export class BannersService implements OnModuleInit {
 
     await request.save();
 
+    // Trigger referral reward
+    if (this.referralsService) {
+      await this.referralsService.processFirstPurchase(merchantId, this.merchantModel);
+    }
+
     if (this.kafkaService) {
       await this.kafkaService.emit(KAFKA_TOPICS.BANNER_PROMOTION_PAID, {
         requestId,
@@ -831,6 +840,106 @@ export class BannersService implements OnModuleInit {
     }
 
     return bannerPromotion;
+  }
+
+  async cancelBannerPromotion(
+    requestId: string,
+    merchantId: string,
+    expectedType: BannerPromotionType = BannerPromotionType.BANNER,
+  ): Promise<BannerPromotion> {
+    const bannerPromotion = await this.bannerPromotionModel
+      .findOne({ requestId, merchantId, promotionType: expectedType })
+      .exec();
+    if (!bannerPromotion) {
+      throw new NotFoundException('Banner promotion request not found');
+    }
+
+    if (bannerPromotion.status === BannerPromotionStatus.CANCELLED) {
+      throw new BadRequestException('Banner is already cancelled');
+    }
+
+    // Calculate leftover money
+    const now = new Date();
+    let leftoverAmount = 0;
+    
+    if (bannerPromotion.paymentStatus === BannerPaymentStatus.PAID) {
+      const startDate = bannerPromotion.startDate || now;
+      const totalDays = bannerPromotion.selectedDays || 1;
+      const totalPrice = bannerPromotion.totalPrice || 0;
+      
+      let usedDays = 0;
+      if (now > startDate) {
+        const diffTime = Math.abs(now.getTime() - startDate.getTime());
+        usedDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      }
+      
+      if (usedDays < totalDays) {
+        const leftoverDays = totalDays - usedDays;
+        leftoverAmount = (totalPrice / totalDays) * leftoverDays;
+        // Credit wallet
+        if (this.walletsService && leftoverAmount > 0) {
+          await this.walletsService.credit(merchantId, 'merchant', leftoverAmount, `Refund for cancelled banner: ${bannerPromotion.bannerTitle}`, requestId, 'banner');
+        }
+      }
+    }
+
+    bannerPromotion.status = BannerPromotionStatus.CANCELLED;
+    bannerPromotion.isHomepageVisible = false;
+    await bannerPromotion.save();
+
+    await this.invalidateBannerCache(merchantId);
+    if (this.queueService) {
+      if (bannerPromotion.targetCities && bannerPromotion.targetCities.length > 0) {
+        for (const city of bannerPromotion.targetCities) {
+          await this.queueService.rebuildCityQueue(city);
+        }
+      }
+      await this.queueService.rebuildCityQueue('global');
+    }
+
+    return bannerPromotion;
+  }
+
+  async payWithWallet(requestId: string, merchantId: string, amountToPayFromWallet: number, externalPaymentReference?: string): Promise<BannerPromotion> {
+    const request = await this.bannerPromotionModel
+      .findOne({ requestId, merchantId })
+      .exec();
+    if (!request) {
+      throw new NotFoundException('Banner promotion request not found');
+    }
+
+    if (request.status !== BannerPromotionStatus.PENDING) {
+      throw new BadRequestException('Only pending requests can be paid');
+    }
+
+    if (amountToPayFromWallet > 0 && this.walletsService) {
+      await this.walletsService.debit(merchantId, 'merchant', amountToPayFromWallet, `Payment for banner: ${request.bannerTitle}`, requestId, 'banner');
+    }
+
+    request.paymentStatus = BannerPaymentStatus.PAID;
+    request.paidAt = new Date();
+    request.paymentReference = externalPaymentReference || `WALLET-${Date.now()}`;
+    request.status = BannerPromotionStatus.ACTIVE;
+    request.isHomepageVisible = true;
+
+    await request.save();
+
+    // Trigger referral reward
+    if (this.referralsService) {
+      await this.referralsService.processFirstPurchase(merchantId, this.merchantModel);
+    }
+
+    if (this.kafkaService) {
+      await this.kafkaService.emit(KAFKA_TOPICS.BANNER_PROMOTION_PAID, {
+        requestId,
+        merchantId,
+        paymentReference: request.paymentReference,
+      });
+    }
+
+    await this.invalidateBannerCache(merchantId);
+
+    return request;
   }
 
   async deleteMerchantBannerPromotion(

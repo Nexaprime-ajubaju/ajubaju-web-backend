@@ -6,6 +6,7 @@ import { MerchantSubscriptionHistory, MerchantSubscriptionHistoryDocument } from
 import { MerchantBannerCredits, MerchantBannerCreditsDocument } from './schemas/merchant-banner-credits.schema';
 import { Merchant, MerchantDocument } from '../users/schemas/merchant.schema';
 import { RedisService } from '../common/services/redis.service';
+import { ReferralsService } from '../referrals/referrals.service';
 import * as moment from 'moment';
 
 @Injectable()
@@ -18,6 +19,7 @@ export class SubscriptionsService {
     @InjectModel(MerchantBannerCredits.name) private readonly bannerCreditsModel: Model<MerchantBannerCreditsDocument>,
     @InjectModel(Merchant.name) private readonly merchantModel: Model<MerchantDocument>,
     @Optional() private readonly redisService?: RedisService,
+    @Optional() private readonly referralsService?: ReferralsService,
   ) {}
 
   private async invalidatePlansCache() {
@@ -74,6 +76,7 @@ export class SubscriptionsService {
           merchant.subscription.planId = planId;
           merchant.subscription.status = 'ACTIVE';
           merchant.subscription.expiresAt = null;
+
           await merchant.save();
         }
       }
@@ -423,6 +426,12 @@ export class SubscriptionsService {
 
     merchant.hasSelectedActiveProducts = false;
     await merchant.save();
+
+    // Trigger referral reward
+    if (this.referralsService) {
+      await this.referralsService.processFirstPurchase(merchant.userId, this.merchantModel);
+    }
+
     return { success: true, plan: planName, expiresAt };
   }
 

@@ -114,6 +114,10 @@ export class RegisterDto {
 
   @IsOptional()
   lng?: number | string;
+
+  @IsOptional()
+  @IsString()
+  referralCode?: string;
 }
 
 // No separate Merchant DTO needed anymore

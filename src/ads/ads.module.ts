@@ -12,6 +12,7 @@ import { KafkaModule } from '../kafka/kafka.module';
 import { RedisModule } from '../common/services/redis.module';
 import { ModerationModule } from '../moderation/moderation.module';
 import { SecurityModule } from '../security/security.module';
+import { WalletsModule } from '../wallets/wallets.module';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { SecurityModule } from '../security/security.module';
     RedisModule, // Cache ad listings, search results, category listings
     ModerationModule,
     SecurityModule,
+    WalletsModule,
   ],
   controllers: [AdsController, AdsKafkaController],
   providers: [AdsService, AdPricingService],

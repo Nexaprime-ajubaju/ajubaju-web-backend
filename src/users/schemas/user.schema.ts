@@ -1,5 +1,5 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document } from 'mongoose';
+import { Document, Types } from 'mongoose';
 
 export type UserDocument = User & Document;
 
@@ -27,6 +27,9 @@ export class User {
   @Prop({ default: 0 })
   loyaltyPoints: number;
 
+  @Prop({ default: 0 })
+  walletBalance: number;
+
   // Per-merchant loyalty points: { merchantId: points }
   @Prop({ type: Object, default: {} })
   merchantLoyaltyPoints: { [merchantId: string]: number };
@@ -36,6 +39,12 @@ export class User {
 
   @Prop({ enum: ['user', 'merchant'], default: 'user' })
   accountType: 'user' | 'merchant';
+
+  @Prop({ unique: true, sparse: true })
+  referralCode?: string;
+
+  @Prop({ type: Types.ObjectId, ref: 'User' })
+  referredBy?: Types.ObjectId;
 
   @Prop({ default: false })
   isEmailVerified: boolean;

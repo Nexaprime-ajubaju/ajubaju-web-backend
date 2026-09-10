@@ -32,6 +32,7 @@ import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import { ModerationService } from '../moderation/moderation.service';
 import { ModerationSecurityService } from '../security/moderation/moderation-security.service';
 import { TextModerationService } from '../moderation/text-moderation.service';
+import { WalletsService } from '../wallets/wallets.service';
 import * as crypto from 'crypto';
 
 const stripDiacritics = (str: string): string =>
@@ -371,6 +372,7 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
     private readonly moderationService?: ModerationService,
     private readonly moderationSecurityService?: ModerationSecurityService,
     @Optional() private readonly textModerationService?: TextModerationService,
+    @Optional() private readonly walletsService?: WalletsService,
   ) {
     // Initialize email transporter
     this.emailEnabled = !!this.configService.get('EMAIL_USER');
@@ -791,6 +793,62 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
     await this.emitAdCreated(savedAd, uuidv4());
 
     return savedAd;
+  }
+
+  async cancelAd(adId: string, userId: string): Promise<Ad> {
+    const ad = await this.adModel.findOne({ adId, userId }).exec();
+    if (!ad) {
+      throw new NotFoundException('Ad not found');
+    }
+    
+    if (ad.status === 'deleted' || ad.status === 'expired') {
+      throw new BadRequestException('Ad is already cancelled or expired');
+    }
+
+    const now = new Date();
+    // Normalize today's date to midnight for fair comparison
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    
+    let leftoverAmount = 0;
+    
+    // Calculate based on selected dates in the future (including today)
+    if (ad.selectedDates && ad.selectedDates.length > 0 && ad.adDailyRate) {
+      const futureDatesCount = ad.selectedDates.filter(d => {
+        const dDate = new Date(d);
+        const normalizedD = new Date(dDate.getFullYear(), dDate.getMonth(), dDate.getDate());
+        return normalizedD >= todayStart;
+      }).length;
+      if (futureDatesCount > 0) {
+        leftoverAmount = futureDatesCount * ad.adDailyRate;
+      }
+    } else if (ad.expiryDate && ad.adDailyRate) {
+      // Fallback calculation for ads without selectedDates
+      const diffMs = ad.expiryDate.getTime() - todayStart.getTime();
+      if (diffMs > 0) {
+        const remainingDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+        leftoverAmount = remainingDays * ad.adDailyRate;
+      }
+    }
+
+    if (this.walletsService && leftoverAmount > 0) {
+      await this.walletsService.credit(userId, ad.userType === 'Admin' ? 'merchant' : 'user', leftoverAmount, `Refund for cancelled Ad: ${ad.title}`, adId, 'ad');
+    }
+
+    ad.status = 'deleted';
+    await ad.save();
+
+    await this.invalidateAdsCache();
+    
+    if (this.kafkaService) {
+      await this.kafkaService.emit(KAFKA_TOPICS.AD_DELETED, {
+        adId,
+        userId,
+        reason: 'cancelled_by_user',
+        timestamp: new Date().toISOString(),
+      });
+    }
+
+    return ad;
   }
 
   /* ============================================================

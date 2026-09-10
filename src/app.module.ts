@@ -28,6 +28,7 @@ import { ReviewsModule } from './reviews/reviews.module';
 import { OutboxModule } from './outbox/outbox.module';
 import { ModerationModule } from './moderation/moderation.module';
 import { SecurityModule } from './security/security.module';
+import { ReferralsModule } from './referrals/referrals.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { SystemSettingsModule } from './system-settings/system-settings.module';
@@ -44,6 +45,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { FeatureStoreModule } from './feature-store/feature-store.module';
 import { TransactionModule } from './common/services/transaction.module';
 import { CategoriesModule } from './categories/categories.module';
+import { WalletsModule } from './wallets/wallets.module';
 
 const logger = new Logger('MongoDB');
 
@@ -195,6 +197,8 @@ const logger = new Logger('MongoDB');
     SupportTicketsModule,
     ModerationModule,
     SecurityModule,
+    WalletsModule,
+    ReferralsModule,
   ],
   controllers: [AppController],
   providers: [

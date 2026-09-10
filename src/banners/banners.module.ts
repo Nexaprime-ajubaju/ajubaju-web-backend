@@ -6,6 +6,8 @@ import { ModerationModule } from '../moderation/moderation.module';
 import { SecurityModule } from '../security/security.module';
 import { RegionsModule } from '../regions/regions.module';
 import { SubscriptionsModule } from '../subscriptions/subscriptions.module';
+import { WalletsModule } from '../wallets/wallets.module';
+import { ReferralsModule } from '../referrals/referrals.module';
 import { User, UserSchema } from '../users/schemas/user.schema';
 import { Merchant, MerchantSchema } from '../users/schemas/merchant.schema';
 import { BannerPromotion, BannerPromotionSchema } from './schemas/banner-promotion.schema';
@@ -47,6 +49,8 @@ import { TransactionModule } from '../common/services/transaction.module';
     ModerationModule,
     SecurityModule,
     SubscriptionsModule,
+    WalletsModule,
+    ReferralsModule,
     forwardRef(() => RegionsModule),
   ],
   controllers: [BannersController],

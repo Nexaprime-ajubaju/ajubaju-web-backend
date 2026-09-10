@@ -141,6 +141,9 @@ export class Merchant {
   hasSelectedActiveProducts?: boolean;
 
   @Prop({ type: Number, default: 0 })
+  walletBalance?: number;
+
+  @Prop({ type: Number, default: 0 })
   profileViews?: number;
 
   @Prop()

@@ -135,11 +135,21 @@ export class BannersController {
     @Body() body: PayBannerPromotionDto,
     @CurrentUser() user: any,
   ) {
-    const updated = await this.bannersService.markBannerPromotionAsPaid(
-      requestId,
-      user.id,
-      body.paymentReference,
-    );
+    let updated;
+    if (body.useWallet && body.walletAmount > 0) {
+      updated = await this.bannersService.payWithWallet(
+        requestId,
+        user.id,
+        body.walletAmount,
+        body.paymentReference,
+      );
+    } else {
+      updated = await this.bannersService.markBannerPromotionAsPaid(
+        requestId,
+        user.id,
+        body.paymentReference,
+      );
+    }
     return {
       success: true,
       message: 'Payment recorded and banner activated',
