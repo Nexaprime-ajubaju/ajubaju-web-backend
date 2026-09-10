@@ -1,5 +1,5 @@
 # Backend Dockerfile - multi-stage (build + runtime)
-FROM node:20-bullseye-slim AS builder
+FROM node:20-bookworm-slim AS builder
 
 ENV DEBIAN_FRONTEND=noninteractive
 WORKDIR /app
@@ -19,7 +19,7 @@ COPY . .
 RUN npm run build
 
 # Production image (only production deps + dist)
-FROM node:20-bullseye-slim AS runner
+FROM node:20-bookworm-slim AS runner
 
 ENV NODE_ENV=production
 WORKDIR /app
