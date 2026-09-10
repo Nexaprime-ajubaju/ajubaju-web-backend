@@ -5,6 +5,7 @@ export type ReferralDocument = Referral & Document;
 
 export enum ReferralStatus {
   PENDING = 'PENDING',
+  QUALIFIED = 'QUALIFIED',
   VERIFIED = 'VERIFIED',
 }
 

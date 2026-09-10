@@ -5,11 +5,16 @@ import { User, UserSchema } from '../users/schemas/user.schema';
 import { ReferralsService } from './referrals.service';
 import { ReferralsController } from './referrals.controller';
 
+import { Merchant, MerchantSchema } from '../users/schemas/merchant.schema';
+import { SubscriptionPlan, SubscriptionPlanSchema } from '../subscriptions/schemas/subscription-plan.schema';
+
 @Module({
   imports: [
     MongooseModule.forFeature([
       { name: Referral.name, schema: ReferralSchema },
-      { name: User.name, schema: UserSchema }
+      { name: User.name, schema: UserSchema },
+      { name: Merchant.name, schema: MerchantSchema },
+      { name: SubscriptionPlan.name, schema: SubscriptionPlanSchema }
     ]),
   ],
   controllers: [ReferralsController],
