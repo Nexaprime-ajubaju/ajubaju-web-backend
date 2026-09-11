@@ -140,7 +140,9 @@ export class PaymentsService implements OnModuleInit {
     } catch (error) {
       this.logger.error('Razorpay order creation failed', error);
       throw new BadRequestException(
-        error?.error?.description || error?.message || 'Failed to create payment order with Razorpay',
+        error?.error?.description ||
+          error?.message ||
+          'Failed to create payment order with Razorpay',
       );
     }
 

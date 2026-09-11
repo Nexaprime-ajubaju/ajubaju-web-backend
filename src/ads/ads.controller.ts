@@ -44,7 +44,7 @@ export class AdsController {
   constructor(
     private readonly adsService: AdsService,
     @Optional() private readonly kafkaService?: KafkaService,
-  ) { }
+  ) {}
 
   /**
    * Admin: Get real-time listing report stats for admin panel cards
@@ -1344,7 +1344,9 @@ export class AdsController {
       if (user?.id) {
         this.adsService
           .trackViewWithVisitor(adId, user.id)
-          .catch((e) => this.logger.error(`Error tracking view visitor: ${e.message}`));
+          .catch((e) =>
+            this.logger.error(`Error tracking view visitor: ${e.message}`),
+          );
       }
       await this.adsService.incrementViewCount(adId);
       return { success: true };
@@ -1665,16 +1667,14 @@ export class AdsController {
   @Post(':id/cancel')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.USER, UserRole.MERCHANT)
-  async cancelAd(
-    @Param('id') adId: string,
-    @Req() req,
-  ) {
+  async cancelAd(@Param('id') adId: string, @Req() req) {
     const userId = (req.user?.id || req.user?._id).toString();
     try {
       const cancelledAd = await this.adsService.cancelAd(adId, userId);
       return {
         success: true,
-        message: 'Ad cancelled successfully. Any eligible refund has been credited to your wallet.',
+        message:
+          'Ad cancelled successfully. Any eligible refund has been credited to your wallet.',
         data: cancelledAd,
       };
     } catch (error: any) {

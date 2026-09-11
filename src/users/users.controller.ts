@@ -33,14 +33,14 @@ export class UsersController {
   constructor(
     private readonly usersService: UsersService,
     private readonly redisService: RedisService,
-  ) { }
+  ) {}
 
   // ==================== FOLLOW MERCHANT ====================
   @Post('merchants/:merchantId/follow')
   @UseGuards(JwtAuthGuard)
   async toggleFollowMerchant(
     @Param('merchantId') merchantId: string,
-    @CurrentUser() user: any
+    @CurrentUser() user: any,
   ) {
     const userId = user?.id || user?._id;
     return this.usersService.toggleFollowMerchant(userId, merchantId);
@@ -50,7 +50,7 @@ export class UsersController {
   @UseGuards(JwtAuthGuard)
   async checkFollowStatus(
     @Param('merchantId') merchantId: string,
-    @CurrentUser() user: any
+    @CurrentUser() user: any,
   ) {
     const userId = user?.id || user?._id;
     return this.usersService.checkFollowStatus(userId, merchantId);
@@ -115,7 +115,10 @@ export class UsersController {
     @Param('reportId') reportId: string,
     @Body('status') status: any,
   ) {
-    const updated = await this.usersService.updateUserReportStatus(reportId, status);
+    const updated = await this.usersService.updateUserReportStatus(
+      reportId,
+      status,
+    );
     return { success: true, data: updated };
   }
 
@@ -155,10 +158,14 @@ export class UsersController {
       'specific',
       'warning',
       'Policy Warning from GOLO Admin',
-      message || 'Your account has received a policy warning. Please review our community guidelines.',
+      message ||
+        'Your account has received a policy warning. Please review our community guidelines.',
       id, // specificUserId
     );
-    return { success: true, message: 'Warning notification dispatched to user.' };
+    return {
+      success: true,
+      message: 'Warning notification dispatched to user.',
+    };
   }
 
   @Post('admin/users/:id/unban')
@@ -176,16 +183,23 @@ export class UsersController {
 
   @Post('email-otp/send')
   async sendEmailOTP(
-    @Body() body: { email: string; type: 'register' | 'profile'; accountType?: 'user' | 'merchant' }
+    @Body()
+    body: {
+      email: string;
+      type: 'register' | 'profile';
+      accountType?: 'user' | 'merchant';
+    },
   ) {
-    const result = await this.usersService.sendEmailOTP(body.email, body.type, body.accountType);
+    const result = await this.usersService.sendEmailOTP(
+      body.email,
+      body.type,
+      body.accountType,
+    );
     return { success: true, ...result };
   }
 
   @Post('email-otp/verify')
-  async verifyEmailOTP(
-    @Body() body: { email: string; otp: string }
-  ) {
+  async verifyEmailOTP(@Body() body: { email: string; otp: string }) {
     const result = await this.usersService.verifyEmailOTP(body.email, body.otp);
     return { success: true, ...result };
   }
@@ -194,17 +208,20 @@ export class UsersController {
   @UseGuards(JwtAuthGuard)
   async sendProfileEmailOTP(
     @CurrentUser() user: any,
-    @Body() body: { email: string }
+    @Body() body: { email: string },
   ) {
-    const result = await this.usersService.sendEmailOTP(body.email, 'profile', undefined, user.id);
+    const result = await this.usersService.sendEmailOTP(
+      body.email,
+      'profile',
+      undefined,
+      user.id,
+    );
     return { success: true, ...result };
   }
 
   @Post('profile/email-otp/verify')
   @UseGuards(JwtAuthGuard)
-  async verifyProfileEmailOTP(
-    @Body() body: { email: string; otp: string }
-  ) {
+  async verifyProfileEmailOTP(@Body() body: { email: string; otp: string }) {
     const result = await this.usersService.verifyEmailOTP(body.email, body.otp);
     return { success: true, ...result };
   }
@@ -382,10 +399,10 @@ export class UsersController {
           hasProfilePhoto: !!data.profilePhoto,
           photoSize: data.profilePhoto
             ? (
-              Buffer.byteLength(data.profilePhoto, 'utf8') /
-              1024 /
-              1024
-            ).toFixed(2) + 'MB'
+                Buffer.byteLength(data.profilePhoto, 'utf8') /
+                1024 /
+                1024
+              ).toFixed(2) + 'MB'
             : 'N/A',
           hasInterests: !!data.profile?.interests,
         },
@@ -456,7 +473,6 @@ export class UsersController {
     };
   }
 
-
   // ==================== WISHLIST ====================
 
   @Get('wishlist')
@@ -523,7 +539,8 @@ export class UsersController {
   @Roles(UserRole.ADMIN)
   async adminBroadcastNotification(
     @CurrentUser() admin: any,
-    @Body() body: { audience: string; type: string; title: string; message: string }
+    @Body()
+    body: { audience: string; type: string; title: string; message: string },
   ) {
     if (!body.audience || !body.type || !body.message) {
       throw new BadRequestException('Missing required fields for broadcast');
@@ -535,14 +552,16 @@ export class UsersController {
       body.audience,
       body.type,
       body.title,
-      body.message
+      body.message,
     );
   }
 
   @Get('notifications')
   @UseGuards(JwtAuthGuard)
   async getNotifications(@CurrentUser() user: any) {
-    const userId = String(user?.id || user?.sub || user?._id || user?.userId || '');
+    const userId = String(
+      user?.id || user?.sub || user?._id || user?.userId || '',
+    );
     return {
       success: true,
       data: await this.usersService.getNotifications(userId),
@@ -555,7 +574,9 @@ export class UsersController {
     @CurrentUser() user: any,
     @Body() body: { pushToken?: string },
   ) {
-    const userId = String(user?.id || user?.sub || user?._id || user?.userId || '');
+    const userId = String(
+      user?.id || user?.sub || user?._id || user?.userId || '',
+    );
     return this.usersService.registerPushToken(userId, body?.pushToken);
   }
 
@@ -565,7 +586,9 @@ export class UsersController {
     @CurrentUser() user: any,
     @Param('notificationId') notificationId: string,
   ) {
-    const userId = String(user?.id || user?.sub || user?._id || user?.userId || '');
+    const userId = String(
+      user?.id || user?.sub || user?._id || user?.userId || '',
+    );
     await this.usersService.markNotificationRead(notificationId, userId);
     return { success: true };
   }
@@ -573,7 +596,9 @@ export class UsersController {
   @Post('notifications/read-all')
   @UseGuards(JwtAuthGuard)
   async markAllNotificationsRead(@CurrentUser() user: any) {
-    const userId = String(user?.id || user?.sub || user?._id || user?.userId || '');
+    const userId = String(
+      user?.id || user?.sub || user?._id || user?.userId || '',
+    );
     await this.usersService.markAllNotificationsRead(userId);
     return { success: true };
   }
@@ -581,7 +606,9 @@ export class UsersController {
   @Delete('notifications')
   @UseGuards(JwtAuthGuard)
   async deleteAllNotifications(@CurrentUser() user: any) {
-    const userId = String(user?.id || user?.sub || user?._id || user?.userId || '');
+    const userId = String(
+      user?.id || user?.sub || user?._id || user?.userId || '',
+    );
     await this.usersService.deleteAllNotifications(userId);
     return { success: true };
   }
@@ -600,16 +627,17 @@ export class UsersController {
     const limitNum = parseInt(limit) || 10;
     return {
       success: true,
-      data: await this.usersService.adminGetAllUsers(pageNum, limitNum, { accountType, role }),
+      data: await this.usersService.adminGetAllUsers(pageNum, limitNum, {
+        accountType,
+        role,
+      }),
     };
   }
 
   @Get('admin/deleted-accounts')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
-  async getDeletedAccounts(
-    @Query('accountType') accountType?: string
-  ) {
+  async getDeletedAccounts(@Query('accountType') accountType?: string) {
     const data = await this.usersService.getDeletedAccounts(accountType);
     return { success: true, data };
   }
@@ -634,21 +662,24 @@ export class UsersController {
     @Param('id') id: string,
     @Body('kycStatus') kycStatus: string,
     @Body('rejectionReason') rejectionReason: string,
-    @CurrentUser() admin: any
+    @CurrentUser() admin: any,
   ) {
     const adminId = admin?.id || 'test-admin';
     const adminEmail = admin?.email || 'test@admin.com';
-    const data = await this.usersService.updateUserKycStatus(id, kycStatus, rejectionReason, adminId, adminEmail);
+    const data = await this.usersService.updateUserKycStatus(
+      id,
+      kycStatus,
+      rejectionReason,
+      adminId,
+      adminEmail,
+    );
     return { success: true, data };
   }
 
   // ==================== USER SELF ACCOUNT DELETION ====================
   @Delete('account')
   @UseGuards(JwtAuthGuard)
-  async deleteAccount(
-    @CurrentUser() user: any,
-    @Body() dto: DeleteAccountDto,
-  ) {
+  async deleteAccount(@CurrentUser() user: any, @Body() dto: DeleteAccountDto) {
     const userId = user?.id || user?._id;
     if (!userId) {
       throw new BadRequestException('User authentication required');

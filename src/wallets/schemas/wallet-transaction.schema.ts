@@ -36,6 +36,7 @@ export class WalletTransaction {
   updatedAt: Date;
 }
 
-export const WalletTransactionSchema = SchemaFactory.createForClass(WalletTransaction);
+export const WalletTransactionSchema =
+  SchemaFactory.createForClass(WalletTransaction);
 
 WalletTransactionSchema.index({ userId: 1, userType: 1 });

@@ -17,12 +17,19 @@ export class BannerServingService {
    * Fast Redis-first homepage banner serving endpoint (<10ms latency)
    * With automatic Mongo fallback and Redis auto-healing
    */
-  async getActiveHomepageBanners(city?: string, fullLocationStr?: string, limit: number = 10): Promise<any[]> {
+  async getActiveHomepageBanners(
+    city?: string,
+    fullLocationStr?: string,
+    limit: number = 10,
+  ): Promise<any[]> {
     const locationsToTry: string[] = [];
 
     // Parse the full location string from most specific to least specific
     if (fullLocationStr) {
-      const parts = fullLocationStr.split(',').map(p => p.trim().toLowerCase()).filter(Boolean);
+      const parts = fullLocationStr
+        .split(',')
+        .map((p) => p.trim().toLowerCase())
+        .filter(Boolean);
       for (const p of parts) {
         if (!locationsToTry.includes(p)) locationsToTry.push(p);
       }
@@ -31,7 +38,8 @@ export class BannerServingService {
     if (city) {
       const rawCity = city.trim().toLowerCase();
       const cityNormalized = rawCity.split(',')[0].trim();
-      if (!locationsToTry.includes(cityNormalized)) locationsToTry.push(cityNormalized);
+      if (!locationsToTry.includes(cityNormalized))
+        locationsToTry.push(cityNormalized);
     }
 
     if (!locationsToTry.includes('global')) locationsToTry.push('global');
@@ -47,8 +55,10 @@ export class BannerServingService {
 
       // 2. Redis Miss / Connection Glitch / First-run Fallback & Auto-Healing
       if (!slotsMap || Object.keys(slotsMap).length === 0) {
-        this.logger.log(`Redis cache miss for location [${loc}]. Initiating auto-healing rotation.`);
-        
+        this.logger.log(
+          `Redis cache miss for location [${loc}]. Initiating auto-healing rotation.`,
+        );
+
         // Trigger auto-healing rotation
         await this.rotationScheduler.rotateCitySlots(loc);
         slotsMap = await this.cacheService.getAllSlots(loc);
@@ -59,7 +69,7 @@ export class BannerServingService {
         const bannerList = Object.keys(slotsMap)
           .map((k) => parseInt(k, 10))
           .sort((a, b) => a - b)
-          .map((slotNum) => slotsMap![slotNum])
+          .map((slotNum) => slotsMap[slotNum])
           .filter(Boolean);
 
         for (const banner of bannerList) {
@@ -70,7 +80,9 @@ export class BannerServingService {
             if (finalBanners.length >= limit) break;
           }
         }
-        this.logger.log(`[DEBUG] Added banners from ${loc}, finalBanners.length is now ${finalBanners.length}`);
+        this.logger.log(
+          `[DEBUG] Added banners from ${loc}, finalBanners.length is now ${finalBanners.length}`,
+        );
       }
     }
 

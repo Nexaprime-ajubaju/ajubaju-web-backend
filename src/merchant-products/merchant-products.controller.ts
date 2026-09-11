@@ -43,7 +43,11 @@ export class MerchantProductsController {
     if (!query) return { success: true, data: [] };
     const pageNum = Math.max(1, parseInt(page || '1', 10));
     const limitNum = Math.min(50, Math.max(1, parseInt(limit || '10', 10)));
-    return this.merchantProductsService.searchGlobalProducts(query, pageNum, limitNum);
+    return this.merchantProductsService.searchGlobalProducts(
+      query,
+      pageNum,
+      limitNum,
+    );
   }
 
   @Get('public/:merchantId')
@@ -54,7 +58,7 @@ export class MerchantProductsController {
     const cacheKey = `merchant:products:public:${merchantId}:${JSON.stringify(query)}`;
     const cached = await this.redisService.get<any>(cacheKey);
     if (cached) return cached;
-    
+
     const result = await this.merchantProductsService.listProductsByMerchantId(
       merchantId,
       query,
@@ -82,7 +86,7 @@ export class MerchantProductsController {
     @CurrentUser() user: CurrentUserPayload,
     @Body() dto: CreateMerchantProductDto,
   ) {
-    console.log("RECEIVED DTO FOR CREATING PRODUCT:", dto);
+    console.log('RECEIVED DTO FOR CREATING PRODUCT:', dto);
     return this.merchantProductsService.create(user.id, dto);
   }
 

@@ -32,11 +32,16 @@ export class SupportTicket {
   @Prop({ default: '' })
   adminNotes: string;
 
-  @Prop({ type: [{
-    by: { type: String, enum: ['user', 'agent'] },
-    text: { type: String },
-    timestamp: { type: Date, default: Date.now }
-  }], default: [] })
+  @Prop({
+    type: [
+      {
+        by: { type: String, enum: ['user', 'agent'] },
+        text: { type: String },
+        timestamp: { type: Date, default: Date.now },
+      },
+    ],
+    default: [],
+  })
   chatHistory: Array<{
     by: string;
     text: string;

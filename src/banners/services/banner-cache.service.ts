@@ -5,7 +5,8 @@ import { RedisService } from '../../common/services/redis.service';
 @Injectable()
 export class BannerCacheService {
   private readonly logger = new Logger(BannerCacheService.name);
-  private readonly HMAC_SECRET = process.env.BANNER_HMAC_SECRET || 'golo-banner-secret-key-2026';
+  private readonly HMAC_SECRET =
+    process.env.BANNER_HMAC_SECRET || 'golo-banner-secret-key-2026';
 
   // In-Memory Fallback Store when Redis is disabled or offline
   private inMemorySlots: Map<string, Record<number, any>> = new Map();
@@ -19,7 +20,11 @@ export class BannerCacheService {
   /**
    * Generate SHA256 HMAC signed token for an impression slot
    */
-  generateImpressionToken(requestId: string, slot: number, generation: number): string {
+  generateImpressionToken(
+    requestId: string,
+    slot: number,
+    generation: number,
+  ): string {
     const payload = `${requestId}:${slot}:${generation}`;
     return createHmac('sha256', this.HMAC_SECRET).update(payload).digest('hex');
   }
@@ -27,7 +32,12 @@ export class BannerCacheService {
   /**
    * Verify HMAC impression token
    */
-  verifyImpressionToken(requestId: string, slot: number, generation: number, token: string): boolean {
+  verifyImpressionToken(
+    requestId: string,
+    slot: number,
+    generation: number,
+    token: string,
+  ): boolean {
     if (!token) return false;
     const expected = this.generateImpressionToken(requestId, slot, generation);
     return expected === token;
@@ -36,9 +46,17 @@ export class BannerCacheService {
   /**
    * Set a specific slot in Redis Hash or In-Memory fallback
    */
-  async setSlot(city: string, slotNumber: number, slotData: any): Promise<boolean> {
+  async setSlot(
+    city: string,
+    slotNumber: number,
+    slotData: any,
+  ): Promise<boolean> {
     const cityKey = (city || 'global').trim().toLowerCase();
-    slotData.token = this.generateImpressionToken(slotData.requestId, slotNumber, slotData.generation);
+    slotData.token = this.generateImpressionToken(
+      slotData.requestId,
+      slotNumber,
+      slotData.generation,
+    );
 
     // Save to in-memory fallback store
     const currentMemory = this.inMemorySlots.get(cityKey) || {};
@@ -56,7 +74,9 @@ export class BannerCacheService {
       await client.expire(key, 300);
       return true;
     } catch (err: any) {
-      this.logger.error(`Error setting Redis slot ${slotNumber} for ${city}: ${err.message}`);
+      this.logger.error(
+        `Error setting Redis slot ${slotNumber} for ${city}: ${err.message}`,
+      );
       return true;
     }
   }
@@ -64,13 +84,20 @@ export class BannerCacheService {
   /**
    * Set all 9 slots in Redis Hash or In-Memory fallback
    */
-  async setAllSlots(city: string, slotsData: Record<number, any>): Promise<boolean> {
+  async setAllSlots(
+    city: string,
+    slotsData: Record<number, any>,
+  ): Promise<boolean> {
     const cityKey = (city || 'global').trim().toLowerCase();
 
     const signedSlotsData: Record<number, any> = {};
     for (const [slotNum, data] of Object.entries(slotsData)) {
       const slotN = parseInt(slotNum, 10);
-      data.token = this.generateImpressionToken(data.requestId, slotN, data.generation);
+      data.token = this.generateImpressionToken(
+        data.requestId,
+        slotN,
+        data.generation,
+      );
       signedSlotsData[slotN] = data;
     }
 
@@ -91,7 +118,9 @@ export class BannerCacheService {
       await client.expire(key, 300);
       return true;
     } catch (err: any) {
-      this.logger.error(`Error setting all Redis slots for ${city}: ${err.message}`);
+      this.logger.error(
+        `Error setting all Redis slots for ${city}: ${err.message}`,
+      );
       return true;
     }
   }
@@ -127,7 +156,9 @@ export class BannerCacheService {
       }
       return result;
     } catch (err: any) {
-      this.logger.error(`Error getting Redis slots for ${city}: ${err.message}`);
+      this.logger.error(
+        `Error getting Redis slots for ${city}: ${err.message}`,
+      );
       return this.inMemorySlots.get(cityKey) || null;
     }
   }
@@ -147,7 +178,9 @@ export class BannerCacheService {
       const key = this.getCityKey(city);
       await client.del(key);
     } catch (err: any) {
-      this.logger.error(`Error invalidating city cache for ${city}: ${err.message}`);
+      this.logger.error(
+        `Error invalidating city cache for ${city}: ${err.message}`,
+      );
     }
   }
 

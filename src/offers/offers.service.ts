@@ -1,4 +1,11 @@
-import { BadRequestException, Injectable, Logger, NotFoundException, OnModuleInit, Optional } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  Logger,
+  NotFoundException,
+  OnModuleInit,
+  Optional,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types, isValidObjectId } from 'mongoose';
 import { v4 as uuidv4 } from 'uuid';
@@ -6,14 +13,25 @@ import { KafkaService } from '../kafka/kafka.service';
 import { RedisService } from '../common/services/redis.service';
 import { ModerationService } from '../moderation/moderation.service';
 import { ModerationSecurityService } from '../security/moderation/moderation-security.service';
-import { OfferPromotion, OfferPromotionDocument, OfferPromotionStatus, OfferPaymentStatus } from './schemas/offer-promotion.schema';
+import {
+  OfferPromotion,
+  OfferPromotionDocument,
+  OfferPromotionStatus,
+  OfferPaymentStatus,
+} from './schemas/offer-promotion.schema';
 // Banner models removed to keep offers module independent from banners
 import { User, UserDocument } from '../users/schemas/user.schema';
 import { Merchant, MerchantDocument } from '../users/schemas/merchant.schema';
 import { Follow, FollowDocument } from '../users/schemas/follow.schema';
-import { Notification, NotificationDocument } from '../users/schemas/notification.schema';
+import {
+  Notification,
+  NotificationDocument,
+} from '../users/schemas/notification.schema';
 import { KAFKA_TOPICS } from '../common/constants/kafka-topics';
-import { MerchantProduct, MerchantProductDocument } from '../merchant-products/schemas/merchant-product.schema';
+import {
+  MerchantProduct,
+  MerchantProductDocument,
+} from '../merchant-products/schemas/merchant-product.schema';
 import { SubscriptionsService } from '../subscriptions/subscriptions.service';
 
 // Bug Fix #4: Default placeholder image for offers without imageUrl
@@ -23,25 +41,31 @@ const DEFAULT_OFFER_IMAGE = '/images/deal1.jpg';
 export class OffersService implements OnModuleInit {
   private readonly logger = new Logger(OffersService.name);
   private readonly cacheTtlSeconds = {
-    merchantOffers: 30,      // Short TTL so Device B sees new offers within 30s
+    merchantOffers: 30, // Short TTL so Device B sees new offers within 30s
     publicOffer: 300,
     template: 600,
-    nearbyOffers: 120,       // 2 min — nearby is public data, safe to cache longer
+    nearbyOffers: 120, // 2 min — nearby is public data, safe to cache longer
   } as const;
 
   constructor(
-    @InjectModel(OfferPromotion.name) private readonly offerModel: Model<OfferPromotionDocument>,
+    @InjectModel(OfferPromotion.name)
+    private readonly offerModel: Model<OfferPromotionDocument>,
     @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
-    @InjectModel(Merchant.name) private readonly merchantModel: Model<MerchantDocument>,
-    @InjectModel(MerchantProduct.name) private readonly merchantProductModel: Model<MerchantProductDocument>,
-    @InjectModel(Follow.name) private readonly followModel: Model<FollowDocument>,
-    @InjectModel(Notification.name) private readonly notificationModel: Model<NotificationDocument>,
+    @InjectModel(Merchant.name)
+    private readonly merchantModel: Model<MerchantDocument>,
+    @InjectModel(MerchantProduct.name)
+    private readonly merchantProductModel: Model<MerchantProductDocument>,
+    @InjectModel(Follow.name)
+    private readonly followModel: Model<FollowDocument>,
+    @InjectModel(Notification.name)
+    private readonly notificationModel: Model<NotificationDocument>,
     private readonly subscriptionsService: SubscriptionsService,
     private readonly redisService: RedisService,
     @Optional() private readonly kafkaService?: KafkaService,
     @Optional() private readonly moderationService?: ModerationService,
-    @Optional() private readonly moderationSecurityService?: ModerationSecurityService,
-  ) { }
+    @Optional()
+    private readonly moderationSecurityService?: ModerationSecurityService,
+  ) {}
 
   private offerMerchantCacheKey(merchantId: string) {
     return `golo:offers:merchant:${merchantId}`;
@@ -56,23 +80,43 @@ export class OffersService implements OnModuleInit {
   }
 
   private nearbyOffersCacheKey(params: any): string {
-    const hasCoordinates = Number.isFinite(Number(params?.latitude)) && Number.isFinite(Number(params?.longitude));
+    const hasCoordinates =
+      Number.isFinite(Number(params?.latitude)) &&
+      Number.isFinite(Number(params?.longitude));
 
     const normalizedKey = {
-      activeNow: params?.activeNow === undefined ? true : Boolean(params.activeNow),
-      category: String(params?.category || '').trim().toLowerCase(),
+      activeNow:
+        params?.activeNow === undefined ? true : Boolean(params.activeNow),
+      category: String(params?.category || '')
+        .trim()
+        .toLowerCase(),
       // Round to 1 decimal (≈11 km grid cell) so nearby users share the same cache bucket.
       // Previously used 2 decimals (≈1 km), which caused near-zero hit rate on first load.
-      lat: hasCoordinates ? Math.round(Number(params.latitude) * 10) / 10 : null,
-      lng: hasCoordinates ? Math.round(Number(params.longitude) * 10) / 10 : null,
+      lat: hasCoordinates
+        ? Math.round(Number(params.latitude) * 10) / 10
+        : null,
+      lng: hasCoordinates
+        ? Math.round(Number(params.longitude) * 10) / 10
+        : null,
       limit: Math.min(50, Math.max(1, Number(params?.limit) || 20)),
-      location: String(params?.location || '').trim().toLowerCase(),
-      maxPrice: Number.isFinite(Number(params?.maxPrice)) && Number(params.maxPrice) > 0 ? Number(params.maxPrice) : null,
-      offerTypes: String(params?.offerTypes || '').trim().toLowerCase(),
+      location: String(params?.location || '')
+        .trim()
+        .toLowerCase(),
+      maxPrice:
+        Number.isFinite(Number(params?.maxPrice)) && Number(params.maxPrice) > 0
+          ? Number(params.maxPrice)
+          : null,
+      offerTypes: String(params?.offerTypes || '')
+        .trim()
+        .toLowerCase(),
       page: Math.max(1, Number(params?.page) || 1),
-      query: String(params?.query || '').trim().toLowerCase(),
+      query: String(params?.query || '')
+        .trim()
+        .toLowerCase(),
       radiusKm: Math.min(100, Math.max(1, Number(params?.radiusKm) || 5)),
-      sort: String(params?.sort || '').trim().toLowerCase(),
+      sort: String(params?.sort || '')
+        .trim()
+        .toLowerCase(),
       topDiscount: Boolean(params?.topDiscount),
     };
 
@@ -92,14 +136,19 @@ export class OffersService implements OnModuleInit {
 
   private async getAllMerchantsCached(): Promise<any[]> {
     const now = Date.now();
-    if (this.merchantsMemoryCache.length > 0 && now - this.merchantsLastFetched < 300000) {
+    if (
+      this.merchantsMemoryCache.length > 0 &&
+      now - this.merchantsLastFetched < 300000
+    ) {
       return this.merchantsMemoryCache;
     }
 
     try {
       const merchants = await this.merchantModel
         .find({})
-        .select('userId storeName storeCategory storeSubCategory storeLocation storeLocationLatitude storeLocationLongitude profilePhoto shopPhoto')
+        .select(
+          'userId storeName storeCategory storeSubCategory storeLocation storeLocationLatitude storeLocationLongitude profilePhoto shopPhoto',
+        )
         .lean()
         .exec();
       if (merchants && merchants.length > 0) {
@@ -134,7 +183,10 @@ export class OffersService implements OnModuleInit {
     await this.redisService.del(key);
   }
 
-  private async clearOfferCaches(merchantId: string, identifiers: string[] = []): Promise<void> {
+  private async clearOfferCaches(
+    merchantId: string,
+    identifiers: string[] = [],
+  ): Promise<void> {
     await Promise.all([
       // Exact merchant key — use del, not pattern scan
       this.clearExactKey(this.offerMerchantCacheKey(merchantId)),
@@ -143,7 +195,9 @@ export class OffersService implements OnModuleInit {
       // Nearby is a wildcard pattern — use SCAN-based deleteByPattern
       this.clearCache('golo:offers:nearby:*'),
       // Public offer keys by known identifiers (exact)
-      ...identifiers.map((id) => this.clearExactKey(this.publicOfferCacheKey(id))),
+      ...identifiers.map((id) =>
+        this.clearExactKey(this.publicOfferCacheKey(id)),
+      ),
     ]);
   }
 
@@ -172,15 +226,18 @@ export class OffersService implements OnModuleInit {
     const a =
       Math.sin(dLat / 2) * Math.sin(dLat / 2) +
       Math.cos(this.toRadians(latitudeA)) *
-      Math.cos(this.toRadians(latitudeB)) *
-      Math.sin(dLon / 2) *
-      Math.sin(dLon / 2);
+        Math.cos(this.toRadians(latitudeB)) *
+        Math.sin(dLon / 2) *
+        Math.sin(dLon / 2);
 
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     return earthRadiusKm * c;
   }
 
-  private hasValidMerchantCoordinates(latitude: number, longitude: number): boolean {
+  private hasValidMerchantCoordinates(
+    latitude: number,
+    longitude: number,
+  ): boolean {
     const inValidRange =
       Number.isFinite(latitude) &&
       Number.isFinite(longitude) &&
@@ -207,11 +264,15 @@ export class OffersService implements OnModuleInit {
       .sort((a: Date, b: Date) => a.getTime() - b.getTime());
 
     // De-dup by day timestamp after normalization.
-    return Array.from(new Map(normalized.map((d) => [d.getTime(), d])).values());
+    return Array.from(
+      new Map(normalized.map((d) => [d.getTime(), d])).values(),
+    );
   }
 
   private buildVisibilityRange(selectedDates: Date[]) {
-    const sorted = selectedDates.slice().sort((a, b) => a.getTime() - b.getTime());
+    const sorted = selectedDates
+      .slice()
+      .sort((a, b) => a.getTime() - b.getTime());
     const startDate = new Date(sorted[0]);
     startDate.setUTCHours(0, 0, 0, 0);
     const endDate = new Date(sorted[sorted.length - 1]);
@@ -221,15 +282,21 @@ export class OffersService implements OnModuleInit {
   }
 
   private computeOfferPricing(row: any) {
-    const selectedProducts: any[] = Array.isArray(row?.selectedProducts) ? row.selectedProducts : [];
+    const selectedProducts: any[] = Array.isArray(row?.selectedProducts)
+      ? row.selectedProducts
+      : [];
 
-    const computedBestDiscountPercent = selectedProducts.reduce((best, product) => {
-      const original = Number(product?.originalPrice || 0);
-      const offerPrice = Number(product?.offerPrice || 0);
-      if (original <= 0 || offerPrice < 0 || offerPrice >= original) return best;
-      const discountPercent = ((original - offerPrice) / original) * 100;
-      return Math.max(best, discountPercent);
-    }, 0);
+    const computedBestDiscountPercent = selectedProducts.reduce(
+      (best, product) => {
+        const original = Number(product?.originalPrice || 0);
+        const offerPrice = Number(product?.offerPrice || 0);
+        if (original <= 0 || offerPrice < 0 || offerPrice >= original)
+          return best;
+        const discountPercent = ((original - offerPrice) / original) * 100;
+        return Math.max(best, discountPercent);
+      },
+      0,
+    );
 
     const summedOfferPrice = selectedProducts.reduce((sum, product) => {
       const value = Number(product?.offerPrice || 0);
@@ -237,15 +304,20 @@ export class OffersService implements OnModuleInit {
     }, 0);
 
     // Calculate actual aggregate discount:
-    const totalOriginal = selectedProducts.reduce((sum, p) => sum + Number(p.originalPrice || 0), 0);
+    const totalOriginal = selectedProducts.reduce(
+      (sum, p) => sum + Number(p.originalPrice || 0),
+      0,
+    );
     const totalOffer = summedOfferPrice;
-    const correctDiscountPercent = totalOriginal > 0
-      ? Math.round(((totalOriginal - totalOffer) / totalOriginal) * 100)
-      : 0;
+    const correctDiscountPercent =
+      totalOriginal > 0
+        ? Math.round(((totalOriginal - totalOffer) / totalOriginal) * 100)
+        : 0;
 
     return {
       selectedProducts,
-      displayPrice: summedOfferPrice > 0 ? summedOfferPrice : Number(row?.totalPrice || 0),
+      displayPrice:
+        summedOfferPrice > 0 ? summedOfferPrice : Number(row?.totalPrice || 0),
       discountPercent: correctDiscountPercent,
     };
   }
@@ -253,7 +325,12 @@ export class OffersService implements OnModuleInit {
   private normalizeMerchantOfferRow(row: any) {
     const pricing = this.computeOfferPricing(row);
     const startsAt = row?.startDate || row?.selectedDates?.[0] || null;
-    const endsAt = row?.endDate || (Array.isArray(row?.selectedDates) ? row.selectedDates[row.selectedDates.length - 1] : null) || null;
+    const endsAt =
+      row?.endDate ||
+      (Array.isArray(row?.selectedDates)
+        ? row.selectedDates[row.selectedDates.length - 1]
+        : null) ||
+      null;
 
     // Bug Fix #5: Ensure consistent ID handling
     // Note: API returns both:
@@ -293,18 +370,29 @@ export class OffersService implements OnModuleInit {
         const indexName = indexDef?.name;
         if (!indexName) continue;
         await this.offerModel.collection.dropIndex(indexName);
-        this.logger.warn(`[Offers] Dropped legacy index on startup: ${indexName}`);
+        this.logger.warn(
+          `[Offers] Dropped legacy index on startup: ${indexName}`,
+        );
       }
     } catch (error: any) {
-      this.logger.warn(`[Offers] Index cleanup skipped: ${error?.message || 'unknown error'}`);
+      this.logger.warn(
+        `[Offers] Index cleanup skipped: ${error?.message || 'unknown error'}`,
+      );
     }
   }
 
-  private async moderateVideo(videoUrl: string, merchantId: string): Promise<void> {
-    if (!videoUrl || !this.moderationService || !this.moderationSecurityService) return;
+  private async moderateVideo(
+    videoUrl: string,
+    merchantId: string,
+  ): Promise<void> {
+    if (!videoUrl || !this.moderationService || !this.moderationSecurityService)
+      return;
 
     try {
-      if (videoUrl.includes('cloudinary.com') && videoUrl.includes('/video/upload/')) {
+      if (
+        videoUrl.includes('cloudinary.com') &&
+        videoUrl.includes('/video/upload/')
+      ) {
         const baseUrl = videoUrl.substring(0, videoUrl.lastIndexOf('.')); // removes .mp4 or .webm
         const urlWithoutExt = baseUrl;
 
@@ -321,10 +409,21 @@ export class OffersService implements OnModuleInit {
           const frames = [frame0, frame30, frame70];
 
           for (const frame of frames) {
-            const isSafe = await this.moderationService.isImageSafe(frame, merchantId);
+            const isSafe = await this.moderationService.isImageSafe(
+              frame,
+              merchantId,
+            );
             if (!isSafe) {
-              await this.moderationSecurityService.handleFailure(merchantId, 'new_offer', frame, 'INAPPROPRIATE_CONTENT', 'multi');
-              throw new BadRequestException('The uploaded video contains inappropriate content and cannot be published.');
+              await this.moderationSecurityService.handleFailure(
+                merchantId,
+                'new_offer',
+                frame,
+                'INAPPROPRIATE_CONTENT',
+                'multi',
+              );
+              throw new BadRequestException(
+                'The uploaded video contains inappropriate content and cannot be published.',
+              );
             }
           }
         }
@@ -343,36 +442,62 @@ export class OffersService implements OnModuleInit {
         throw new BadRequestException('Invalid offer payload');
       }
 
-      this.logger.log(`[submitOfferPromotionRequest] merchantId=${merchantId}, payload keys=${Object.keys(payload || {}).join(',')}`);
+      this.logger.log(
+        `[submitOfferPromotionRequest] merchantId=${merchantId}, payload keys=${Object.keys(payload || {}).join(',')}`,
+      );
 
-      const merchant = await this.userModel.findById(merchantId).select('name email role accountType').lean().exec();
+      const merchant = await this.userModel
+        .findById(merchantId)
+        .select('name email role accountType')
+        .lean()
+        .exec();
       if (!merchant) {
-        this.logger.error(`[submitOfferPromotionRequest] Merchant not found: ${merchantId}`);
+        this.logger.error(
+          `[submitOfferPromotionRequest] Merchant not found: ${merchantId}`,
+        );
         throw new NotFoundException('Merchant not found');
       }
-      this.logger.log(`[submitOfferPromotionRequest] Merchant found: ${merchant.name}, role=${merchant.role}, accountType=${merchant.accountType}`);
+      this.logger.log(
+        `[submitOfferPromotionRequest] Merchant found: ${merchant.name}, role=${merchant.role}, accountType=${merchant.accountType}`,
+      );
 
       if (merchant.role !== 'merchant' && merchant.accountType !== 'merchant') {
         throw new BadRequestException('Only merchants can submit offers');
       }
 
-      const merchantProfile = await this.merchantModel.findOne({ userId: merchantId })
-        .select('storeCategory storeSubCategory storeLocationLatitude storeLocationLongitude')
+      const merchantProfile = await this.merchantModel
+        .findOne({ userId: merchantId })
+        .select(
+          'storeCategory storeSubCategory storeLocationLatitude storeLocationLongitude',
+        )
         .lean()
         .exec();
-      this.logger.log(`[submitOfferPromotionRequest] Merchant profile: ${JSON.stringify(merchantProfile)}`);
+      this.logger.log(
+        `[submitOfferPromotionRequest] Merchant profile: ${JSON.stringify(merchantProfile)}`,
+      );
 
       if (this.moderationSecurityService) {
         await this.moderationSecurityService.checkRestriction(merchantId);
       }
 
       if (this.moderationService && payload.imageUrl) {
-        const isSafe = await this.moderationService.isImageSafe(payload.imageUrl, merchantId);
+        const isSafe = await this.moderationService.isImageSafe(
+          payload.imageUrl,
+          merchantId,
+        );
         if (!isSafe) {
           if (this.moderationSecurityService) {
-            await this.moderationSecurityService.handleFailure(merchantId, 'new_offer', payload.imageUrl, 'INAPPROPRIATE_CONTENT', 'single');
+            await this.moderationSecurityService.handleFailure(
+              merchantId,
+              'new_offer',
+              payload.imageUrl,
+              'INAPPROPRIATE_CONTENT',
+              'single',
+            );
           }
-          throw new BadRequestException('One or more images contain inappropriate content and cannot be uploaded.');
+          throw new BadRequestException(
+            'One or more images contain inappropriate content and cannot be uploaded.',
+          );
         }
       }
 
@@ -383,21 +508,31 @@ export class OffersService implements OnModuleInit {
       const latitude = Number(merchantProfile?.storeLocationLatitude);
       const longitude = Number(merchantProfile?.storeLocationLongitude);
       const hasCoords = Number.isFinite(latitude) && Number.isFinite(longitude);
-      if (!hasCoords) throw new BadRequestException('Store coordinates missing. Set store location before publishing offers.');
+      if (!hasCoords)
+        throw new BadRequestException(
+          'Store coordinates missing. Set store location before publishing offers.',
+        );
 
       // Check active products finalization
-      const fullMerchantObj = await this.merchantModel.findOne({ userId: merchantId }).exec();
+      const fullMerchantObj = await this.merchantModel
+        .findOne({ userId: merchantId })
+        .exec();
       if (fullMerchantObj) {
-        const planDetails = await this.subscriptionsService.getPlanDetails(fullMerchantObj);
+        const planDetails =
+          await this.subscriptionsService.getPlanDetails(fullMerchantObj);
         const maxProducts = planDetails.planFeatures.maxProducts;
 
         if (maxProducts !== -1) {
-          const actualActiveCount = await this.merchantProductModel.countDocuments({
-            merchantId,
-            isActive: { $ne: false },
-          });
+          const actualActiveCount =
+            await this.merchantProductModel.countDocuments({
+              merchantId,
+              isActive: { $ne: false },
+            });
 
-          if (!fullMerchantObj.hasSelectedActiveProducts || actualActiveCount > maxProducts) {
+          if (
+            !fullMerchantObj.hasSelectedActiveProducts ||
+            actualActiveCount > maxProducts
+          ) {
             throw new BadRequestException({
               success: false,
               errorCode: 'ACTIVE_PRODUCTS_NOT_FINALIZED',
@@ -407,16 +542,23 @@ export class OffersService implements OnModuleInit {
           }
 
           // Verify all selectedProducts are active merchant products
-          const selectedProds = Array.isArray(payload.selectedProducts) ? payload.selectedProducts : [];
+          const selectedProds = Array.isArray(payload.selectedProducts)
+            ? payload.selectedProducts
+            : [];
           if (selectedProds.length > 0) {
-            const productIds = selectedProds.map(p => p.productId || p.id || p._id);
-            const activeProductsCount = await this.merchantProductModel.countDocuments({
-              _id: { $in: productIds },
-              merchantId,
-              isActive: { $ne: false }
-            });
+            const productIds = selectedProds.map(
+              (p) => p.productId || p.id || p._id,
+            );
+            const activeProductsCount =
+              await this.merchantProductModel.countDocuments({
+                _id: { $in: productIds },
+                merchantId,
+                isActive: { $ne: false },
+              });
             if (activeProductsCount !== selectedProds.length) {
-              throw new BadRequestException('All selected products for the offer must be active products in your plan.');
+              throw new BadRequestException(
+                'All selected products for the offer must be active products in your plan.',
+              );
             }
           }
         }
@@ -424,10 +566,18 @@ export class OffersService implements OnModuleInit {
         // Check active offers limit
         const maxActiveOffers = planDetails.planFeatures.maxMonthlyOffers;
         if (maxActiveOffers !== -1) {
-          const currentActiveOffersCount = await this.offerModel.countDocuments({
-            merchantId,
-            status: { $in: [OfferPromotionStatus.ACTIVE, OfferPromotionStatus.APPROVED, OfferPromotionStatus.UNDER_REVIEW] }
-          });
+          const currentActiveOffersCount = await this.offerModel.countDocuments(
+            {
+              merchantId,
+              status: {
+                $in: [
+                  OfferPromotionStatus.ACTIVE,
+                  OfferPromotionStatus.APPROVED,
+                  OfferPromotionStatus.UNDER_REVIEW,
+                ],
+              },
+            },
+          );
           if (currentActiveOffersCount >= maxActiveOffers) {
             throw new BadRequestException({
               success: false,
@@ -439,12 +589,18 @@ export class OffersService implements OnModuleInit {
         }
 
         // Check offer duration limit
-        const maxOfferDurationDays = planDetails.planFeatures.maxOfferDurationDays;
+        const maxOfferDurationDays =
+          planDetails.planFeatures.maxOfferDurationDays;
         if (maxOfferDurationDays && maxOfferDurationDays !== -1) {
-          const offerStartDate = payload.startDate ? new Date(payload.startDate) : null;
-          const offerEndDate = payload.endDate ? new Date(payload.endDate) : offerStartDate;
+          const offerStartDate = payload.startDate
+            ? new Date(payload.startDate)
+            : null;
+          const offerEndDate = payload.endDate
+            ? new Date(payload.endDate)
+            : offerStartDate;
           if (offerStartDate && offerEndDate) {
-            const durationMs = offerEndDate.getTime() - offerStartDate.getTime();
+            const durationMs =
+              offerEndDate.getTime() - offerStartDate.getTime();
             const durationDays = Math.ceil(durationMs / (1000 * 60 * 60 * 24));
             if (durationDays > maxOfferDurationDays) {
               throw new BadRequestException({
@@ -459,21 +615,35 @@ export class OffersService implements OnModuleInit {
       }
 
       // Determine business category from merchant profile (fallbacks to payload or generic)
-      const businessCategory = (merchantProfile?.storeCategory || '').trim() || (payload.category || '').trim() || 'General';
-      const businessSubCategory = (merchantProfile?.storeSubCategory || '').trim();
+      const businessCategory =
+        (merchantProfile?.storeCategory || '').trim() ||
+        (payload.category || '').trim() ||
+        'General';
+      const businessSubCategory = (
+        merchantProfile?.storeSubCategory || ''
+      ).trim();
 
-      const normalizedDates = this.normalizeVisibilityDates(payload.selectedDates);
-      if (!normalizedDates.length) throw new BadRequestException('Please select at least one valid visibility date');
+      const normalizedDates = this.normalizeVisibilityDates(
+        payload.selectedDates,
+      );
+      if (!normalizedDates.length)
+        throw new BadRequestException(
+          'Please select at least one valid visibility date',
+        );
 
       const todayUtc = new Date();
       todayUtc.setUTCHours(0, 0, 0, 0);
-      if (normalizedDates[0] < todayUtc) throw new BadRequestException('Selected dates cannot be in the past');
+      if (normalizedDates[0] < todayUtc)
+        throw new BadRequestException('Selected dates cannot be in the past');
 
-      const { selectedDates, startDate, endDate } = this.buildVisibilityRange(normalizedDates);
+      const { selectedDates, startDate, endDate } =
+        this.buildVisibilityRange(normalizedDates);
 
       const selectedDays = normalizedDates.length;
       const dailyRate = Number(payload.dailyRate ?? 240);
-      const platformFee = Number(payload.platformFee ?? (selectedDays > 0 ? 49 : 0));
+      const platformFee = Number(
+        payload.platformFee ?? (selectedDays > 0 ? 49 : 0),
+      );
       const computedTotal = dailyRate * selectedDays + platformFee;
 
       const request = await this.offerModel.create({
@@ -508,7 +678,9 @@ export class OffersService implements OnModuleInit {
         promotionExpiryText: payload.promotionExpiryText || '',
         termsAndConditions: payload.termsAndConditions || '',
         exampleUsage: payload.exampleUsage || '',
-        selectedProducts: Array.isArray(payload.selectedProducts) ? payload.selectedProducts : [],
+        selectedProducts: Array.isArray(payload.selectedProducts)
+          ? payload.selectedProducts
+          : [],
         status: OfferPromotionStatus.ACTIVE,
         paymentStatus: OfferPaymentStatus.PENDING,
         isActive: true,
@@ -528,34 +700,55 @@ export class OffersService implements OnModuleInit {
         }
       }
 
-      await this.clearOfferCaches(merchantId, [request.requestId, String(request._id)]);
+      await this.clearOfferCaches(merchantId, [
+        request.requestId,
+        String(request._id),
+      ]);
 
       // Clear recommendation cache for users who might match this offer's business category
       if (businessCategory) {
         try {
           const pattern = `reco:deals:v2:user:*`;
           await this.redisService.deleteByPattern(pattern);
-          this.logger.log(`[Offers] Cleared recommendation cache for new offer (category: ${businessCategory})`);
+          this.logger.log(
+            `[Offers] Cleared recommendation cache for new offer (category: ${businessCategory})`,
+          );
         } catch (err) {
-          this.logger.warn('Failed to clear recommendation cache:', err.message);
+          this.logger.warn(
+            'Failed to clear recommendation cache:',
+            err.message,
+          );
         }
       }
 
       // Notify followers about the newly created offer
-      await this.notifyFollowersAboutNewOffer(merchantId, merchant.name || 'Merchant', request);
+      await this.notifyFollowersAboutNewOffer(
+        merchantId,
+        merchant.name || 'Merchant',
+        request,
+      );
 
       return request;
     } catch (error: any) {
       if (error?.name === 'ValidationError' || error?.name === 'CastError') {
-        throw new BadRequestException(error?.message || 'Invalid offer payload');
+        throw new BadRequestException(
+          error?.message || 'Invalid offer payload',
+        );
       }
 
       if (error?.code === 11000) {
-        this.logger.warn(`[submitOfferPromotionRequest] E11000 Duplicate Key Error: ${error.message}`);
-        throw new BadRequestException('Failed to create offer. Please try again.');
+        this.logger.warn(
+          `[submitOfferPromotionRequest] E11000 Duplicate Key Error: ${error.message}`,
+        );
+        throw new BadRequestException(
+          'Failed to create offer. Please try again.',
+        );
       }
 
-      this.logger.error(`[submitOfferPromotionRequest] Error: ${error.message}`, error.stack);
+      this.logger.error(
+        `[submitOfferPromotionRequest] Error: ${error.message}`,
+        error.stack,
+      );
       throw error;
     }
   }
@@ -568,70 +761,131 @@ export class OffersService implements OnModuleInit {
     }
 
     // Support both merchant userId and legacy merchant profile _id stored in some rows
-    const merchantProfile = await this.merchantModel.findOne({ userId: merchantId }).select('_id').lean().exec();
+    const merchantProfile = await this.merchantModel
+      .findOne({ userId: merchantId })
+      .select('_id')
+      .lean()
+      .exec();
     const profileId = merchantProfile?._id ? String(merchantProfile._id) : null;
 
     const query: any = profileId
       ? { $or: [{ merchantId: merchantId }, { merchantId: profileId }] }
       : { merchantId: merchantId };
 
-    const rows = await this.offerModel.find(query).sort({ createdAt: -1 }).lean().exec();
+    const rows = await this.offerModel
+      .find(query)
+      .sort({ createdAt: -1 })
+      .lean()
+      .exec();
     const normalized = rows.map((row) => this.normalizeMerchantOfferRow(row));
-    await this.writeCache(cacheKey, normalized, this.cacheTtlSeconds.merchantOffers);
+    await this.writeCache(
+      cacheKey,
+      normalized,
+      this.cacheTtlSeconds.merchantOffers,
+    );
     return normalized;
   }
 
-  async updateMerchantOffer(requestId: string, merchantId: string, payload: any) {
+  async updateMerchantOffer(
+    requestId: string,
+    merchantId: string,
+    payload: any,
+  ) {
     if (this.moderationSecurityService) {
       await this.moderationSecurityService.checkRestriction(merchantId);
     }
 
-    const request = await this.offerModel.findOne({ requestId, merchantId }).exec();
+    const request = await this.offerModel
+      .findOne({ requestId, merchantId })
+      .exec();
     if (!request) throw new NotFoundException('Offer not found');
 
-    if (this.moderationService && payload.imageUrl && payload.imageUrl !== request.imageUrl) {
-      const isSafe = await this.moderationService.isImageSafe(payload.imageUrl, merchantId);
+    if (
+      this.moderationService &&
+      payload.imageUrl &&
+      payload.imageUrl !== request.imageUrl
+    ) {
+      const isSafe = await this.moderationService.isImageSafe(
+        payload.imageUrl,
+        merchantId,
+      );
       if (!isSafe) {
         if (this.moderationSecurityService) {
-          await this.moderationSecurityService.handleFailure(merchantId, requestId, payload.imageUrl, 'INAPPROPRIATE_CONTENT', 'single');
+          await this.moderationSecurityService.handleFailure(
+            merchantId,
+            requestId,
+            payload.imageUrl,
+            'INAPPROPRIATE_CONTENT',
+            'single',
+          );
         }
-        throw new BadRequestException('One or more images contain inappropriate content and cannot be uploaded.');
+        throw new BadRequestException(
+          'One or more images contain inappropriate content and cannot be uploaded.',
+        );
       }
     }
 
     const nextTitle = payload.title ?? payload.bannerTitle;
     const nextCategory = payload.category ?? payload.bannerCategory;
     if (nextTitle !== undefined) request.title = String(nextTitle || '').trim();
-    if (nextCategory !== undefined) request.category = String(nextCategory || '').trim();
-    if (payload.imageUrl !== undefined) request.imageUrl = String(payload.imageUrl || '').trim();
-    if (payload.description !== undefined) request.description = String(payload.description || '').trim();
-    if (payload.recommendedSize !== undefined) request.recommendedSize = payload.recommendedSize;
-    if (payload.loyaltyRewardEnabled !== undefined) request.loyaltyRewardEnabled = Boolean(payload.loyaltyRewardEnabled);
-    if (payload.loyaltyStarsToOffer !== undefined) request.loyaltyStarsToOffer = Number(payload.loyaltyStarsToOffer || 0);
-    if (payload.loyaltyStarsPerPurchase !== undefined) request.loyaltyStarsPerPurchase = Number(payload.loyaltyStarsPerPurchase || 0);
-    if (payload.loyaltyScorePerStar !== undefined) request.loyaltyScorePerStar = Number(payload.loyaltyScorePerStar || 0);
-    if (payload.loyaltyPointsPerPurchase !== undefined) request.loyaltyPointsPerPurchase = Number(payload.loyaltyPointsPerPurchase || 0);
-    if (payload.promotionExpiryText !== undefined) request.promotionExpiryText = String(payload.promotionExpiryText || '').trim();
-    if (payload.termsAndConditions !== undefined) request.termsAndConditions = String(payload.termsAndConditions || '').trim();
-    if (payload.exampleUsage !== undefined) request.exampleUsage = String(payload.exampleUsage || '').trim();
-    if (payload.dailyRate !== undefined) request.dailyRate = Number(payload.dailyRate || 0);
-    if (payload.platformFee !== undefined) request.platformFee = Number(payload.platformFee || 0);
-    if (payload.totalPrice !== undefined) request.totalPrice = Number(payload.totalPrice || 0);
+    if (nextCategory !== undefined)
+      request.category = String(nextCategory || '').trim();
+    if (payload.imageUrl !== undefined)
+      request.imageUrl = String(payload.imageUrl || '').trim();
+    if (payload.description !== undefined)
+      request.description = String(payload.description || '').trim();
+    if (payload.recommendedSize !== undefined)
+      request.recommendedSize = payload.recommendedSize;
+    if (payload.loyaltyRewardEnabled !== undefined)
+      request.loyaltyRewardEnabled = Boolean(payload.loyaltyRewardEnabled);
+    if (payload.loyaltyStarsToOffer !== undefined)
+      request.loyaltyStarsToOffer = Number(payload.loyaltyStarsToOffer || 0);
+    if (payload.loyaltyStarsPerPurchase !== undefined)
+      request.loyaltyStarsPerPurchase = Number(
+        payload.loyaltyStarsPerPurchase || 0,
+      );
+    if (payload.loyaltyScorePerStar !== undefined)
+      request.loyaltyScorePerStar = Number(payload.loyaltyScorePerStar || 0);
+    if (payload.loyaltyPointsPerPurchase !== undefined)
+      request.loyaltyPointsPerPurchase = Number(
+        payload.loyaltyPointsPerPurchase || 0,
+      );
+    if (payload.promotionExpiryText !== undefined)
+      request.promotionExpiryText = String(
+        payload.promotionExpiryText || '',
+      ).trim();
+    if (payload.termsAndConditions !== undefined)
+      request.termsAndConditions = String(
+        payload.termsAndConditions || '',
+      ).trim();
+    if (payload.exampleUsage !== undefined)
+      request.exampleUsage = String(payload.exampleUsage || '').trim();
+    if (payload.dailyRate !== undefined)
+      request.dailyRate = Number(payload.dailyRate || 0);
+    if (payload.platformFee !== undefined)
+      request.platformFee = Number(payload.platformFee || 0);
+    if (payload.totalPrice !== undefined)
+      request.totalPrice = Number(payload.totalPrice || 0);
     if (Array.isArray(payload.selectedDates) && payload.selectedDates.length) {
       const normalized = this.normalizeVisibilityDates(payload.selectedDates);
-      if (!normalized.length) throw new BadRequestException('Please provide valid selectedDates');
-      const { selectedDates, startDate, endDate } = this.buildVisibilityRange(normalized);
+      if (!normalized.length)
+        throw new BadRequestException('Please provide valid selectedDates');
+      const { selectedDates, startDate, endDate } =
+        this.buildVisibilityRange(normalized);
       request.selectedDates = selectedDates;
       request.startDate = startDate;
       request.endDate = endDate;
       request.selectedDays = selectedDates.length;
-      request.totalPrice = request.dailyRate * request.selectedDays + request.platformFee;
+      request.totalPrice =
+        request.dailyRate * request.selectedDays + request.platformFee;
     }
 
     if (Array.isArray(payload.selectedProducts)) {
       request.selectedProducts = payload.selectedProducts;
       const pricing = this.computeOfferPricing(request);
-      request.totalPrice = Number(payload.totalPrice || pricing.displayPrice || request.totalPrice || 0);
+      request.totalPrice = Number(
+        payload.totalPrice || pricing.displayPrice || request.totalPrice || 0,
+      );
     }
 
     request.markModified('selectedProducts');
@@ -642,11 +896,13 @@ export class OffersService implements OnModuleInit {
 
     if (payload.action === 'pause') {
       request.isActive = false;
-      if (request.status === OfferPromotionStatus.ACTIVE) request.status = OfferPromotionStatus.APPROVED;
+      if (request.status === OfferPromotionStatus.ACTIVE)
+        request.status = OfferPromotionStatus.APPROVED;
     }
 
     if (payload.action === 'resume') {
-      if (request.paymentStatus !== OfferPaymentStatus.PAID) throw new BadRequestException('Only paid offers can be resumed');
+      if (request.paymentStatus !== OfferPaymentStatus.PAID)
+        throw new BadRequestException('Only paid offers can be resumed');
       request.isActive = true;
       request.status = OfferPromotionStatus.ACTIVE;
     }
@@ -654,17 +910,28 @@ export class OffersService implements OnModuleInit {
     await request.save();
     await this.clearOfferCaches(merchantId, [requestId, String(request._id)]);
 
-    await this.notifyFollowersAboutNewOffer(merchantId, request.merchantName || 'Merchant', request);
+    await this.notifyFollowersAboutNewOffer(
+      merchantId,
+      request.merchantName || 'Merchant',
+      request,
+    );
 
     return this.normalizeMerchantOfferRow(request.toObject());
   }
 
   async deleteMerchantOffer(requestId: string, merchantId: string) {
-    const offer = await this.offerModel.findOne({ requestId, merchantId }).exec();
+    const offer = await this.offerModel
+      .findOne({ requestId, merchantId })
+      .exec();
     if (!offer) throw new NotFoundException('Offer not found');
     await this.offerModel.deleteOne({ requestId, merchantId }).exec();
     if (this.kafkaService) {
-      try { await this.kafkaService.emit(KAFKA_TOPICS.OFFER_PROMOTION_DELETED, { requestId, merchantId }); } catch { }
+      try {
+        await this.kafkaService.emit(KAFKA_TOPICS.OFFER_PROMOTION_DELETED, {
+          requestId,
+          merchantId,
+        });
+      } catch {}
     }
     await this.clearOfferCaches(merchantId, [requestId, String(offer._id)]);
     return offer;
@@ -693,30 +960,43 @@ export class OffersService implements OnModuleInit {
 
     const merchant = await this.merchantModel
       .findOne({ userId: String(row.merchantId) })
-      .select('userId storeName storeLocation storeLocationLatitude storeLocationLongitude profilePhoto shopPhoto storeCategory storeSubCategory')
+      .select(
+        'userId storeName storeLocation storeLocationLatitude storeLocationLongitude profilePhoto shopPhoto storeCategory storeSubCategory',
+      )
       .lean()
       .exec();
 
     const rowAny: any = row;
-    const selectedProducts: any[] = Array.isArray(rowAny.selectedProducts) ? rowAny.selectedProducts : [];
+    const selectedProducts: any[] = Array.isArray(rowAny.selectedProducts)
+      ? rowAny.selectedProducts
+      : [];
 
-    const computedBestDiscountPercent = selectedProducts.reduce((best, product) => {
-      const original = Number(product?.originalPrice || 0);
-      const offerPrice = Number(product?.offerPrice || 0);
-      if (original <= 0 || offerPrice < 0 || offerPrice >= original) return best;
-      const discountPercent = ((original - offerPrice) / original) * 100;
-      return Math.max(best, discountPercent);
-    }, 0);
+    const computedBestDiscountPercent = selectedProducts.reduce(
+      (best, product) => {
+        const original = Number(product?.originalPrice || 0);
+        const offerPrice = Number(product?.offerPrice || 0);
+        if (original <= 0 || offerPrice < 0 || offerPrice >= original)
+          return best;
+        const discountPercent = ((original - offerPrice) / original) * 100;
+        return Math.max(best, discountPercent);
+      },
+      0,
+    );
 
     const lowestOfferPrice = selectedProducts.length
       ? selectedProducts.reduce((min, product) => {
-        const value = Number(product?.offerPrice || 0);
-        return value > 0 ? Math.min(min, value) : min;
-      }, Number.MAX_SAFE_INTEGER)
+          const value = Number(product?.offerPrice || 0);
+          return value > 0 ? Math.min(min, value) : min;
+        }, Number.MAX_SAFE_INTEGER)
       : Number.MAX_SAFE_INTEGER;
 
     const startsAt = row.startDate || row.selectedDates?.[0] || null;
-    const endsAt = row.endDate || (Array.isArray(row.selectedDates) ? row.selectedDates[row.selectedDates.length - 1] : null) || null;
+    const endsAt =
+      row.endDate ||
+      (Array.isArray(row.selectedDates)
+        ? row.selectedDates[row.selectedDates.length - 1]
+        : null) ||
+      null;
 
     const normalized = {
       offerId: String(row._id),
@@ -731,7 +1011,10 @@ export class OffersService implements OnModuleInit {
       startsAt,
       endsAt,
       status: row.status,
-      isActiveNow: Boolean(startsAt && endsAt) && new Date(startsAt) <= new Date() && new Date(endsAt) >= new Date(),
+      isActiveNow:
+        Boolean(startsAt && endsAt) &&
+        new Date(startsAt) <= new Date() &&
+        new Date(endsAt) >= new Date(),
       merchant: {
         merchantId: String(row.merchantId),
         name: merchant?.storeName || row.merchantName || 'Merchant',
@@ -751,8 +1034,18 @@ export class OffersService implements OnModuleInit {
 
     await Promise.all([
       this.writeCache(cacheKey, normalized, this.cacheTtlSeconds.publicOffer),
-      this.writeCache(this.publicOfferCacheKey(String(row._id)), normalized, this.cacheTtlSeconds.publicOffer),
-      row.requestId ? this.writeCache(this.publicOfferCacheKey(String(row.requestId)), normalized, this.cacheTtlSeconds.publicOffer) : Promise.resolve(),
+      this.writeCache(
+        this.publicOfferCacheKey(String(row._id)),
+        normalized,
+        this.cacheTtlSeconds.publicOffer,
+      ),
+      row.requestId
+        ? this.writeCache(
+            this.publicOfferCacheKey(String(row.requestId)),
+            normalized,
+            this.cacheTtlSeconds.publicOffer,
+          )
+        : Promise.resolve(),
     ]);
 
     return normalized;
@@ -760,12 +1053,21 @@ export class OffersService implements OnModuleInit {
 
   // Template helpers using Redis
   async saveOfferTemplate(merchantId: string, payload: any) {
-    const normalized = { formData: payload.formData || {}, selectedProducts: Array.isArray(payload.selectedProducts) ? payload.selectedProducts : [], updatedAt: new Date().toISOString() };
-    const updated = await this.merchantModel.findOneAndUpdate(
-      { userId: merchantId },
-      { $set: { offerTemplate: normalized, updatedAt: new Date() } },
-      { new: true },
-    ).lean().exec();
+    const normalized = {
+      formData: payload.formData || {},
+      selectedProducts: Array.isArray(payload.selectedProducts)
+        ? payload.selectedProducts
+        : [],
+      updatedAt: new Date().toISOString(),
+    };
+    const updated = await this.merchantModel
+      .findOneAndUpdate(
+        { userId: merchantId },
+        { $set: { offerTemplate: normalized, updatedAt: new Date() } },
+        { new: true },
+      )
+      .lean()
+      .exec();
     if (!updated) throw new BadRequestException('Failed to save template');
     await this.clearCache(this.offerTemplateCacheKey(merchantId));
     return normalized;
@@ -778,14 +1080,25 @@ export class OffersService implements OnModuleInit {
       return cached;
     }
 
-    const merchant = await this.merchantModel.findOne({ userId: merchantId }).select('offerTemplate').lean().exec();
+    const merchant = await this.merchantModel
+      .findOne({ userId: merchantId })
+      .select('offerTemplate')
+      .lean()
+      .exec();
     const template = merchant?.offerTemplate || null;
     await this.writeCache(cacheKey, template, this.cacheTtlSeconds.template);
     return template;
   }
 
   async clearOfferTemplate(merchantId: string) {
-    const updated = await this.merchantModel.findOneAndUpdate({ userId: merchantId }, { $set: { offerTemplate: null, updatedAt: new Date() } }, { new: true }).lean().exec();
+    const updated = await this.merchantModel
+      .findOneAndUpdate(
+        { userId: merchantId },
+        { $set: { offerTemplate: null, updatedAt: new Date() } },
+        { new: true },
+      )
+      .lean()
+      .exec();
     if (!updated) throw new BadRequestException('Failed to clear template');
     await this.clearCache(this.offerTemplateCacheKey(merchantId));
     return { cleared: true };
@@ -809,8 +1122,13 @@ export class OffersService implements OnModuleInit {
   }) {
     const safePage = Math.max(1, Number(params.page) || 1);
     const safeLimit = Math.min(50, Math.max(1, Number(params.limit) || 20));
-    const safeRadiusKm = Math.min(100, Math.max(1, Number(params.radiusKm) || 5));
-    const locationNeedle = String(params.location || '').trim().toLowerCase();
+    const safeRadiusKm = Math.min(
+      100,
+      Math.max(1, Number(params.radiusKm) || 5),
+    );
+    const locationNeedle = String(params.location || '')
+      .trim()
+      .toLowerCase();
     const locationSegments = locationNeedle
       .split(/[,|]+/)
       .map((s) => s.trim().toLowerCase())
@@ -819,21 +1137,34 @@ export class OffersService implements OnModuleInit {
       .split(/[\s,|+]+/)
       .map((token) => token.trim().toLowerCase())
       .filter((token) => token.length >= 3);
-    const queryNeedle = String(params.query || '').trim().toLowerCase();
-    const categoryNeedle = String(params.category || '').trim().toLowerCase();
-    const sortBy = String(params.sort || '').trim().toLowerCase();
+    const queryNeedle = String(params.query || '')
+      .trim()
+      .toLowerCase();
+    const categoryNeedle = String(params.category || '')
+      .trim()
+      .toLowerCase();
+    const sortBy = String(params.sort || '')
+      .trim()
+      .toLowerCase();
     const maxPrice = Number(params.maxPrice);
     const offerTypesRaw = String(params.offerTypes || '').trim();
     const offerTypeTokens = offerTypesRaw
       ? offerTypesRaw
-        .split(/[,\|;]+/)
-        .map((t) => String(t || '').trim().toLowerCase())
-        .filter(Boolean)
+          .split(/[,\|;]+/)
+          .map((t) =>
+            String(t || '')
+              .trim()
+              .toLowerCase(),
+          )
+          .filter(Boolean)
       : [];
     const topDiscountOnly = Boolean(params.topDiscount);
     const activeNowOnly = Boolean(params.activeNow);
     const cacheKey = this.nearbyOffersCacheKey(params);
-    const cached = await this.readCache<{ data: any[]; pagination: { page: number; limit: number; total: number; pages: number } }>(cacheKey);
+    const cached = await this.readCache<{
+      data: any[];
+      pagination: { page: number; limit: number; total: number; pages: number };
+    }>(cacheKey);
     if (cached) {
       return cached;
     }
@@ -858,10 +1189,14 @@ export class OffersService implements OnModuleInit {
       const address = String(addressValue || '').toLowerCase();
       if (!locationNeedle) return true;
       if (!address) return true;
-      if (address.includes(locationNeedle) || locationNeedle.includes(address)) return true;
-      
+      if (address.includes(locationNeedle) || locationNeedle.includes(address))
+        return true;
+
       for (const seg of locationSegments) {
-        if (seg.length >= 3 && (address.includes(seg) || seg.includes(address))) {
+        if (
+          seg.length >= 3 &&
+          (address.includes(seg) || seg.includes(address))
+        ) {
           return true;
         }
       }
@@ -878,9 +1213,20 @@ export class OffersService implements OnModuleInit {
       return offerTypeTokens.some((t) => {
         if (!t) return false;
         if (category === t) return true;
-        if (t === 'flat discount') return blob.includes('flat') || blob.includes('discount');
-        if (t.includes('bogo') || t.includes('buy one get')) return blob.includes('bogo') || blob.includes('buy 1 get 1') || blob.includes('buy one get one');
-        if (t === 'percentage off' || t.includes('percent') || t.includes('%')) return blob.includes('%') || blob.includes('percent') || blob.includes('percentage');
+        if (t === 'flat discount')
+          return blob.includes('flat') || blob.includes('discount');
+        if (t.includes('bogo') || t.includes('buy one get'))
+          return (
+            blob.includes('bogo') ||
+            blob.includes('buy 1 get 1') ||
+            blob.includes('buy one get one')
+          );
+        if (t === 'percentage off' || t.includes('percent') || t.includes('%'))
+          return (
+            blob.includes('%') ||
+            blob.includes('percent') ||
+            blob.includes('percentage')
+          );
         return blob.includes(t);
       });
     };
@@ -889,12 +1235,18 @@ export class OffersService implements OnModuleInit {
       if (!categoryNeedle) return true;
 
       const offerCategory = String(row?.category || '').toLowerCase();
-      const merchantCategory = String(row?.merchant?.category || '').toLowerCase();
-      const merchantSubCategory = String(row?.merchant?.subCategory || '').toLowerCase();
+      const merchantCategory = String(
+        row?.merchant?.category || '',
+      ).toLowerCase();
+      const merchantSubCategory = String(
+        row?.merchant?.subCategory || '',
+      ).toLowerCase();
 
       const normalizedOfferCategory = normalizeCategoryToken(offerCategory);
-      const normalizedMerchantCategory = normalizeCategoryToken(merchantCategory);
-      const normalizedMerchantSubCategory = normalizeCategoryToken(merchantSubCategory);
+      const normalizedMerchantCategory =
+        normalizeCategoryToken(merchantCategory);
+      const normalizedMerchantSubCategory =
+        normalizeCategoryToken(merchantSubCategory);
 
       return (
         offerCategory === categoryNeedle ||
@@ -916,8 +1268,22 @@ export class OffersService implements OnModuleInit {
       // Also include a regex fallback so offers created before denormalization still appear.
       return {
         $or: [
-          { businessCategory: { $regex: new RegExp(categoryNeedle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i') } },
-          { category: { $regex: new RegExp(categoryNeedle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i') } },
+          {
+            businessCategory: {
+              $regex: new RegExp(
+                categoryNeedle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'),
+                'i',
+              ),
+            },
+          },
+          {
+            category: {
+              $regex: new RegExp(
+                categoryNeedle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'),
+                'i',
+              ),
+            },
+          },
         ],
       };
     };
@@ -928,7 +1294,7 @@ export class OffersService implements OnModuleInit {
     // When we can filter at DB level, we only need a small batch.
     // Without a category, fetch a wider net for distance/location post-filtering.
     const prefetchLimit = hasCategoryDbFilter
-      ? Math.min(100, Math.max(safeLimit * 2, 30))   // narrow: category pre-filtered by DB
+      ? Math.min(100, Math.max(safeLimit * 2, 30)) // narrow: category pre-filtered by DB
       : queryNeedle
         ? Math.min(150, Math.max(safeLimit * 4, 60)) // text search: moderate net
         : Math.min(300, Math.max(safeLimit * 8, 120)); // browse: wide net for geo filtering
@@ -941,13 +1307,17 @@ export class OffersService implements OnModuleInit {
           ...(params.merchantId ? { merchantId: params.merchantId } : {}),
           ...categoryDbFilter,
         })
-        .select('requestId merchantId merchantName title category businessCategory businessSubCategory totalPrice startDate endDate status createdAt imageUrl videoUrl selectedProducts')
+        .select(
+          'requestId merchantId merchantName title category businessCategory businessSubCategory totalPrice startDate endDate status createdAt imageUrl videoUrl selectedProducts',
+        )
         .limit(prefetchLimit)
         .maxTimeMS(7000)
         .lean()
         .exec();
     } catch (error: any) {
-      this.logger.error(`Nearby offers query failed: ${error?.message || error}`);
+      this.logger.error(
+        `Nearby offers query failed: ${error?.message || error}`,
+      );
       const emptyResult = {
         data: [],
         pagination: {
@@ -975,25 +1345,40 @@ export class OffersService implements OnModuleInit {
       };
 
       // Fix 4: Cache empty results so repeated category misses don't re-hit DB
-      await this.writeCache(cacheKey, emptyResult, this.cacheTtlSeconds.nearbyOffers);
+      await this.writeCache(
+        cacheKey,
+        emptyResult,
+        this.cacheTtlSeconds.nearbyOffers,
+      );
       return emptyResult;
     }
 
     // Fix 6: Targeted merchant join — only load merchants that appear in the
     // offer rows instead of loading the entire merchant collection.
     // Falls back to getAllMerchantsCached() if the targeted query fails.
-    const uniqueMerchantIds = [...new Set(offerRows.map((r) => String(r.merchantId)).filter(Boolean))];
+    const uniqueMerchantIds = [
+      ...new Set(offerRows.map((r) => String(r.merchantId)).filter(Boolean)),
+    ];
     let merchants: any[] = [];
     try {
       if (uniqueMerchantIds.length > 0) {
         merchants = await this.merchantModel
-          .find({ $or: [{ userId: { $in: uniqueMerchantIds } }, { _id: { $in: uniqueMerchantIds } }] })
-          .select('userId storeName storeCategory storeSubCategory storeLocation storeLocationLatitude storeLocationLongitude profilePhoto shopPhoto')
+          .find({
+            $or: [
+              { userId: { $in: uniqueMerchantIds } },
+              { _id: { $in: uniqueMerchantIds } },
+            ],
+          })
+          .select(
+            'userId storeName storeCategory storeSubCategory storeLocation storeLocationLatitude storeLocationLongitude profilePhoto shopPhoto',
+          )
           .lean()
           .exec();
       }
     } catch (e: any) {
-      this.logger.warn(`Targeted merchant join failed, falling back to cache: ${e?.message || e}`);
+      this.logger.warn(
+        `Targeted merchant join failed, falling back to cache: ${e?.message || e}`,
+      );
       merchants = await this.getAllMerchantsCached();
     }
 
@@ -1011,7 +1396,8 @@ export class OffersService implements OnModuleInit {
         const pricing = this.computeOfferPricing(row);
         const startsAt = row.startDate ? new Date(row.startDate) : null;
         const endsAt = row.endDate ? new Date(row.endDate) : null;
-        const isActiveNow = (!startsAt || startsAt <= now) && (!endsAt || endsAt >= now);
+        const isActiveNow =
+          (!startsAt || startsAt <= now) && (!endsAt || endsAt >= now);
         return {
           offerId: String(row._id),
           requestId: row.requestId,
@@ -1052,7 +1438,8 @@ export class OffersService implements OnModuleInit {
 
       if (queryNeedle) {
         normalized = normalized.filter((row) => {
-          const blob = `${row.title || ''} ${row.category || ''} ${row.merchant.name || ''}`.toLowerCase();
+          const blob =
+            `${row.title || ''} ${row.category || ''} ${row.merchant.name || ''}`.toLowerCase();
           return blob.includes(queryNeedle);
         });
       }
@@ -1064,14 +1451,20 @@ export class OffersService implements OnModuleInit {
       }
 
       if (topDiscountOnly) {
-        normalized = normalized.filter((row) => Number(row.discountPercent || 0) >= 30);
+        normalized = normalized.filter(
+          (row) => Number(row.discountPercent || 0) >= 30,
+        );
       }
 
       if (!Number.isNaN(maxPrice) && maxPrice > 0) {
         normalized = normalized.filter((row) => row.displayPrice <= maxPrice);
       }
 
-      normalized.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+      normalized.sort(
+        (a, b) =>
+          new Date(b.createdAt || 0).getTime() -
+          new Date(a.createdAt || 0).getTime(),
+      );
 
       const total = normalized.length;
       const pages = Math.ceil(total / safeLimit);
@@ -1082,7 +1475,11 @@ export class OffersService implements OnModuleInit {
         pagination: { page: safePage, limit: safeLimit, total, pages },
       };
 
-      await this.writeCache(cacheKey, result, this.cacheTtlSeconds.nearbyOffers);
+      await this.writeCache(
+        cacheKey,
+        result,
+        this.cacheTtlSeconds.nearbyOffers,
+      );
       return result;
     }
 
@@ -1090,17 +1487,26 @@ export class OffersService implements OnModuleInit {
       const merchant = merchantsByUserId.get(String(row.merchantId));
       const latitude = Number(merchant?.storeLocationLatitude);
       const longitude = Number(merchant?.storeLocationLongitude);
-      const hasMerchantCoordinates = this.hasValidMerchantCoordinates(latitude, longitude);
+      const hasMerchantCoordinates = this.hasValidMerchantCoordinates(
+        latitude,
+        longitude,
+      );
 
       let distanceKm: number | null = null;
       if (hasUserCoordinates && hasMerchantCoordinates) {
-        distanceKm = this.calculateDistanceKm(Number(params.latitude), Number(params.longitude), latitude, longitude);
+        distanceKm = this.calculateDistanceKm(
+          Number(params.latitude),
+          Number(params.longitude),
+          latitude,
+          longitude,
+        );
       }
       const pricing = this.computeOfferPricing(row);
 
       const startsAt = row.startDate ? new Date(row.startDate) : null;
       const endsAt = row.endDate ? new Date(row.endDate) : null;
-      const isActiveNow = (!startsAt || startsAt <= now) && (!endsAt || endsAt >= now);
+      const isActiveNow =
+        (!startsAt || startsAt <= now) && (!endsAt || endsAt >= now);
 
       return {
         offerId: String(row._id),
@@ -1150,12 +1556,17 @@ export class OffersService implements OnModuleInit {
       });
     } else if (hasUserCoordinates && locationNeedle) {
       filtered = normalized.filter((row) => {
-        const withinRadius = row.distanceKm !== null ? row.distanceKm <= safeRadiusKm : false;
-        const matchesAddress = locationMatchesAddress(row.merchant.address || '');
+        const withinRadius =
+          row.distanceKm !== null ? row.distanceKm <= safeRadiusKm : false;
+        const matchesAddress = locationMatchesAddress(
+          row.merchant.address || '',
+        );
         return withinRadius || matchesAddress;
       });
     } else if (locationNeedle) {
-      filtered = normalized.filter((row) => locationMatchesAddress(row.merchant.address || ''));
+      filtered = normalized.filter((row) =>
+        locationMatchesAddress(row.merchant.address || ''),
+      );
     }
 
     if (filtered.length > 0) {
@@ -1164,7 +1575,15 @@ export class OffersService implements OnModuleInit {
 
     if (queryNeedle) {
       normalized = normalized.filter((row) => {
-        const searchBlob = [row.title, row.category, row.merchant.name, row.merchant.address].filter(Boolean).join(' ').toLowerCase();
+        const searchBlob = [
+          row.title,
+          row.category,
+          row.merchant.name,
+          row.merchant.address,
+        ]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase();
         return searchBlob.includes(queryNeedle);
       });
     }
@@ -1176,12 +1595,16 @@ export class OffersService implements OnModuleInit {
     }
 
     if (topDiscountOnly) {
-      normalized = normalized.filter((row) => Number(row.discountPercent || 0) >= 30);
+      normalized = normalized.filter(
+        (row) => Number(row.discountPercent || 0) >= 30,
+      );
     }
 
     if (!Number.isNaN(maxPrice) && maxPrice > 0) {
       normalized = normalized.filter((row) => {
-        const hasProductPrices = Array.isArray(row.selectedProducts) && row.selectedProducts.length > 0;
+        const hasProductPrices =
+          Array.isArray(row.selectedProducts) &&
+          row.selectedProducts.length > 0;
         if (!hasProductPrices) return true;
         return row.displayPrice <= maxPrice;
       });
@@ -1192,7 +1615,11 @@ export class OffersService implements OnModuleInit {
     } else if (sortBy === 'price_desc') {
       normalized.sort((a, b) => b.displayPrice - a.displayPrice);
     } else if (sortBy === 'newest') {
-      normalized.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+      normalized.sort(
+        (a, b) =>
+          new Date(b.createdAt || 0).getTime() -
+          new Date(a.createdAt || 0).getTime(),
+      );
     } else if (hasUserCoordinates) {
       normalized.sort((a, b) => {
         const distanceA = a.distanceKm ?? Number.MAX_SAFE_INTEGER;
@@ -1200,7 +1627,11 @@ export class OffersService implements OnModuleInit {
         return distanceA - distanceB;
       });
     } else {
-      normalized.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+      normalized.sort(
+        (a, b) =>
+          new Date(b.createdAt || 0).getTime() -
+          new Date(a.createdAt || 0).getTime(),
+      );
     }
 
     const total = normalized.length;
@@ -1208,7 +1639,10 @@ export class OffersService implements OnModuleInit {
     const start = (safePage - 1) * safeLimit;
     const data = normalized.slice(start, start + safeLimit);
 
-    const result = { data, pagination: { page: safePage, limit: safeLimit, total, pages } };
+    const result = {
+      data,
+      pagination: { page: safePage, limit: safeLimit, total, pages },
+    };
     await this.writeCache(cacheKey, result, this.cacheTtlSeconds.nearbyOffers);
     return result;
   }
@@ -1220,7 +1654,9 @@ export class OffersService implements OnModuleInit {
   ) {
     try {
       if ((offer.title || '').trim() === 'Moderation Check') {
-        this.logger.log('[notifyFollowersAboutNewOffer] Skipping notification for moderation check probe');
+        this.logger.log(
+          '[notifyFollowersAboutNewOffer] Skipping notification for moderation check probe',
+        );
         return;
       }
 
@@ -1229,7 +1665,9 @@ export class OffersService implements OnModuleInit {
         .lean()
         .exec();
 
-      const canonicalMerchantId = merchantObj ? String(merchantObj.userId) : String(merchantId);
+      const canonicalMerchantId = merchantObj
+        ? String(merchantObj.userId)
+        : String(merchantId);
       const merchantObjIdStr = merchantObj ? String(merchantObj._id) : null;
 
       const storeName =
@@ -1313,7 +1751,8 @@ export class OffersService implements OnModuleInit {
 
         const pushTokens: string[] = [];
         for (const user of followerUsers) {
-          if ((user as any)?.notificationSettings?.pushNotifications === false) continue;
+          if ((user as any)?.notificationSettings?.pushNotifications === false)
+            continue;
           if (Array.isArray((user as any)?.pushTokens)) {
             pushTokens.push(...(user as any).pushTokens.filter(Boolean));
           }
@@ -1338,10 +1777,15 @@ export class OffersService implements OnModuleInit {
           });
         }
       } catch (pushErr: any) {
-        this.logger.warn(`[notifyFollowersAboutNewOffer] Push delivery failed: ${pushErr.message}`);
+        this.logger.warn(
+          `[notifyFollowersAboutNewOffer] Push delivery failed: ${pushErr.message}`,
+        );
       }
     } catch (err: any) {
-      this.logger.error(`[notifyFollowersAboutNewOffer] Error sending notifications: ${err.message}`, err.stack);
+      this.logger.error(
+        `[notifyFollowersAboutNewOffer] Error sending notifications: ${err.message}`,
+        err.stack,
+      );
     }
   }
 }

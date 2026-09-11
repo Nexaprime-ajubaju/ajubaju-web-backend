@@ -26,7 +26,27 @@ export class Notification {
   @Prop({ required: false })
   offerId?: string;
 
-  @Prop({ required: true, enum: ['wishlist_add', 'wishlist_remove', 'order_placed', 'order_accepted', 'order_rejected', 'admin_warning', 'new_follower', 'new_offer', 'expiring_offer', 'promotional', 'alert', 'emergency', 'system_update', 'new_message', 'loyalty_points'], default: 'wishlist_add' })
+  @Prop({
+    required: true,
+    enum: [
+      'wishlist_add',
+      'wishlist_remove',
+      'order_placed',
+      'order_accepted',
+      'order_rejected',
+      'admin_warning',
+      'new_follower',
+      'new_offer',
+      'expiring_offer',
+      'promotional',
+      'alert',
+      'emergency',
+      'system_update',
+      'new_message',
+      'loyalty_points',
+    ],
+    default: 'wishlist_add',
+  })
   type: string;
 
   @Prop({ required: true })

@@ -100,7 +100,7 @@ export class VouchersService implements OnModuleInit {
   async onModuleInit() {
     console.log('--> VOUCHERS SERVICE onModuleInit START');
     // Run DB migrations and indexing asynchronously to prevent blocking NestJS bootstrap
-    this.ensureDatabaseSchema().catch(err => {
+    this.ensureDatabaseSchema().catch((err) => {
       this.logger.error(`Error ensuring database schema: ${err.message}`);
     });
   }
@@ -539,10 +539,7 @@ export class VouchersService implements OnModuleInit {
           offer.offerPrice ||
           0;
         const resolvedOriginalPrice =
-          originalPriceSum ||
-          offer.originalPrice ||
-          offer.totalPrice ||
-          0;
+          originalPriceSum || offer.originalPrice || offer.totalPrice || 0;
 
         return {
           success: true,
@@ -761,15 +758,9 @@ export class VouchersService implements OnModuleInit {
                 offer.offerPrice ||
                 0,
               displayPrice:
-                offer.displayPrice ||
-                offer.totalPrice ||
-                offerPriceSum ||
-                0,
+                offer.displayPrice || offer.totalPrice || offerPriceSum || 0,
               totalPrice:
-                offer.totalPrice ||
-                offer.displayPrice ||
-                offerPriceSum ||
-                0,
+                offer.totalPrice || offer.displayPrice || offerPriceSum || 0,
               originalPrice:
                 originalPriceSum ||
                 offer.originalPrice ||
@@ -1178,12 +1169,19 @@ export class VouchersService implements OnModuleInit {
       }
 
       // Check if expired (Enforce 6-hour validity from claim time)
-      const claimedTime = voucher.claimedAt ? new Date(voucher.claimedAt).getTime() : new Date((voucher as any).createdAt).getTime();
+      const claimedTime = voucher.claimedAt
+        ? new Date(voucher.claimedAt).getTime()
+        : new Date((voucher as any).createdAt).getTime();
       const sixHoursMs = 6 * 60 * 60 * 1000;
-      if (Date.now() > claimedTime + sixHoursMs || new Date() > voucher.expiresAt) {
+      if (
+        Date.now() > claimedTime + sixHoursMs ||
+        new Date() > voucher.expiresAt
+      ) {
         voucher.status = VoucherStatus.EXPIRED;
         await voucher.save();
-        throw new BadRequestException('Voucher has expired (6 hours validity period exceeded)');
+        throw new BadRequestException(
+          'Voucher has expired (6 hours validity period exceeded)',
+        );
       }
 
       const lockKey = `lock:voucher:redeem:${voucherId}`;
@@ -1247,13 +1245,17 @@ export class VouchersService implements OnModuleInit {
             await voucherForUpdate.save({ session });
 
             try {
-              await this.orderModel.findOneAndUpdate(
-                { voucherId: voucherId },
-                { status: OrderStatus.COMPLETED, completedAt: new Date() },
-                { session }
-              ).exec();
+              await this.orderModel
+                .findOneAndUpdate(
+                  { voucherId: voucherId },
+                  { status: OrderStatus.COMPLETED, completedAt: new Date() },
+                  { session },
+                )
+                .exec();
             } catch (orderError) {
-              this.logger.error(`Failed to update order status for voucher ${voucherId}: ${orderError.message}`);
+              this.logger.error(
+                `Failed to update order status for voucher ${voucherId}: ${orderError.message}`,
+              );
             }
 
             try {
@@ -1364,20 +1366,29 @@ export class VouchersService implements OnModuleInit {
                     (current[merchantIdStr] || 0) + loyaltyPoints,
                 };
                 await user.save({ session });
-                
-                const m = await this.merchantModel.findOne({ userId: merchantIdStr }).exec();
-                const actualStoreName = m?.storeName || voucherForUpdate.merchantName;
-                
-                this.usersService.createNotificationAndPush(
-                  user._id.toString(),
-                  merchantIdStr,
-                  actualStoreName,
-                  String(voucherForUpdate.offerId || ''),
-                  voucherForUpdate.offerTitle || '',
-                  'loyalty_points',
-                  `${loyaltyPoints} points were credited to your account from "${voucherForUpdate.offerTitle || 'an offer'}" at ${actualStoreName}.`,
-                  'Loyalty Points Earned!'
-                ).catch(err => this.logger.warn(`Failed to send loyalty notification: ${err.message}`));
+
+                const m = await this.merchantModel
+                  .findOne({ userId: merchantIdStr })
+                  .exec();
+                const actualStoreName =
+                  m?.storeName || voucherForUpdate.merchantName;
+
+                this.usersService
+                  .createNotificationAndPush(
+                    user._id.toString(),
+                    merchantIdStr,
+                    actualStoreName,
+                    String(voucherForUpdate.offerId || ''),
+                    voucherForUpdate.offerTitle || '',
+                    'loyalty_points',
+                    `${loyaltyPoints} points were credited to your account from "${voucherForUpdate.offerTitle || 'an offer'}" at ${actualStoreName}.`,
+                    'Loyalty Points Earned!',
+                  )
+                  .catch((err) =>
+                    this.logger.warn(
+                      `Failed to send loyalty notification: ${err.message}`,
+                    ),
+                  );
               }
             }
 
@@ -1629,7 +1640,7 @@ export class VouchersService implements OnModuleInit {
           pages: Math.ceil(total / limit),
         },
       };
-      
+
       await this.redisService.set(cacheKey, result, 60);
       return result;
     } catch (error) {
@@ -1648,21 +1659,33 @@ export class VouchersService implements OnModuleInit {
         loyaltyPointsEarned: { $gt: 0 },
       })
       .sort({ redeemedAt: -1 })
-      .select('merchantId merchantName offerTitle loyaltyPointsEarned redeemedAt')
+      .select(
+        'merchantId merchantName offerTitle loyaltyPointsEarned redeemedAt',
+      )
       .exec();
 
-    const merchantIds = [...new Set(vouchers.map(v => v.merchantId).filter(Boolean))];
-    
-    const users = await this.userModel.find({ _id: { $in: merchantIds } }).select('name').lean().exec();
-    const userMap = {};
-    users.forEach(u => userMap[u._id.toString()] = u.name);
+    const merchantIds = [
+      ...new Set(vouchers.map((v) => v.merchantId).filter(Boolean)),
+    ];
 
-    const merchants = await this.merchantModel.find({ 
-      userId: { $in: merchantIds.map(id => id.toString()) } 
-    }).select('userId storeName').lean().exec();
-    
+    const users = await this.userModel
+      .find({ _id: { $in: merchantIds } })
+      .select('name')
+      .lean()
+      .exec();
+    const userMap = {};
+    users.forEach((u) => (userMap[u._id.toString()] = u.name));
+
+    const merchants = await this.merchantModel
+      .find({
+        userId: { $in: merchantIds.map((id) => id.toString()) },
+      })
+      .select('userId storeName')
+      .lean()
+      .exec();
+
     const merchantMap = {};
-    merchants.forEach(m => {
+    merchants.forEach((m) => {
       merchantMap[m.userId.toString()] = m.storeName;
     });
 

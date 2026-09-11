@@ -1,7 +1,8 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Types } from 'mongoose';
 
-export type MerchantSubscriptionHistoryDocument = MerchantSubscriptionHistory & Document;
+export type MerchantSubscriptionHistoryDocument = MerchantSubscriptionHistory &
+  Document;
 
 @Schema({ timestamps: true })
 export class MerchantSubscriptionHistory {
@@ -27,6 +28,8 @@ export class MerchantSubscriptionHistory {
   updatedAt: Date;
 }
 
-export const MerchantSubscriptionHistorySchema = SchemaFactory.createForClass(MerchantSubscriptionHistory);
+export const MerchantSubscriptionHistorySchema = SchemaFactory.createForClass(
+  MerchantSubscriptionHistory,
+);
 
 MerchantSubscriptionHistorySchema.index({ merchantId: 1 });

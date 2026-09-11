@@ -1,4 +1,14 @@
-import { Controller, Get, Post, Body, Param, Query, BadRequestException, InternalServerErrorException, Logger } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Param,
+  Query,
+  BadRequestException,
+  InternalServerErrorException,
+  Logger,
+} from '@nestjs/common';
 import { MerchantsService } from './merchants.service';
 import { RedisService } from '../common/services/redis.service';
 import * as nodemailer from 'nodemailer';
@@ -10,7 +20,7 @@ export class PublicMerchantsController {
   constructor(
     private readonly merchantsService: MerchantsService,
     private readonly redisService: RedisService,
-  ) { }
+  ) {}
 
   @Get('public/search')
   async searchMerchants(
@@ -31,8 +41,9 @@ export class PublicMerchantsController {
     const cacheKey = `merchant:profile:public:${merchantId}`;
     const cached = await this.redisService.get<any>(cacheKey);
     if (cached) return cached;
-    
-    const result = await this.merchantsService.getPublicMerchantProfile(merchantId);
+
+    const result =
+      await this.merchantsService.getPublicMerchantProfile(merchantId);
     if (result && result.success) {
       await this.redisService.set(cacheKey, result, 60);
     }
@@ -46,8 +57,9 @@ export class PublicMerchantsController {
     const cacheKey = `merchant:location:public:${merchantId}`;
     const cached = await this.redisService.get<any>(cacheKey);
     if (cached) return cached;
-    
-    const result = await this.merchantsService.getPublicMerchantStoreLocation(merchantId);
+
+    const result =
+      await this.merchantsService.getPublicMerchantStoreLocation(merchantId);
     if (result && result.success) {
       await this.redisService.set(cacheKey, result, 60);
     }
@@ -79,14 +91,19 @@ export class PublicMerchantsController {
     const smtpFrom = process.env.SMTP_FROM || `GOLO <${smtpUser}>`;
 
     if (!smtpUser || !smtpPass) {
-      this.logger.error('SMTP credentials (SMTP_USER / SMTP_PASS) are not configured in .env');
-      throw new InternalServerErrorException('Email service is not configured. Please contact support.');
+      this.logger.error(
+        'SMTP credentials (SMTP_USER / SMTP_PASS) are not configured in .env',
+      );
+      throw new InternalServerErrorException(
+        'Email service is not configured. Please contact support.',
+      );
     }
 
-    const frontendBaseUrl = (process.env.FRONTEND_URL || 'https://golo-frontend-inky.vercel.app').replace(/\/+$/, '');
+    const frontendBaseUrl = (
+      process.env.FRONTEND_URL || 'https://golo-frontend-inky.vercel.app'
+    ).replace(/\/+$/, '');
     const registrationLink = `${frontendBaseUrl}/merchant-register`;
     const merchantPageLink = `${frontendBaseUrl}/merchant`;
-
 
     const htmlBody = `
       <!DOCTYPE html>
@@ -211,8 +228,8 @@ export class PublicMerchantsController {
           pass: smtpPass,
         },
         tls: {
-          rejectUnauthorized: false
-        }
+          rejectUnauthorized: false,
+        },
       });
 
       await transporter.sendMail({
@@ -227,10 +244,13 @@ export class PublicMerchantsController {
 
       return {
         success: true,
-        message: 'Registration invite sent successfully. Please check your inbox.',
+        message:
+          'Registration invite sent successfully. Please check your inbox.',
       };
     } catch (error: any) {
-      this.logger.error(`Failed to send invite email to ${email}: ${error.message}`);
+      this.logger.error(
+        `Failed to send invite email to ${email}: ${error.message}`,
+      );
       throw new InternalServerErrorException(
         'Failed to send the registration email. Please try again later.',
       );

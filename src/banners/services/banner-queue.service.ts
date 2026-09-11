@@ -1,8 +1,14 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-import { BannerPromotion, BannerPromotionDocument } from '../schemas/banner-promotion.schema';
-import { BannerQueue, BannerQueueDocument } from '../schemas/banner-queue.schema';
+import {
+  BannerPromotion,
+  BannerPromotionDocument,
+} from '../schemas/banner-promotion.schema';
+import {
+  BannerQueue,
+  BannerQueueDocument,
+} from '../schemas/banner-queue.schema';
 import { BannerEligibilityService } from './banner-eligibility.service';
 import { RegionsService } from '../../regions/regions.service';
 import { forwardRef, Inject } from '@nestjs/common';
@@ -30,7 +36,9 @@ export class BannerQueueService {
    */
   async rebuildCityQueue(city: string): Promise<any> {
     const cityNormalized = (city || 'global').trim().toLowerCase();
-    this.logger.log(`Rebuilding deterministic priority banner queue for city: ${cityNormalized}`);
+    this.logger.log(
+      `Rebuilding deterministic priority banner queue for city: ${cityNormalized}`,
+    );
 
     const now = new Date();
 
@@ -51,15 +59,17 @@ export class BannerQueueService {
       .exec();
 
     // 1. Resolve Hierarchy (Town -> City -> District)
-    const hierarchy = await this.regionsService.resolveHierarchy(cityNormalized);
+    const hierarchy =
+      await this.regionsService.resolveHierarchy(cityNormalized);
     const targetCities = new Set<string>();
     targetCities.add(cityNormalized);
     if (hierarchy) {
       if (hierarchy.name) targetCities.add(hierarchy.name.toLowerCase());
-      if (hierarchy.district) targetCities.add(hierarchy.district.toLowerCase());
+      if (hierarchy.district)
+        targetCities.add(hierarchy.district.toLowerCase());
       // we might want to also add the exact coverageRegion match but let's query broadly
     }
-    
+
     // Add "global" as a target just in case
     targetCities.add('global');
 
@@ -70,16 +80,24 @@ export class BannerQueueService {
         status: { $in: ['approved', 'active'] },
         isHomepageVisible: true,
       })
-      .select('requestId status isHomepageVisible promotionType endDate targetCities coverageType subscriptionPlan paidAt createdAt')
+      .select(
+        'requestId status isHomepageVisible promotionType endDate targetCities coverageType subscriptionPlan paidAt createdAt',
+      )
       .lean()
       .exec();
-    this.logger.log(`rebuildCityQueue query finished in ${Date.now() - queryStart}ms. Found ${allCandidates.length} docs`);
+    this.logger.log(
+      `rebuildCityQueue query finished in ${Date.now() - queryStart}ms. Found ${allCandidates.length} docs`,
+    );
 
     // 2. Filter through Eligibility Pipeline
     // Modified to accept if targetCities matches ANY of our hierarchy levels or global
     const eligible = allCandidates.filter((c: any) => {
       // Basic checks
-      if (!['approved', 'active'].includes(c.status) || c.isHomepageVisible === false || (c.promotionType && c.promotionType !== 'banner')) {
+      if (
+        !['approved', 'active'].includes(c.status) ||
+        c.isHomepageVisible === false ||
+        (c.promotionType && c.promotionType !== 'banner')
+      ) {
         return false;
       }
       if (c.endDate) {
@@ -90,7 +108,9 @@ export class BannerQueueService {
       }
       // Geospatial / Hierarchy Match
       if (c.targetCities && c.targetCities.length > 0) {
-        const matchesCity = c.targetCities.some((tc: string) => targetCities.has(String(tc).trim().toLowerCase()));
+        const matchesCity = c.targetCities.some((tc: string) =>
+          targetCities.has(String(tc).trim().toLowerCase()),
+        );
         if (!matchesCity) {
           return false;
         }
@@ -100,7 +120,9 @@ export class BannerQueueService {
         // Without this, global banners would steal local slots (e.g. districtQueue
         // slots 1-5), causing "8 merchant + 2 global" instead of showing all 10 local.
         if (cityNormalized !== 'global') {
-          const isGlobalOnly = c.targetCities.every((tc: string) => String(tc).trim().toLowerCase() === 'global');
+          const isGlobalOnly = c.targetCities.every(
+            (tc: string) => String(tc).trim().toLowerCase() === 'global',
+          );
           if (isGlobalOnly) {
             return false;
           }
@@ -117,7 +139,7 @@ export class BannerQueueService {
     });
 
     const MAX_QUEUE_CAPACITY = 10000; // Large capacity to guarantee all active banners are queued
-    
+
     // 4. Bucket into Tiers
     const districtQueue: string[] = [];
     const cityQueue: string[] = [];
@@ -125,22 +147,29 @@ export class BannerQueueService {
 
     for (const c of eligible) {
       if (c.coverageType === 'District') {
-        if (districtQueue.length < MAX_QUEUE_CAPACITY) districtQueue.push(c.requestId);
+        if (districtQueue.length < MAX_QUEUE_CAPACITY)
+          districtQueue.push(c.requestId);
       } else if (c.coverageType === 'City') {
         if (cityQueue.length < MAX_QUEUE_CAPACITY) cityQueue.push(c.requestId);
       } else if (c.coverageType === 'Town') {
         if (townQueue.length < MAX_QUEUE_CAPACITY) townQueue.push(c.requestId);
       } else {
         // Fallback for older banners without coverageType or global banners
-        if (districtQueue.length < MAX_QUEUE_CAPACITY) districtQueue.push(c.requestId);
+        if (districtQueue.length < MAX_QUEUE_CAPACITY)
+          districtQueue.push(c.requestId);
       }
     }
 
-    let existingQueue = await this.bannerQueueModel.findOne({ city: cityNormalized }).exec();
+    let existingQueue = await this.bannerQueueModel
+      .findOne({ city: cityNormalized })
+      .exec();
 
-    const newPendingVersion = existingQueue ? existingQueue.pendingVersion + 1 : 1;
+    const newPendingVersion = existingQueue
+      ? existingQueue.pendingVersion + 1
+      : 1;
     const activeVer = existingQueue ? existingQueue.activeVersion : 1;
-    const totalCampaigns = districtQueue.length + cityQueue.length + townQueue.length;
+    const totalCampaigns =
+      districtQueue.length + cityQueue.length + townQueue.length;
 
     if (!existingQueue) {
       existingQueue = new this.bannerQueueModel({
@@ -167,7 +196,9 @@ export class BannerQueueService {
     }
 
     await existingQueue.save();
-    this.logger.log(`City queue for [${cityNormalized}] updated to pendingVersion ${newPendingVersion} with D:${districtQueue.length}, C:${cityQueue.length}, T:${townQueue.length} items`);
+    this.logger.log(
+      `City queue for [${cityNormalized}] updated to pendingVersion ${newPendingVersion} with D:${districtQueue.length}, C:${cityQueue.length}, T:${townQueue.length} items`,
+    );
     return existingQueue;
   }
 
@@ -176,11 +207,15 @@ export class BannerQueueService {
    */
   async commitActiveVersion(city: string): Promise<void> {
     const cityNormalized = (city || 'global').trim().toLowerCase();
-    const queueDoc = await this.bannerQueueModel.findOne({ city: cityNormalized }).exec();
+    const queueDoc = await this.bannerQueueModel
+      .findOne({ city: cityNormalized })
+      .exec();
     if (queueDoc && queueDoc.activeVersion !== queueDoc.pendingVersion) {
       queueDoc.activeVersion = queueDoc.pendingVersion;
       await queueDoc.save();
-      this.logger.log(`Committed pending queue version ${queueDoc.activeVersion} to active for city [${cityNormalized}]`);
+      this.logger.log(
+        `Committed pending queue version ${queueDoc.activeVersion} to active for city [${cityNormalized}]`,
+      );
     }
   }
 
@@ -188,9 +223,15 @@ export class BannerQueueService {
   @Cron('0 * * * * *')
   async handleScheduledRebuild() {
     const queueCities = await this.bannerQueueModel.distinct('city').exec();
-    const activePromoCities = await this.bannerPromotionModel.distinct('targetCities', { status: 'active' }).exec();
-    const allCities = new Set([...queueCities, ...activePromoCities.map((c: string) => c.toLowerCase()), 'global']);
-    
+    const activePromoCities = await this.bannerPromotionModel
+      .distinct('targetCities', { status: 'active' })
+      .exec();
+    const allCities = new Set([
+      ...queueCities,
+      ...activePromoCities.map((c: string) => c.toLowerCase()),
+      'global',
+    ]);
+
     for (const city of Array.from(allCities)) {
       await this.rebuildCityQueue(city);
       await this.commitActiveVersion(city);
@@ -202,7 +243,9 @@ export class BannerQueueService {
    */
   async getCityQueue(city: string): Promise<any> {
     const cityNormalized = (city || 'global').trim().toLowerCase();
-    let queueDoc = await this.bannerQueueModel.findOne({ city: cityNormalized }).exec();
+    let queueDoc = await this.bannerQueueModel
+      .findOne({ city: cityNormalized })
+      .exec();
     if (!queueDoc) {
       queueDoc = await this.rebuildCityQueue(cityNormalized);
     }

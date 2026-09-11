@@ -1,8 +1,14 @@
 import { Injectable, Logger, Optional } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-import { BannerQueue, BannerQueueDocument } from '../schemas/banner-queue.schema';
-import { BannerSchedulerState, BannerSchedulerStateDocument } from '../schemas/banner-scheduler-state.schema';
+import {
+  BannerQueue,
+  BannerQueueDocument,
+} from '../schemas/banner-queue.schema';
+import {
+  BannerSchedulerState,
+  BannerSchedulerStateDocument,
+} from '../schemas/banner-scheduler-state.schema';
 import { BannerCacheService } from './banner-cache.service';
 import { RedisService } from '../../common/services/redis.service';
 
@@ -21,7 +27,9 @@ export class BannerAdminService {
 
   async getCityQueueInfo(city: string = 'global') {
     const cityNormalized = city.trim().toLowerCase();
-    const doc = await this.bannerQueueModel.findOne({ city: cityNormalized }).exec();
+    const doc = await this.bannerQueueModel
+      .findOne({ city: cityNormalized })
+      .exec();
     return (
       doc || {
         city: cityNormalized,
@@ -36,7 +44,9 @@ export class BannerAdminService {
 
   async getSchedulerState(city: string = 'global') {
     const cityNormalized = city.trim().toLowerCase();
-    const doc = await this.schedulerStateModel.findOne({ city: cityNormalized }).exec();
+    const doc = await this.schedulerStateModel
+      .findOne({ city: cityNormalized })
+      .exec();
     return (
       doc || {
         city: cityNormalized,
@@ -65,10 +75,18 @@ export class BannerAdminService {
     const cityNormalized = city.trim().toLowerCase();
     const state = await this.getSchedulerState(cityNormalized);
     const queue = await this.getCityQueueInfo(cityNormalized);
-    const redisConnected = this.redisService ? this.redisService.isEnabled() : false;
+    const redisConnected = this.redisService
+      ? this.redisService.isEnabled()
+      : false;
 
-    const lastHeartbeat = (state as any).lastHeartbeat ? new Date((state as any).lastHeartbeat) : null;
-    const isHealthy = redisConnected && state.isRunning && lastHeartbeat && (Date.now() - lastHeartbeat.getTime() < 120000);
+    const lastHeartbeat = (state as any).lastHeartbeat
+      ? new Date((state as any).lastHeartbeat)
+      : null;
+    const isHealthy =
+      redisConnected &&
+      state.isRunning &&
+      lastHeartbeat &&
+      Date.now() - lastHeartbeat.getTime() < 120000;
 
     return {
       status: isHealthy ? 'UP' : 'DEGRADED',

@@ -6,7 +6,10 @@ import { ReferralsService } from './referrals.service';
 import { ReferralsController } from './referrals.controller';
 
 import { Merchant, MerchantSchema } from '../users/schemas/merchant.schema';
-import { SubscriptionPlan, SubscriptionPlanSchema } from '../subscriptions/schemas/subscription-plan.schema';
+import {
+  SubscriptionPlan,
+  SubscriptionPlanSchema,
+} from '../subscriptions/schemas/subscription-plan.schema';
 
 @Module({
   imports: [
@@ -14,7 +17,7 @@ import { SubscriptionPlan, SubscriptionPlanSchema } from '../subscriptions/schem
       { name: Referral.name, schema: ReferralSchema },
       { name: User.name, schema: UserSchema },
       { name: Merchant.name, schema: MerchantSchema },
-      { name: SubscriptionPlan.name, schema: SubscriptionPlanSchema }
+      { name: SubscriptionPlan.name, schema: SubscriptionPlanSchema },
     ]),
   ],
   controllers: [ReferralsController],

@@ -1,4 +1,12 @@
-import { Controller, Get, Post, Body, Req, UseGuards, Param } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Req,
+  UseGuards,
+  Param,
+} from '@nestjs/common';
 import { SubscriptionsService } from './subscriptions.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 
@@ -14,13 +22,21 @@ export class MerchantSubscriptionsController {
 
   @UseGuards(JwtAuthGuard)
   @Post(':merchantId/subscription')
-  async assignMerchantSubscription(@Param('merchantId') merchantId: string, @Body() body: any) {
-    return this.subscriptionsService.assignMerchantSubscription(merchantId, body);
+  async assignMerchantSubscription(
+    @Param('merchantId') merchantId: string,
+    @Body() body: any,
+  ) {
+    return this.subscriptionsService.assignMerchantSubscription(
+      merchantId,
+      body,
+    );
   }
 
   @UseGuards(JwtAuthGuard)
   @Get(':merchantId/subscription/history')
-  async getMerchantSubscriptionHistory(@Param('merchantId') merchantId: string) {
+  async getMerchantSubscriptionHistory(
+    @Param('merchantId') merchantId: string,
+  ) {
     return this.subscriptionsService.getMerchantSubscriptionHistory(merchantId);
   }
 }

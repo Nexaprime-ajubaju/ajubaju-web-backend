@@ -64,8 +64,10 @@ export class NewArrivalsStrategy implements RecommendationStrategy {
         candidates = await this.candidateRetriever.findRecentProducts(
           fallback.days,
           limit * 2,
-          context.latitude && context.longitude ? { latitude: context.latitude, longitude: context.longitude } : undefined,
-          20 // maxDistanceKm
+          context.latitude && context.longitude
+            ? { latitude: context.latitude, longitude: context.longitude }
+            : undefined,
+          20, // maxDistanceKm
         );
 
         if (candidates.length > 0) {

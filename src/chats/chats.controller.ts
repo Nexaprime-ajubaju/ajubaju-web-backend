@@ -26,7 +26,7 @@ export class ChatsController {
   constructor(
     private readonly chatsService: ChatsService,
     private readonly chatsGateway: ChatsGateway,
-  ) { }
+  ) {}
 
   @Post('upload/image')
   @UseInterceptors(AnyFilesInterceptor())
@@ -102,7 +102,6 @@ export class ChatsController {
   }
 
   @Post('start')
-
   async startConversation(
     @CurrentUser() user: any,
     @Body() dto: StartConversationDto,

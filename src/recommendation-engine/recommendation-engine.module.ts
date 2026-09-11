@@ -12,7 +12,10 @@ import { NearbyScorer } from './scorers/nearby.scorer';
 import { NearbyStrategy } from './strategies/nearby.strategy';
 import { HomepageConfigModule } from '../homepage-config/homepage-config.module';
 import { Merchant, MerchantSchema } from '../users/schemas/merchant.schema';
-import { OfferPromotion, OfferPromotionSchema } from '../offers/schemas/offer-promotion.schema';
+import {
+  OfferPromotion,
+  OfferPromotionSchema,
+} from '../offers/schemas/offer-promotion.schema';
 import { AnalyticsModule } from '../analytics/analytics.module';
 import { InterestStrategy } from './strategies/interest.strategy';
 import { ContinueShoppingStrategy } from './strategies/continue-shopping.strategy';

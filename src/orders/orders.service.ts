@@ -32,7 +32,7 @@ export class OrdersService {
     private readonly SubscriptionsService: SubscriptionsService,
     private readonly transactionService: TransactionService,
     private readonly redisService: RedisService,
-  ) { }
+  ) {}
 
   private async sendPushNotificationToMerchant(
     merchantId: string,
@@ -47,7 +47,8 @@ export class OrdersService {
         .lean()
         .exec();
 
-      const pushEnabled = merchant?.notificationSettings?.pushNotifications !== false;
+      const pushEnabled =
+        merchant?.notificationSettings?.pushNotifications !== false;
       const pushTokens = Array.isArray((merchant as any)?.pushTokens)
         ? (merchant as any).pushTokens.filter(Boolean)
         : [];
@@ -70,7 +71,9 @@ export class OrdersService {
         }),
       });
     } catch (error: any) {
-      this.logger.warn(`Failed to send push notification to merchant ${merchantId}: ${error?.message || 'unknown error'}`);
+      this.logger.warn(
+        `Failed to send push notification to merchant ${merchantId}: ${error?.message || 'unknown error'}`,
+      );
     }
   }
 
@@ -109,7 +112,9 @@ export class OrdersService {
         }),
       });
     } catch (error: any) {
-      this.logger.warn(`Failed to send push notification to customer ${customerId}: ${error?.message || 'unknown error'}`);
+      this.logger.warn(
+        `Failed to send push notification to customer ${customerId}: ${error?.message || 'unknown error'}`,
+      );
     }
   }
 
@@ -153,10 +158,18 @@ export class OrdersService {
 
         if (merchant && customer) {
           let realOfferId = createdOrder.voucherId || 'order';
-          if (createdOrder.voucherId && createdOrder.voucherId.startsWith('VOUCHER-')) {
+          if (
+            createdOrder.voucherId &&
+            createdOrder.voucherId.startsWith('VOUCHER-')
+          ) {
             try {
               const VoucherModel = this.orderModel.db.model('Voucher');
-              const voucher: any = await VoucherModel.findOne({ voucherId: createdOrder.voucherId }).select('offerId').lean().exec();
+              const voucher: any = await VoucherModel.findOne({
+                voucherId: createdOrder.voucherId,
+              })
+                .select('offerId')
+                .lean()
+                .exec();
               if (voucher && voucher.offerId) {
                 realOfferId = String(voucher.offerId);
               }
@@ -184,7 +197,11 @@ export class OrdersService {
             String(merchantId),
             'New order',
             `${customer.name || 'Customer'} claimed your offer`,
-            { notificationId: String(notifications[0]._id), adId: createdOrder.voucherId || 'order', type: 'order_placed' },
+            {
+              notificationId: String(notifications[0]._id),
+              adId: createdOrder.voucherId || 'order',
+              type: 'order_placed',
+            },
           );
 
           this.logger.log(
@@ -271,7 +288,9 @@ export class OrdersService {
       const VoucherModel = this.orderModel.db.model('Voucher');
       const voucherIds = orders.map((o) => o.voucherId).filter(Boolean);
       if (voucherIds.length > 0) {
-        const vouchers = await VoucherModel.find({ voucherId: { $in: voucherIds } }).lean();
+        const vouchers = await VoucherModel.find({
+          voucherId: { $in: voucherIds },
+        }).lean();
         voucherMap = new Map(vouchers.map((v: any) => [v.voucherId, v]));
       }
     } catch (e) {
@@ -285,7 +304,7 @@ export class OrdersService {
         return {
           _id: String(o._id),
           orderNumber: o.voucherId || o.orderNumber,
-          offerTitle: v ? v.offerTitle : "Special Offer",
+          offerTitle: v ? v.offerTitle : 'Special Offer',
           amount: o.amount,
           itemsCount: o.itemsCount,
           status: o.status === 'completed' ? 'redeemed' : o.status,
@@ -328,7 +347,9 @@ export class OrdersService {
             $sum: { $cond: [{ $eq: ['$status', OrderStatus.PENDING] }, 1, 0] },
           },
           completedOrders: {
-            $sum: { $cond: [{ $eq: ['$status', OrderStatus.COMPLETED] }, 1, 0] },
+            $sum: {
+              $cond: [{ $eq: ['$status', OrderStatus.COMPLETED] }, 1, 0],
+            },
           },
           rejectedOrders: {
             $sum: { $cond: [{ $eq: ['$status', OrderStatus.REJECTED] }, 1, 0] },
@@ -340,7 +361,10 @@ export class OrdersService {
             $sum: {
               $cond: [
                 {
-                  $in: ['$status', [OrderStatus.ACCEPTED, OrderStatus.COMPLETED]],
+                  $in: [
+                    '$status',
+                    [OrderStatus.ACCEPTED, OrderStatus.COMPLETED],
+                  ],
                 },
                 '$amount',
                 0,
@@ -442,7 +466,12 @@ export class OrdersService {
       if (order.voucherId && order.voucherId.startsWith('VOUCHER-')) {
         try {
           const VoucherModel = this.orderModel.db.model('Voucher');
-          const voucher: any = await VoucherModel.findOne({ voucherId: order.voucherId }).select('offerId').lean().exec();
+          const voucher: any = await VoucherModel.findOne({
+            voucherId: order.voucherId,
+          })
+            .select('offerId')
+            .lean()
+            .exec();
           if (voucher && voucher.offerId) {
             realOfferId = String(voucher.offerId);
           }
@@ -461,10 +490,15 @@ export class OrdersService {
           message: `${merchantName} accepted your claimed offer`,
           read: false,
         });
-        await this.sendPushNotificationToCustomer(customerId, 'Offer accepted', `${merchantName} accepted your claimed offer`, {
-          notificationId: String(notification._id),
-          type: 'order_accepted',
-        });
+        await this.sendPushNotificationToCustomer(
+          customerId,
+          'Offer accepted',
+          `${merchantName} accepted your claimed offer`,
+          {
+            notificationId: String(notification._id),
+            type: 'order_accepted',
+          },
+        );
       } else if (status === OrderStatus.REJECTED) {
         const notification = await this.notificationModel.create({
           recipientId: customerId,
@@ -477,10 +511,15 @@ export class OrdersService {
           message: `${merchantName} rejected your claimed offer`,
           read: false,
         });
-        await this.sendPushNotificationToCustomer(customerId, 'Offer update', `${merchantName} rejected your claimed offer`, {
-          notificationId: String(notification._id),
-          type: 'order_rejected',
-        });
+        await this.sendPushNotificationToCustomer(
+          customerId,
+          'Offer update',
+          `${merchantName} rejected your claimed offer`,
+          {
+            notificationId: String(notification._id),
+            type: 'order_rejected',
+          },
+        );
       }
     } catch (notifError) {
       this.logger.error(

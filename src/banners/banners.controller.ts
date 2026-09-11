@@ -364,10 +364,7 @@ export class BannersController {
 
   @Get('admin/health')
   @UseGuards(JwtAuthGuard)
-  async adminGetHealth(
-    @Query('city') city: string,
-    @CurrentUser() user: any,
-  ) {
+  async adminGetHealth(@Query('city') city: string, @CurrentUser() user: any) {
     this.checkAdminRole(user);
     const data = await this.adminService.getHealthStatus(city);
     return { success: true, data };
@@ -383,7 +380,9 @@ export class BannersController {
       Boolean(user?.adminType);
 
     if (!isAllowed) {
-      throw new ForbiddenException('Only admin/manager can perform this action');
+      throw new ForbiddenException(
+        'Only admin/manager can perform this action',
+      );
     }
   }
 }

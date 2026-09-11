@@ -96,7 +96,9 @@ export class SubmitBannerPromotionDto {
 
   @IsArray()
   @IsString({ each: true })
-  @ArrayMaxSize(7, { message: 'A banner can be active for a maximum of 7 days' })
+  @ArrayMaxSize(7, {
+    message: 'A banner can be active for a maximum of 7 days',
+  })
   selectedDates: string[];
 
   @IsNumber()

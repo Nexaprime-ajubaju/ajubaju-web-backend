@@ -205,7 +205,11 @@ export class ChatsGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
   }
 
-  public broadcastNewMessage(userId: string, conversationId: string, message: any) {
+  public broadcastNewMessage(
+    userId: string,
+    conversationId: string,
+    message: any,
+  ) {
     const room = `conversation:${conversationId}`;
 
     const participants = Array.isArray(message.participants)
@@ -214,8 +218,8 @@ export class ChatsGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     this.logger.log(
       `[BROADCAST] senderId=${userId}, conversationId=${conversationId}, ` +
-      `room=${room}, participants=${JSON.stringify(participants)}, ` +
-      `messageId=${message.id}, onlineUsers=${JSON.stringify([...this.onlineUsers.keys()])}`,
+        `room=${room}, participants=${JSON.stringify(participants)}, ` +
+        `messageId=${message.id}, onlineUsers=${JSON.stringify([...this.onlineUsers.keys()])}`,
     );
 
     // Emit new_message to the conversation room (kept for backward compatibility or active participants)

@@ -10,12 +10,24 @@ import { WalletsModule } from '../wallets/wallets.module';
 import { ReferralsModule } from '../referrals/referrals.module';
 import { User, UserSchema } from '../users/schemas/user.schema';
 import { Merchant, MerchantSchema } from '../users/schemas/merchant.schema';
-import { BannerPromotion, BannerPromotionSchema } from './schemas/banner-promotion.schema';
+import {
+  BannerPromotion,
+  BannerPromotionSchema,
+} from './schemas/banner-promotion.schema';
 import { BannerQueue, BannerQueueSchema } from './schemas/banner-queue.schema';
-import { BannerSchedulerState, BannerSchedulerStateSchema } from './schemas/banner-scheduler-state.schema';
-import { BannerImpression, BannerImpressionSchema } from './schemas/banner-impression.schema';
+import {
+  BannerSchedulerState,
+  BannerSchedulerStateSchema,
+} from './schemas/banner-scheduler-state.schema';
+import {
+  BannerImpression,
+  BannerImpressionSchema,
+} from './schemas/banner-impression.schema';
 import { BannerClick, BannerClickSchema } from './schemas/banner-click.schema';
-import { BannerAnalyticsSummary, BannerAnalyticsSummarySchema } from './schemas/banner-analytics-summary.schema';
+import {
+  BannerAnalyticsSummary,
+  BannerAnalyticsSummarySchema,
+} from './schemas/banner-analytics-summary.schema';
 import { BannersController } from './banners.controller';
 import { BannersService } from './banners.service';
 
@@ -40,7 +52,10 @@ import { TransactionModule } from '../common/services/transaction.module';
       { name: BannerSchedulerState.name, schema: BannerSchedulerStateSchema },
       { name: BannerImpression.name, schema: BannerImpressionSchema },
       { name: BannerClick.name, schema: BannerClickSchema },
-      { name: BannerAnalyticsSummary.name, schema: BannerAnalyticsSummarySchema },
+      {
+        name: BannerAnalyticsSummary.name,
+        schema: BannerAnalyticsSummarySchema,
+      },
       { name: User.name, schema: UserSchema },
       { name: Merchant.name, schema: MerchantSchema },
     ]),

@@ -59,10 +59,14 @@ export class MerchantDashboardController {
   async getMerchantRealtimeAnalytics(
     @CurrentUser() user: any,
     @Query('start') start?: string,
-    @Query('end') end?: string
+    @Query('end') end?: string,
   ) {
     const merchantId = this.getMerchantId(user);
-    const result = await this.merchantDashboardService.getRealtimeAnalytics(merchantId, start, end);
+    const result = await this.merchantDashboardService.getRealtimeAnalytics(
+      merchantId,
+      start,
+      end,
+    );
     return result;
   }
 

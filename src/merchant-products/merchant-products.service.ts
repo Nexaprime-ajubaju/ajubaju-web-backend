@@ -25,7 +25,10 @@ import {
 } from './schemas/merchant-product.schema';
 import { SubscriptionsService } from '../subscriptions/subscriptions.service';
 import { Merchant, MerchantDocument } from '../users/schemas/merchant.schema';
-import { OfferPromotion, OfferPromotionDocument } from '../offers/schemas/offer-promotion.schema';
+import {
+  OfferPromotion,
+  OfferPromotionDocument,
+} from '../offers/schemas/offer-promotion.schema';
 import { TransactionService } from '../common/services/transaction.service';
 
 @Injectable()
@@ -45,7 +48,7 @@ export class MerchantProductsService implements OnModuleInit {
     private readonly moderationService: ModerationService,
     private readonly moderationSecurityService: ModerationSecurityService,
     @Optional() private readonly kafkaService?: KafkaService,
-  ) { }
+  ) {}
 
   private cacheListKey(
     merchantId: string,
@@ -83,11 +86,17 @@ export class MerchantProductsService implements OnModuleInit {
     return 'In Stock';
   }
 
-  private async moderateVideo(videoUrl: string, merchantId: string): Promise<void> {
+  private async moderateVideo(
+    videoUrl: string,
+    merchantId: string,
+  ): Promise<void> {
     if (!videoUrl) return;
 
     try {
-      if (videoUrl.includes('cloudinary.com') && videoUrl.includes('/video/upload/')) {
+      if (
+        videoUrl.includes('cloudinary.com') &&
+        videoUrl.includes('/video/upload/')
+      ) {
         const baseUrl = videoUrl.substring(0, videoUrl.lastIndexOf('.')); // removes .mp4 or .webm
         const urlWithoutExt = baseUrl;
 
@@ -104,10 +113,21 @@ export class MerchantProductsService implements OnModuleInit {
           const frames = [frame0, frame30, frame70];
 
           for (const frame of frames) {
-            const isSafe = await this.moderationService.isImageSafe(frame, merchantId);
+            const isSafe = await this.moderationService.isImageSafe(
+              frame,
+              merchantId,
+            );
             if (!isSafe) {
-              await this.moderationSecurityService.handleFailure(merchantId, 'new_product', frame, 'INAPPROPRIATE_CONTENT', 'multi');
-              throw new BadRequestException('The uploaded video contains inappropriate content and cannot be published.');
+              await this.moderationSecurityService.handleFailure(
+                merchantId,
+                'new_product',
+                frame,
+                'INAPPROPRIATE_CONTENT',
+                'multi',
+              );
+              throw new BadRequestException(
+                'The uploaded video contains inappropriate content and cannot be published.',
+              );
             }
           }
         }
@@ -126,10 +146,21 @@ export class MerchantProductsService implements OnModuleInit {
 
     if (dto.images && dto.images.length > 0 && this.moderationService) {
       for (const imageUrl of dto.images) {
-        const isSafe = await this.moderationService.isImageSafe(imageUrl, merchantId);
+        const isSafe = await this.moderationService.isImageSafe(
+          imageUrl,
+          merchantId,
+        );
         if (!isSafe) {
-          await this.moderationSecurityService.handleFailure(merchantId, 'new_product', imageUrl, 'INAPPROPRIATE_CONTENT', 'multi');
-          throw new BadRequestException('One or more images contain inappropriate content and cannot be uploaded.');
+          await this.moderationSecurityService.handleFailure(
+            merchantId,
+            'new_product',
+            imageUrl,
+            'INAPPROPRIATE_CONTENT',
+            'multi',
+          );
+          throw new BadRequestException(
+            'One or more images contain inappropriate content and cannot be uploaded.',
+          );
         }
       }
     }
@@ -167,9 +198,8 @@ export class MerchantProductsService implements OnModuleInit {
         .findOne({ userId: merchantId })
         .exec();
       if (merchant) {
-        const planDetails = await this.SubscriptionsService.getPlanDetails(
-          merchant,
-        );
+        const planDetails =
+          await this.SubscriptionsService.getPlanDetails(merchant);
         if (planDetails.planFeatures.maxProducts !== -1) {
           const totalProductsCount = await this.merchantProductModel
             .countDocuments({ merchantId })
@@ -216,23 +246,28 @@ export class MerchantProductsService implements OnModuleInit {
   }
 
   async listMyProducts(merchantId: string, query: ListMerchantProductsDto) {
-    const merchant = await this.merchantModel.findOne({ userId: merchantId }).exec();
+    const merchant = await this.merchantModel
+      .findOne({ userId: merchantId })
+      .exec();
     if (!merchant) {
       throw new NotFoundException('Merchant not found');
     }
-    const planDetails = await this.SubscriptionsService.getPlanDetails(merchant);
+    const planDetails =
+      await this.SubscriptionsService.getPlanDetails(merchant);
     const maxProducts = planDetails.planFeatures.maxProducts;
 
-    const dbTotalProducts = await this.merchantProductModel.countDocuments({ merchantId });
+    const dbTotalProducts = await this.merchantProductModel.countDocuments({
+      merchantId,
+    });
     if (maxProducts === -1 || dbTotalProducts <= maxProducts) {
       const inactiveCount = await this.merchantProductModel.countDocuments({
         merchantId,
-        isActive: false
+        isActive: false,
       });
       if (inactiveCount > 0 || !merchant.hasSelectedActiveProducts) {
         await this.merchantProductModel.updateMany(
           { merchantId },
-          { isActive: true, lastActivatedAt: new Date() }
+          { isActive: true, lastActivatedAt: new Date() },
         );
         merchant.hasSelectedActiveProducts = true;
         await merchant.save();
@@ -298,12 +333,12 @@ export class MerchantProductsService implements OnModuleInit {
       maxProducts === -1
         ? Promise.resolve(null)
         : this.merchantProductModel
-          .find({ merchantId })
-          .sort({ createdAt: -1 })
-          .limit(maxProducts)
-          .select('_id')
-          .lean()
-          .exec(),
+            .find({ merchantId })
+            .sort({ createdAt: -1 })
+            .limit(maxProducts)
+            .select('_id')
+            .lean()
+            .exec(),
       this.merchantProductModel.countDocuments({
         merchantId,
         isActive: { $ne: false },
@@ -311,26 +346,30 @@ export class MerchantProductsService implements OnModuleInit {
     ]);
 
     const inventoryValue = inventoryAgg[0]?.total || 0;
-    const eligibleIds = topProducts ? new Set(topProducts.map((p) => String(p._id))) : null;
+    const eligibleIds = topProducts
+      ? new Set(topProducts.map((p) => String(p._id)))
+      : null;
 
-    const needsActiveProductsSelection = maxProducts !== -1 &&
+    const needsActiveProductsSelection =
+      maxProducts !== -1 &&
       totalProducts > maxProducts &&
-      (!merchant.hasSelectedActiveProducts || actualActiveCount !== maxProducts);
+      (!merchant.hasSelectedActiveProducts ||
+        actualActiveCount !== maxProducts);
 
     const response = {
       success: true,
       data: {
         products: products.map((product) => {
-          const isEligible = maxProducts === -1 || eligibleIds.has(String(product._id));
+          const isEligible =
+            maxProducts === -1 || eligibleIds.has(String(product._id));
           return {
             ...this.mapProduct(product),
             offerEligible: isEligible,
             ...(isEligible
               ? {}
               : {
-                offerEligibilityReason:
-                  `Only your ${maxProducts} most recently created products can receive offers on your current tier.`,
-              }),
+                  offerEligibilityReason: `Only your ${maxProducts} most recently created products can receive offers on your current tier.`,
+                }),
           };
         }),
         stats: {
@@ -370,11 +409,14 @@ export class MerchantProductsService implements OnModuleInit {
       filter.$or = [{ name: searchRegex }, { category: searchRegex }];
     }
 
-    const merchant = await this.merchantModel.findOne({ userId: merchantId }).exec();
+    const merchant = await this.merchantModel
+      .findOne({ userId: merchantId })
+      .exec();
     if (!merchant) {
       throw new NotFoundException('Merchant not found');
     }
-    const planDetails = await this.SubscriptionsService.getPlanDetails(merchant);
+    const planDetails =
+      await this.SubscriptionsService.getPlanDetails(merchant);
     const maxProducts = planDetails.planFeatures.maxProducts;
 
     const [products, total, topProducts] = await Promise.all([
@@ -388,30 +430,32 @@ export class MerchantProductsService implements OnModuleInit {
       maxProducts === -1
         ? Promise.resolve(null)
         : this.merchantProductModel
-          .find({ merchantId })
-          .sort({ createdAt: -1 })
-          .limit(maxProducts)
-          .select('_id')
-          .lean()
-          .exec(),
+            .find({ merchantId })
+            .sort({ createdAt: -1 })
+            .limit(maxProducts)
+            .select('_id')
+            .lean()
+            .exec(),
     ]);
 
-    const eligibleIds = topProducts ? new Set(topProducts.map((p) => String(p._id))) : null;
+    const eligibleIds = topProducts
+      ? new Set(topProducts.map((p) => String(p._id)))
+      : null;
 
     return {
       success: true,
       data: {
         products: products.map((product) => {
-          const isEligible = maxProducts === -1 || eligibleIds.has(String(product._id));
+          const isEligible =
+            maxProducts === -1 || eligibleIds.has(String(product._id));
           return {
             ...this.mapProduct(product),
             offerEligible: isEligible,
             ...(isEligible
               ? {}
               : {
-                offerEligibilityReason:
-                  `Only your ${maxProducts} most recently created products can receive offers on your current tier.`,
-              }),
+                  offerEligibilityReason: `Only your ${maxProducts} most recently created products can receive offers on your current tier.`,
+                }),
           };
         }),
       },
@@ -454,11 +498,9 @@ export class MerchantProductsService implements OnModuleInit {
   }
 
   async incrementViewCount(productId: string) {
-    const product = await this.merchantProductModel.findByIdAndUpdate(
-      productId,
-      { $inc: { views: 1 } },
-      { new: true }
-    ).exec();
+    const product = await this.merchantProductModel
+      .findByIdAndUpdate(productId, { $inc: { views: 1 } }, { new: true })
+      .exec();
 
     if (!product) {
       throw new NotFoundException('Product not found');
@@ -489,7 +531,11 @@ export class MerchantProductsService implements OnModuleInit {
     return response;
   }
 
-  async searchGlobalProducts(query: string, page: number = 1, limit: number = 10) {
+  async searchGlobalProducts(
+    query: string,
+    page: number = 1,
+    limit: number = 10,
+  ) {
     const regex = new RegExp(query, 'i');
     const skip = (page - 1) * limit;
 
@@ -539,7 +585,6 @@ export class MerchantProductsService implements OnModuleInit {
       throw new ForbiddenException('You can only update your own products');
     }
 
-
     if (typeof dto.name === 'string') {
       product.name = dto.name.trim();
     }
@@ -563,10 +608,21 @@ export class MerchantProductsService implements OnModuleInit {
 
       if (sanitizedImages.length > 0) {
         for (const imageUrl of sanitizedImages) {
-          const isSafe = await this.moderationService.isImageSafe(imageUrl, merchantId);
+          const isSafe = await this.moderationService.isImageSafe(
+            imageUrl,
+            merchantId,
+          );
           if (!isSafe) {
-            await this.moderationSecurityService.handleFailure(merchantId, String(product._id), imageUrl, 'INAPPROPRIATE_CONTENT', 'multi');
-            throw new BadRequestException('One or more images contain inappropriate content and cannot be uploaded.');
+            await this.moderationSecurityService.handleFailure(
+              merchantId,
+              String(product._id),
+              imageUrl,
+              'INAPPROPRIATE_CONTENT',
+              'multi',
+            );
+            throw new BadRequestException(
+              'One or more images contain inappropriate content and cannot be uploaded.',
+            );
           }
         }
       }
@@ -603,8 +659,7 @@ export class MerchantProductsService implements OnModuleInit {
           success: false,
           statusCode: 403,
           errorCode: 'PRODUCT_DELETE_NOT_ALLOWED',
-          message:
-            `${planDetails.name} merchants cannot delete products. Please upgrade to a higher plan.`,
+          message: `${planDetails.name} merchants cannot delete products. Please upgrade to a higher plan.`,
         });
       }
     }
@@ -616,36 +671,47 @@ export class MerchantProductsService implements OnModuleInit {
     }
 
     // Check if the product is linked to any active offers
-    const activeOffers = await this.offerPromotionModel.find({
-      merchantId,
-      'selectedProducts.productId': productId,
-      status: { $in: ['active', 'approved', 'under_review'] },
-    }).exec();
+    const activeOffers = await this.offerPromotionModel
+      .find({
+        merchantId,
+        'selectedProducts.productId': productId,
+        status: { $in: ['active', 'approved', 'under_review'] },
+      })
+      .exec();
 
     // Filter out offers that have actually expired by date
     const now = new Date();
-    const currentlyActiveOffers = activeOffers.filter(offer => {
-      if (offer.endDate && new Date(offer.endDate).getTime() < now.getTime()) return false;
+    const currentlyActiveOffers = activeOffers.filter((offer) => {
+      if (offer.endDate && new Date(offer.endDate).getTime() < now.getTime())
+        return false;
       return true;
     });
 
     if (currentlyActiveOffers.length > 0) {
       // Check if any active offer has ONLY this product
-      const singleProductOffer = currentlyActiveOffers.find(offer => offer.selectedProducts.length === 1);
+      const singleProductOffer = currentlyActiveOffers.find(
+        (offer) => offer.selectedProducts.length === 1,
+      );
       if (singleProductOffer) {
         throw new ConflictException({
           success: false,
           statusCode: 409,
           errorCode: 'PRODUCT_LINKED_TO_ACTIVE_OFFER',
-          message: 'Cannot delete product. It is the only product in an active offer. Please delete the offer first.'
+          message:
+            'Cannot delete product. It is the only product in an active offer. Please delete the offer first.',
         });
       }
 
       // If all active offers have > 1 product, pull this product from them
       for (const offer of currentlyActiveOffers) {
-        offer.selectedProducts = offer.selectedProducts.filter(p => p.productId !== productId);
+        offer.selectedProducts = offer.selectedProducts.filter(
+          (p) => p.productId !== productId,
+        );
         // Recalculate total price if needed (assuming simple sum, or just let it be)
-        offer.totalPrice = offer.selectedProducts.reduce((sum, p) => sum + p.offerPrice, 0);
+        offer.totalPrice = offer.selectedProducts.reduce(
+          (sum, p) => sum + p.offerPrice,
+          0,
+        );
         await offer.save();
       }
     }
@@ -670,10 +736,18 @@ export class MerchantProductsService implements OnModuleInit {
     };
   }
 
-  async toggleProductActiveStatus(productId: string, merchantId: string, isActive: boolean) {
-    const merchant = await this.merchantModel.findOne({ userId: merchantId }).exec();
+  async toggleProductActiveStatus(
+    productId: string,
+    merchantId: string,
+    isActive: boolean,
+  ) {
+    const merchant = await this.merchantModel
+      .findOne({ userId: merchantId })
+      .exec();
     if (merchant && merchant.hasSelectedActiveProducts) {
-      throw new ForbiddenException('You have already finalized your active products selection. Individual product status toggles are disabled.');
+      throw new ForbiddenException(
+        'You have already finalized your active products selection. Individual product status toggles are disabled.',
+      );
     }
 
     const product = await this.merchantProductModel.findOne({
@@ -686,14 +760,19 @@ export class MerchantProductsService implements OnModuleInit {
 
     if (isActive) {
       // Check limits
-      const merchant = await this.merchantModel.findOne({ userId: merchantId }).exec();
+      const merchant = await this.merchantModel
+        .findOne({ userId: merchantId })
+        .exec();
       if (merchant) {
-        const planDetails = await this.SubscriptionsService.getPlanDetails(merchant);
+        const planDetails =
+          await this.SubscriptionsService.getPlanDetails(merchant);
         if (planDetails.planFeatures.maxProducts !== -1) {
-          const activeProducts = await this.merchantProductModel.countDocuments({
-            merchantId,
-            isActive: { $ne: false },
-          });
+          const activeProducts = await this.merchantProductModel.countDocuments(
+            {
+              merchantId,
+              isActive: { $ne: false },
+            },
+          );
           if (activeProducts >= planDetails.planFeatures.maxProducts) {
             throw new ForbiddenException({
               success: false,
@@ -708,9 +787,12 @@ export class MerchantProductsService implements OnModuleInit {
     } else {
       if (product.lastActivatedAt) {
         const freezePeriodMs = 30 * 24 * 60 * 60 * 1000;
-        const timeSinceActivation = Date.now() - new Date(product.lastActivatedAt).getTime();
+        const timeSinceActivation =
+          Date.now() - new Date(product.lastActivatedAt).getTime();
         if (timeSinceActivation < freezePeriodMs) {
-          throw new BadRequestException('Product cannot be deactivated until the 30-day freeze period expires.');
+          throw new BadRequestException(
+            'Product cannot be deactivated until the 30-day freeze period expires.',
+          );
         }
       }
     }
@@ -727,21 +809,30 @@ export class MerchantProductsService implements OnModuleInit {
   }
 
   async finalizeActiveProducts(merchantId: string, productIds: string[]) {
-    const merchant = await this.merchantModel.findOne({ userId: merchantId }).exec();
+    const merchant = await this.merchantModel
+      .findOne({ userId: merchantId })
+      .exec();
     if (!merchant) {
       throw new NotFoundException('Merchant not found');
     }
     if (merchant.hasSelectedActiveProducts) {
-      throw new BadRequestException('You have already finalized your active products selection. This selection cannot be edited.');
+      throw new BadRequestException(
+        'You have already finalized your active products selection. This selection cannot be edited.',
+      );
     }
-    const planDetails = await this.SubscriptionsService.getPlanDetails(merchant);
+    const planDetails =
+      await this.SubscriptionsService.getPlanDetails(merchant);
     const maxProducts = planDetails.planFeatures.maxProducts;
 
-    const totalProducts = await this.merchantProductModel.countDocuments({ merchantId });
+    const totalProducts = await this.merchantProductModel.countDocuments({
+      merchantId,
+    });
     const expectedCount = Math.min(maxProducts, totalProducts);
 
     if (maxProducts !== -1 && productIds.length !== expectedCount) {
-      throw new BadRequestException(`You must select exactly ${expectedCount} active product${expectedCount === 1 ? '' : 's'}.`);
+      throw new BadRequestException(
+        `You must select exactly ${expectedCount} active product${expectedCount === 1 ? '' : 's'}.`,
+      );
     }
 
     // Verify all productIds belong to this merchant
@@ -750,20 +841,22 @@ export class MerchantProductsService implements OnModuleInit {
       merchantId,
     });
     if (count !== productIds.length) {
-      throw new BadRequestException('One or more selected products do not belong to you.');
+      throw new BadRequestException(
+        'One or more selected products do not belong to you.',
+      );
     }
 
     // Deactivate all products first
     await this.merchantProductModel.updateMany(
       { merchantId },
-      { isActive: false }
+      { isActive: false },
     );
 
     // Activate selected products
     if (productIds.length > 0) {
       await this.merchantProductModel.updateMany(
         { _id: { $in: productIds }, merchantId },
-        { isActive: true, lastActivatedAt: new Date() }
+        { isActive: true, lastActivatedAt: new Date() },
       );
     }
 

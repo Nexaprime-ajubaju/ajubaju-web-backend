@@ -47,24 +47,28 @@ export class CategoriesService {
     }
 
     const categories = await this.categoryModel.find().lean().exec();
-    
+
     // Get listing counts for each category
     const [adCounts, offerCounts] = await Promise.all([
-      this.adModel.aggregate([
-        { $group: { _id: '$category', count: { $sum: 1 } } }
-      ]).exec().catch(() => []),
-      this.offerModel.aggregate([
-        { $group: { _id: '$businessCategory', count: { $sum: 1 } } }
-      ]).exec().catch(() => []),
+      this.adModel
+        .aggregate([{ $group: { _id: '$category', count: { $sum: 1 } } }])
+        .exec()
+        .catch(() => []),
+      this.offerModel
+        .aggregate([
+          { $group: { _id: '$businessCategory', count: { $sum: 1 } } },
+        ])
+        .exec()
+        .catch(() => []),
     ]);
 
     const adCountMap = {};
-    (adCounts || []).forEach(c => {
+    (adCounts || []).forEach((c) => {
       adCountMap[c._id] = c.count;
     });
 
     const offerCountMap = {};
-    (offerCounts || []).forEach(c => {
+    (offerCounts || []).forEach((c) => {
       offerCountMap[c._id] = c.count;
     });
 
@@ -72,18 +76,19 @@ export class CategoriesService {
     let hiddenCategories = 0;
     let subcategories = 0;
 
-    const mappedRows = categories.map(cat => {
+    const mappedRows = categories.map((cat) => {
       if (cat.status === 'Active') activeCategories++;
       else hiddenCategories++;
       if (cat.parent && cat.parent !== '-') subcategories++;
 
-      const listingsCount = cat.platform === 'golo' 
-        ? (offerCountMap[cat.name] || 0) 
-        : (adCountMap[cat.name] || 0);
+      const listingsCount =
+        cat.platform === 'golo'
+          ? offerCountMap[cat.name] || 0
+          : adCountMap[cat.name] || 0;
 
       return {
         ...cat,
-        listings: listingsCount
+        listings: listingsCount,
       };
     });
 
@@ -92,10 +97,10 @@ export class CategoriesService {
         totalCategories: categories.length,
         activeCategories,
         subcategories,
-        disabledHidden: hiddenCategories
+        disabledHidden: hiddenCategories,
       },
       rows: mappedRows,
-      tree: [] // Can be built based on parent-child relations if needed
+      tree: [], // Can be built based on parent-child relations if needed
     };
 
     if (this.redisService) {
@@ -109,7 +114,10 @@ export class CategoriesService {
     return response;
   }
 
-  async update(id: string, updateCategoryDto: UpdateCategoryDto): Promise<Category> {
+  async update(
+    id: string,
+    updateCategoryDto: UpdateCategoryDto,
+  ): Promise<Category> {
     const updatedCategory = await this.categoryModel
       .findByIdAndUpdate(id, updateCategoryDto, { new: true })
       .exec();
@@ -121,7 +129,9 @@ export class CategoriesService {
   }
 
   async remove(id: string): Promise<Category> {
-    const deletedCategory = await this.categoryModel.findByIdAndDelete(id).exec();
+    const deletedCategory = await this.categoryModel
+      .findByIdAndDelete(id)
+      .exec();
     if (!deletedCategory) {
       throw new NotFoundException('Category not found');
     }

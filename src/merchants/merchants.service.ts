@@ -14,7 +14,10 @@ import { User, UserDocument } from '../users/schemas/user.schema';
 import { OTP, OTPDocument } from '../users/schemas/otp.schema';
 import { UpdateStoreLocationDto } from '../users/dto/update-store-location.dto';
 import { DeleteAccountDto } from '../users/dto/delete-account.dto';
-import { DeletedAccount, DeletedAccountDocument } from '../users/schemas/deleted-account.schema';
+import {
+  DeletedAccount,
+  DeletedAccountDocument,
+} from '../users/schemas/deleted-account.schema';
 import { RedisService } from '../common/services/redis.service';
 
 @Injectable()
@@ -25,10 +28,13 @@ export class MerchantsService {
     @InjectModel(Merchant.name) private merchantModel: Model<MerchantDocument>,
     @InjectModel(User.name) private userModel: Model<UserDocument>,
     @InjectModel(OTP.name) private otpModel: Model<OTPDocument>,
-    @InjectModel(MerchantDailyView.name) private merchantDailyViewModel: Model<MerchantDailyView>,
+    @InjectModel(MerchantDailyView.name)
+    private merchantDailyViewModel: Model<MerchantDailyView>,
     @Optional() @InjectConnection() private connection?: Connection,
     @Optional() private readonly redisService?: RedisService,
-    @Optional() @InjectModel(DeletedAccount.name) private deletedAccountModel?: Model<DeletedAccountDocument>,
+    @Optional()
+    @InjectModel(DeletedAccount.name)
+    private deletedAccountModel?: Model<DeletedAccountDocument>,
   ) {}
 
   /**
@@ -155,7 +161,7 @@ export class MerchantsService {
     await this.merchantDailyViewModel.updateOne(
       { merchantId: String(merchant._id), date: todayStr },
       { $inc: { views: 1 } },
-      { upsert: true }
+      { upsert: true },
     );
 
     const data = merchant.toObject ? merchant.toObject() : merchant;
@@ -203,13 +209,15 @@ export class MerchantsService {
       })
       .skip(skip)
       .limit(limit)
-      .select('userId storeName name profilePic category address storeLocation city')
+      .select(
+        'userId storeName name profilePic category address storeLocation city',
+      )
       .lean()
       .exec();
 
     return {
       success: true,
-      data: merchants.map(m => ({
+      data: merchants.map((m) => ({
         ...m,
         merchantId: m.userId,
       })),
@@ -296,7 +304,9 @@ export class MerchantsService {
   }
 
   private normalizeEmail(value: string): string {
-    return String(value || '').trim().toLowerCase();
+    return String(value || '')
+      .trim()
+      .toLowerCase();
   }
 
   /**
@@ -330,31 +340,41 @@ export class MerchantsService {
       if (updateData.storeName) allowedUpdates.storeName = updateData.storeName;
       if (updateData.storeEmail) {
         normalizedNewEmail = this.normalizeEmail(updateData.storeEmail);
-        const currentMerchantEmail = this.normalizeEmail(merchant.storeEmail || currentUser.email || '');
+        const currentMerchantEmail = this.normalizeEmail(
+          merchant.storeEmail || currentUser.email || '',
+        );
 
         if (!normalizedNewEmail) {
           throw new BadRequestException('Invalid email address');
         }
 
         if (normalizedNewEmail !== currentMerchantEmail) {
-          const existingUser = await this.userModel.findOne({
-            email: normalizedNewEmail,
-            _id: { $ne: new Types.ObjectId(userId) },
-            accountType: 'merchant',
-          }).exec();
+          const existingUser = await this.userModel
+            .findOne({
+              email: normalizedNewEmail,
+              _id: { $ne: new Types.ObjectId(userId) },
+              accountType: 'merchant',
+            })
+            .exec();
 
           if (existingUser) {
-            throw new ConflictException('Email is already in use by another merchant account');
+            throw new ConflictException(
+              'Email is already in use by another merchant account',
+            );
           }
 
-          const verifiedOtp = await this.otpModel.findOne({
-            email: normalizedNewEmail,
-            verified: true,
-            updatedAt: { $gte: new Date(Date.now() - 15 * 60 * 1000) },
-          }).exec();
+          const verifiedOtp = await this.otpModel
+            .findOne({
+              email: normalizedNewEmail,
+              verified: true,
+              updatedAt: { $gte: new Date(Date.now() - 15 * 60 * 1000) },
+            })
+            .exec();
 
           if (!verifiedOtp) {
-            throw new BadRequestException('New email has not been verified via OTP');
+            throw new BadRequestException(
+              'New email has not been verified via OTP',
+            );
           }
 
           await this.otpModel.deleteOne({ email: normalizedNewEmail }).exec();
@@ -387,16 +407,15 @@ export class MerchantsService {
       }
 
       if (normalizedNewEmail) {
-        await this.userModel.findByIdAndUpdate(
-          userId,
-          {
+        await this.userModel
+          .findByIdAndUpdate(userId, {
             $set: {
               email: normalizedNewEmail,
               isEmailVerified: true,
               updatedAt: new Date(),
             },
-          },
-        ).exec();
+          })
+          .exec();
       }
 
       return {
@@ -495,21 +514,29 @@ export class MerchantsService {
    */
   async deleteMerchantAccount(userId: string, dto: DeleteAccountDto) {
     if (dto.confirmation !== 'DELETE') {
-      throw new BadRequestException('You must type DELETE to confirm account deletion.');
+      throw new BadRequestException(
+        'You must type DELETE to confirm account deletion.',
+      );
     }
 
     const userIdStr = String(userId);
-    const merchant = await this.merchantModel.findOne({
-      $or: [
-        { userId: userIdStr },
-        Types.ObjectId.isValid(userIdStr) ? { _id: new Types.ObjectId(userIdStr) } : undefined,
-      ].filter(Boolean),
-    }).exec();
+    const merchant = await this.merchantModel
+      .findOne({
+        $or: [
+          { userId: userIdStr },
+          Types.ObjectId.isValid(userIdStr)
+            ? { _id: new Types.ObjectId(userIdStr) }
+            : undefined,
+        ].filter(Boolean),
+      })
+      .exec();
 
     const merchantIdStr = merchant ? String(merchant._id) : '';
     const merchantUserId = merchant ? String(merchant.userId) : userIdStr;
 
-    this.logger.warn(`Permanently deleting merchant account: ${userIdStr}. Store: ${merchant?.storeName || 'Unknown'}. Reason: ${dto.reason}. Details: ${dto.customReason || 'N/A'}`);
+    this.logger.warn(
+      `Permanently deleting merchant account: ${userIdStr}. Store: ${merchant?.storeName || 'Unknown'}. Reason: ${dto.reason}. Details: ${dto.customReason || 'N/A'}`,
+    );
 
     // 0. Record in DeletedAccount collection for admin audit
     if (this.deletedAccountModel) {
@@ -517,9 +544,14 @@ export class MerchantsService {
         await this.deletedAccountModel.create({
           accountId: merchantIdStr || userIdStr,
           accountType: 'merchant',
-          name: (merchant as any)?.ownerName || (merchant as any)?.name || 'Merchant',
-          email: (merchant as any)?.storeEmail || (merchant as any)?.email || '',
-          phone: (merchant as any)?.storePhone || (merchant as any)?.phone || '',
+          name:
+            (merchant as any)?.ownerName ||
+            (merchant as any)?.name ||
+            'Merchant',
+          email:
+            (merchant as any)?.storeEmail || (merchant as any)?.email || '',
+          phone:
+            (merchant as any)?.storePhone || (merchant as any)?.phone || '',
           storeName: merchant?.storeName || 'Merchant Store',
           storeCategory: merchant?.storeCategory || '',
           storeLocation: merchant?.storeLocation || '',
@@ -529,22 +561,28 @@ export class MerchantsService {
           deletedAt: new Date(),
         });
       } catch (err) {
-        this.logger.error(`Failed to record merchant deletion audit: ${err?.message}`);
+        this.logger.error(
+          `Failed to record merchant deletion audit: ${err?.message}`,
+        );
       }
     }
 
     // Delete associated data
     await Promise.allSettled([
       // 1. Delete Merchant doc
-      merchant ? this.merchantModel.deleteOne({ _id: merchant._id }).exec() : Promise.resolve(),
+      merchant
+        ? this.merchantModel.deleteOne({ _id: merchant._id }).exec()
+        : Promise.resolve(),
       // 2. Delete merchant User doc
-      this.userModel.deleteMany({
-        $or: [
-          { _id: merchantUserId, accountType: 'merchant' },
-          { _id: userIdStr, accountType: 'merchant' },
-          { _id: userIdStr },
-        ],
-      }).exec(),
+      this.userModel
+        .deleteMany({
+          $or: [
+            { _id: merchantUserId, accountType: 'merchant' },
+            { _id: userIdStr, accountType: 'merchant' },
+            { _id: userIdStr },
+          ],
+        })
+        .exec(),
       // 3. Delete products
       this.connection?.collection('merchantproducts').deleteMany({
         $or: [
@@ -563,29 +601,22 @@ export class MerchantsService {
       }),
       // 5. Delete banner promotions
       this.connection?.collection('bannerpromotions').deleteMany({
-        $or: [
-          { merchantId: merchantUserId },
-          { merchantId: merchantIdStr },
-        ],
+        $or: [{ merchantId: merchantUserId }, { merchantId: merchantIdStr }],
       }),
       // 6. Delete vouchers
       this.connection?.collection('vouchers').deleteMany({
-        $or: [
-          { merchantId: merchantUserId },
-          { merchantId: merchantIdStr },
-        ],
+        $or: [{ merchantId: merchantUserId }, { merchantId: merchantIdStr }],
       }),
       // 7. Delete reviews
       this.connection?.collection('reviews').deleteMany({
-        $or: [
-          { merchantId: merchantUserId },
-          { merchantId: merchantIdStr },
-        ],
+        $or: [{ merchantId: merchantUserId }, { merchantId: merchantIdStr }],
       }),
       // 8. Delete follows & views
-      this.merchantDailyViewModel.deleteMany({
-        merchantId: merchantIdStr || userIdStr,
-      }).exec(),
+      this.merchantDailyViewModel
+        .deleteMany({
+          merchantId: merchantIdStr || userIdStr,
+        })
+        .exec(),
       this.connection?.collection('follows').deleteMany({
         merchantId: merchantIdStr || userIdStr,
       }),
@@ -605,7 +636,8 @@ export class MerchantsService {
 
     return {
       success: true,
-      message: 'Your merchant account and all store data have been permanently deleted.',
+      message:
+        'Your merchant account and all store data have been permanently deleted.',
     };
   }
 }

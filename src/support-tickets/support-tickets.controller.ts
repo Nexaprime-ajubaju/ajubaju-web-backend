@@ -1,4 +1,13 @@
-import { Controller, Get, Post, Body, Patch, Param, Query, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { SupportTicketsService } from './support-tickets.service';
 import { CreateTicketDto } from './dto/create-ticket.dto';
 
@@ -16,7 +25,7 @@ export class SupportTicketsController {
   findAll(
     @Query('page') page: string = '1',
     @Query('limit') limit: string = '10',
-    @Query('status') status?: string
+    @Query('status') status?: string,
   ) {
     return this.supportTicketsService.findAll(+page, +limit, status);
   }
@@ -29,7 +38,13 @@ export class SupportTicketsController {
   @Patch(':id')
   updateStatus(
     @Param('id') id: string,
-    @Body() updateData: { status?: string, priority?: string, adminNotes?: string, newMessage?: { by: string, text: string } }
+    @Body()
+    updateData: {
+      status?: string;
+      priority?: string;
+      adminNotes?: string;
+      newMessage?: { by: string; text: string };
+    },
   ) {
     return this.supportTicketsService.updateStatus(id, updateData);
   }

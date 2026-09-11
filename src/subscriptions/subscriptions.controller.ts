@@ -1,4 +1,14 @@
-import { Controller, Get, Post, Put, Delete, Body, Req, UseGuards, BadRequestException } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Delete,
+  Body,
+  Req,
+  UseGuards,
+  BadRequestException,
+} from '@nestjs/common';
 import { SubscriptionsService } from './subscriptions.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 
@@ -50,8 +60,15 @@ export class SubscriptionsController {
 
   @UseGuards(JwtAuthGuard)
   @Post('subscribe')
-  async subscribe(@Req() req: any, @Body() body: { planName: string, billingCycle: 'monthly' | 'yearly' }) {
+  async subscribe(
+    @Req() req: any,
+    @Body() body: { planName: string; billingCycle: 'monthly' | 'yearly' },
+  ) {
     const merchantId = req.user.id;
-    return this.subscriptionsService.subscribeToPlan(merchantId, body.planName, body.billingCycle || 'monthly');
+    return this.subscriptionsService.subscribeToPlan(
+      merchantId,
+      body.planName,
+      body.billingCycle || 'monthly',
+    );
   }
 }

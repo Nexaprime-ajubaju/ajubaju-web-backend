@@ -1,8 +1,14 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-import { BannerImpression, BannerImpressionDocument } from '../schemas/banner-impression.schema';
-import { BannerClick, BannerClickDocument } from '../schemas/banner-click.schema';
+import {
+  BannerImpression,
+  BannerImpressionDocument,
+} from '../schemas/banner-impression.schema';
+import {
+  BannerClick,
+  BannerClickDocument,
+} from '../schemas/banner-click.schema';
 
 @Injectable()
 export class BannerAnalyticsService {
@@ -18,7 +24,11 @@ export class BannerAnalyticsService {
   /**
    * Get analytics dashboard stats for Admin or Merchant
    */
-  async getBannerAnalytics(bannerId?: string, merchantId?: string, days: number = 30) {
+  async getBannerAnalytics(
+    bannerId?: string,
+    merchantId?: string,
+    days: number = 30,
+  ) {
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - days);
 
@@ -35,7 +45,10 @@ export class BannerAnalyticsService {
       this.clickModel.countDocuments(clickQuery).exec(),
     ]);
 
-    const ctr = totalImpressions > 0 ? parseFloat(((totalClicks / totalImpressions) * 100).toFixed(2)) : 0;
+    const ctr =
+      totalImpressions > 0
+        ? parseFloat(((totalClicks / totalImpressions) * 100).toFixed(2))
+        : 0;
 
     return {
       timeframeDays: days,

@@ -13,7 +13,8 @@ export class MerchantDailyView extends Document {
   views: number;
 }
 
-export const MerchantDailyViewSchema = SchemaFactory.createForClass(MerchantDailyView);
+export const MerchantDailyViewSchema =
+  SchemaFactory.createForClass(MerchantDailyView);
 
 // Ensure a merchant only has one entry per day
 MerchantDailyViewSchema.index({ merchantId: 1, date: 1 }, { unique: true });

@@ -1,8 +1,20 @@
-import { Injectable, Logger, OnModuleDestroy, OnModuleInit, Optional } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  OnModuleDestroy,
+  OnModuleInit,
+  Optional,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-import { BannerImpression, BannerImpressionDocument } from '../schemas/banner-impression.schema';
-import { BannerClick, BannerClickDocument } from '../schemas/banner-click.schema';
+import {
+  BannerImpression,
+  BannerImpressionDocument,
+} from '../schemas/banner-impression.schema';
+import {
+  BannerClick,
+  BannerClickDocument,
+} from '../schemas/banner-click.schema';
 import { BannerCacheService } from './banner-cache.service';
 import { RedisService } from '../../common/services/redis.service';
 
@@ -73,7 +85,9 @@ export class BannerTrackingService implements OnModuleInit, OnModuleDestroy {
         dto.token,
       );
       if (!isValid) {
-        this.logger.warn(`Rejected unverified/spoofed impression token for banner [${dto.bannerId}]`);
+        this.logger.warn(
+          `Rejected unverified/spoofed impression token for banner [${dto.bannerId}]`,
+        );
         return false;
       }
     }
@@ -115,7 +129,9 @@ export class BannerTrackingService implements OnModuleInit, OnModuleDestroy {
       if (client) {
         const exists = await client.exists(dedupeKey);
         if (exists === 1) {
-          this.logger.debug(`Ignored duplicate click from ${userIdentifier} for banner [${dto.bannerId}] (30s dedupe)`);
+          this.logger.debug(
+            `Ignored duplicate click from ${userIdentifier} for banner [${dto.bannerId}] (30s dedupe)`,
+          );
           return false;
         }
         await client.set(dedupeKey, '1', { EX: 30 }); // 30s TTL
@@ -141,7 +157,9 @@ export class BannerTrackingService implements OnModuleInit, OnModuleDestroy {
       const impressionsToFlush = [...this.impressionBuffer];
       this.impressionBuffer = [];
       try {
-        await this.impressionModel.insertMany(impressionsToFlush, { ordered: false });
+        await this.impressionModel.insertMany(impressionsToFlush, {
+          ordered: false,
+        });
       } catch (err: any) {
         this.logger.error(`Failed to flush impressions batch: ${err.message}`);
       }

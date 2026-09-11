@@ -9,13 +9,21 @@ export class EmailService {
   private enabled: boolean;
 
   constructor(private configService: ConfigService) {
-    const user = this.configService.get('EMAIL_USER') || this.configService.get('SMTP_USER');
-    const host = this.configService.get('EMAIL_HOST') || this.configService.get('SMTP_HOST');
-    const port = this.configService.get('EMAIL_PORT') || this.configService.get('SMTP_PORT');
-    const pass = this.configService.get('EMAIL_PASSWORD') || this.configService.get('SMTP_PASS');
+    const user =
+      this.configService.get('EMAIL_USER') ||
+      this.configService.get('SMTP_USER');
+    const host =
+      this.configService.get('EMAIL_HOST') ||
+      this.configService.get('SMTP_HOST');
+    const port =
+      this.configService.get('EMAIL_PORT') ||
+      this.configService.get('SMTP_PORT');
+    const pass =
+      this.configService.get('EMAIL_PASSWORD') ||
+      this.configService.get('SMTP_PASS');
 
     this.enabled = !!user;
-    
+
     if (this.enabled) {
       this.transporter = nodemailer.createTransport({
         host: host,
@@ -30,14 +38,18 @@ export class EmailService {
       // Verify connection
       this.transporter.verify((error: any, success: any) => {
         if (error) {
-          this.logger.error(`Email service verification failed: ${error.message}`);
+          this.logger.error(
+            `Email service verification failed: ${error.message}`,
+          );
           this.enabled = false;
         } else {
           this.logger.log('Email service ready and connected');
         }
       });
     } else {
-      this.logger.warn('Email service not configured - emails will be logged only');
+      this.logger.warn(
+        'Email service not configured - emails will be logged only',
+      );
     }
   }
 
@@ -60,7 +72,9 @@ export class EmailService {
     }
 
     const mailOptions = {
-      from: this.configService.get('EMAIL_FROM') || this.configService.get('SMTP_FROM'),
+      from:
+        this.configService.get('EMAIL_FROM') ||
+        this.configService.get('SMTP_FROM'),
       to: adminEmail,
       subject: `🚨 Ad Reported: ${data.reason.toUpperCase()} (${data.reportCount} total reports)`,
       html: this.generateReportEmailHTML(data),
@@ -68,7 +82,9 @@ export class EmailService {
 
     try {
       if (!this.enabled || !this.transporter) {
-        this.logger.warn(`[EMAIL MOCK] Would send to ${adminEmail}: Report for ad ${data.adId}`);
+        this.logger.warn(
+          `[EMAIL MOCK] Would send to ${adminEmail}: Report for ad ${data.adId}`,
+        );
         this.logger.log(JSON.stringify(data, null, 2));
         return false;
       }
@@ -93,8 +109,18 @@ export class EmailService {
     reportedBy: string;
     reportCount: number;
   }): string {
-    const urgencyColor = data.reportCount >= 10 ? '#dc2626' : data.reportCount >= 5 ? '#ea580c' : '#ca8a04';
-    const urgencyText = data.reportCount >= 10 ? 'CRITICAL - Auto-Disabled' : data.reportCount >= 5 ? 'High Priority' : 'New Report';
+    const urgencyColor =
+      data.reportCount >= 10
+        ? '#dc2626'
+        : data.reportCount >= 5
+          ? '#ea580c'
+          : '#ca8a04';
+    const urgencyText =
+      data.reportCount >= 10
+        ? 'CRITICAL - Auto-Disabled'
+        : data.reportCount >= 5
+          ? 'High Priority'
+          : 'New Report';
 
     return `
       <!DOCTYPE html>
@@ -142,12 +168,16 @@ export class EmailService {
                 </div>
               </div>
 
-              ${data.description ? `
+              ${
+                data.description
+                  ? `
                 <div class="detail-row">
                   <div class="label">Reporter's Description</div>
                   <div class="value" style="font-style: italic;">"${data.description}"</div>
                 </div>
-              ` : ''}
+              `
+                  : ''
+              }
 
               <div class="detail-row">
                 <div class="label">Reported By (User ID)</div>
@@ -160,14 +190,18 @@ export class EmailService {
                 </a>
               </div>
 
-              ${data.reportCount >= 10 ? `
+              ${
+                data.reportCount >= 10
+                  ? `
                 <div style="margin-top: 20px; padding: 15px; background: #fef2f2; border: 2px solid #dc2626; border-radius: 8px;">
                   <strong style="color: #dc2626;">⚠️ AUTO-DISABLED</strong>
                   <p style="margin: 10px 0 0 0; color: #991b1b; font-size: 14px;">
                     This ad has been automatically disabled due to reaching 10 reports. Please review immediately.
                   </p>
                 </div>
-              ` : ''}
+              `
+                  : ''
+              }
 
               <div class="footer">
                 <p>This is an automated notification from GOLO's content moderation system.</p>
@@ -182,7 +216,10 @@ export class EmailService {
     `;
   }
 
-  async sendMerchantWelcomeEmail(email: string, storeName: string): Promise<boolean> {
+  async sendMerchantWelcomeEmail(
+    email: string,
+    storeName: string,
+  ): Promise<boolean> {
     const mailOptions = {
       from: `"GOLO No-Reply" <${this.configService.get('EMAIL_FROM') || this.configService.get('SMTP_FROM') || this.configService.get('EMAIL_USER')}>`,
       replyTo: 'noreply@golo.com',
@@ -207,13 +244,20 @@ export class EmailService {
       this.logger.log(`✅ Welcome email sent to merchant: ${email}`);
       return true;
     } catch (error: any) {
-      this.logger.error(`Failed to send merchant welcome email: ${error.message}`);
+      this.logger.error(
+        `Failed to send merchant welcome email: ${error.message}`,
+      );
       return false;
     }
   }
 
-  async sendMerchantApprovalEmail(email: string, storeName: string): Promise<boolean> {
-    const loginLink = this.configService.get('MERCHANT_LOGIN_URL') || 'https://golo-frontend-inky.vercel.app/merchant-login';
+  async sendMerchantApprovalEmail(
+    email: string,
+    storeName: string,
+  ): Promise<boolean> {
+    const loginLink =
+      this.configService.get('MERCHANT_LOGIN_URL') ||
+      'https://golo-frontend-inky.vercel.app/merchant-login';
     const mailOptions = {
       from: `"GOLO No-Reply" <${this.configService.get('EMAIL_FROM') || this.configService.get('SMTP_FROM') || this.configService.get('EMAIL_USER')}>`,
       replyTo: 'noreply@golo.com',
@@ -240,13 +284,21 @@ export class EmailService {
       this.logger.log(`✅ Approval email sent to merchant: ${email}`);
       return true;
     } catch (error: any) {
-      this.logger.error(`Failed to send merchant approval email: ${error.message}`);
+      this.logger.error(
+        `Failed to send merchant approval email: ${error.message}`,
+      );
       return false;
     }
   }
 
-  async sendMerchantDeclineEmail(email: string, storeName: string, reason: string): Promise<boolean> {
-    const registerLink = this.configService.get('MERCHANT_REGISTER_URL') || 'https://golo-frontend-inky.vercel.app/merchant-register';
+  async sendMerchantDeclineEmail(
+    email: string,
+    storeName: string,
+    reason: string,
+  ): Promise<boolean> {
+    const registerLink =
+      this.configService.get('MERCHANT_REGISTER_URL') ||
+      'https://golo-frontend-inky.vercel.app/merchant-register';
     const mailOptions = {
       from: `"GOLO No-Reply" <${this.configService.get('EMAIL_FROM') || this.configService.get('SMTP_FROM') || this.configService.get('EMAIL_USER')}>`,
       replyTo: 'noreply@golo.com',
@@ -275,7 +327,9 @@ export class EmailService {
       this.logger.log(`✅ Decline email sent to merchant: ${email}`);
       return true;
     } catch (error: any) {
-      this.logger.error(`Failed to send merchant decline email: ${error.message}`);
+      this.logger.error(
+        `Failed to send merchant decline email: ${error.message}`,
+      );
       return false;
     }
   }

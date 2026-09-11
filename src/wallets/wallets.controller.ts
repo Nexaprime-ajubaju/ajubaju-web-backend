@@ -14,7 +14,7 @@ export class WalletsController {
   @Roles(UserRole.USER, UserRole.MERCHANT)
   async getBalance(@Req() req) {
     const userType = req.user?.role === UserRole.MERCHANT ? 'merchant' : 'user';
-    
+
     // For merchant, req.user._id is usually the User document ID. The Merchant document uses userId = User._id.
     // Ensure we pass the right ID. If req.user is the User doc, userId is req.user._id
     const idToUse = (req.user?.id || req.user?._id).toString();
@@ -29,13 +29,25 @@ export class WalletsController {
     const userType = req.user?.role === UserRole.MERCHANT ? 'merchant' : 'user';
     const idToUse = (req.user?.id || req.user?._id).toString();
 
-    const transactions = await this.walletsService.getTransactions(idToUse, userType);
+    const transactions = await this.walletsService.getTransactions(
+      idToUse,
+      userType,
+    );
     return { transactions };
   }
 
   @Post('debit')
   @Roles(UserRole.USER, UserRole.MERCHANT)
-  async debitWallet(@Req() req, @Body() body: { amount: number; description: string; referenceId?: string; referenceType?: string }) {
+  async debitWallet(
+    @Req() req,
+    @Body()
+    body: {
+      amount: number;
+      description: string;
+      referenceId?: string;
+      referenceType?: string;
+    },
+  ) {
     const userType = req.user?.role === UserRole.MERCHANT ? 'merchant' : 'user';
     const idToUse = (req.user?.id || req.user?._id).toString();
 
@@ -43,7 +55,14 @@ export class WalletsController {
       return { success: false, message: 'Invalid amount' };
     }
 
-    const newBalance = await this.walletsService.debit(idToUse, userType, body.amount, body.description, body.referenceId, body.referenceType);
+    const newBalance = await this.walletsService.debit(
+      idToUse,
+      userType,
+      body.amount,
+      body.description,
+      body.referenceId,
+      body.referenceType,
+    );
     return { success: true, balance: newBalance };
   }
 }

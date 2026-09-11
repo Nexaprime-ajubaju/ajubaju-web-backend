@@ -7,7 +7,10 @@ import {
   OrderDocument,
   OrderStatus,
 } from '../orders/schemas/order.schema';
-import { MerchantProduct, MerchantProductDocument } from '../merchant-products/schemas/merchant-product.schema';
+import {
+  MerchantProduct,
+  MerchantProductDocument,
+} from '../merchant-products/schemas/merchant-product.schema';
 import { Review, ReviewDocument } from '../reviews/schemas/review.schema';
 import { User, UserDocument } from '../users/schemas/user.schema';
 import { Voucher, VoucherDocument } from '../vouchers/schemas/voucher.schema';
@@ -49,7 +52,7 @@ export class MerchantDashboardService {
     private readonly merchantDailyViewModel: Model<MerchantDailyView>,
     private readonly redisService: RedisService,
     private readonly SubscriptionsService: SubscriptionsService,
-  ) { }
+  ) {}
 
   private buildDateBuckets(days: number) {
     const now = new Date();
@@ -123,8 +126,8 @@ export class MerchantDashboardService {
       Tablet: Math.max(
         0,
         100 -
-        Math.round((normalized.Mobile / total) * 100) -
-        Math.round((normalized.Desktop / total) * 100),
+          Math.round((normalized.Mobile / total) * 100) -
+          Math.round((normalized.Desktop / total) * 100),
       ),
     };
   }
@@ -310,7 +313,11 @@ export class MerchantDashboardService {
             {
               $group: {
                 _id: {
-                  $dateToString: { format: '%Y-%m-%d', date: '$redeemedAt', timezone: '+05:30' },
+                  $dateToString: {
+                    format: '%Y-%m-%d',
+                    date: '$redeemedAt',
+                    timezone: '+05:30',
+                  },
                 },
                 count: { $sum: 1 },
               },
@@ -341,7 +348,7 @@ export class MerchantDashboardService {
 
   async getSummary(merchantId: string, startDate?: Date, endDate?: Date) {
     const cacheKey = `analytics:summary:${merchantId}:${startDate?.toISOString() || 'all'}:${endDate?.toISOString() || 'all'}`;
-    const cached = await this.redisService.get(cacheKey) as any;
+    const cached = (await this.redisService.get(cacheKey)) as any;
     if (cached) return cached;
 
     const mId = new Types.ObjectId(merchantId);
@@ -361,7 +368,10 @@ export class MerchantDashboardService {
     const startOfDay = new Date(end);
     startOfDay.setHours(0, 0, 0, 0);
 
-    const merchant = await this.merchantModel.findOne({ userId: merchantId }).select('profileViews _id').lean();
+    const merchant = await this.merchantModel
+      .findOne({ userId: merchantId })
+      .select('profileViews _id')
+      .lean();
     const profileId = merchant?._id ? String(merchant._id) : null;
     const offerQuery = profileId
       ? { $or: [{ merchantId: String(merchantId) }, { merchantId: profileId }] }
@@ -434,7 +444,9 @@ export class MerchantDashboardService {
         },
       ]),
       this.adModel.aggregate([
-        { $match: { userId: merchantId, updatedAt: { $gte: start, $lte: end } } },
+        {
+          $match: { userId: merchantId, updatedAt: { $gte: start, $lte: end } },
+        },
         {
           $group: {
             _id: null,
@@ -447,9 +459,20 @@ export class MerchantDashboardService {
           },
         },
       ]),
-      this.voucherModel.countDocuments({ merchantId: mId, status: 'redeemed', redeemedAt: { $gte: start, $lte: end } }),
-      this.offerPromotionModel.countDocuments({ ...activeOfferQuery, createdAt: { $gte: start, $lte: end } }),
-      this.followModel.countDocuments({ merchantId: { $in: [String(merchantId), String(mId), profileId].filter(Boolean) } }),
+      this.voucherModel.countDocuments({
+        merchantId: mId,
+        status: 'redeemed',
+        redeemedAt: { $gte: start, $lte: end },
+      }),
+      this.offerPromotionModel.countDocuments({
+        ...activeOfferQuery,
+        createdAt: { $gte: start, $lte: end },
+      }),
+      this.followModel.countDocuments({
+        merchantId: {
+          $in: [String(merchantId), String(mId), profileId].filter(Boolean),
+        },
+      }),
       this.getMerchantCustomerUserIds(merchantId),
       this.orderModel.aggregate([
         { $match: { merchantId: mId, placedAt: { $gte: startOfDay } } },
@@ -460,7 +483,12 @@ export class MerchantDashboardService {
             todayRevenue: {
               $sum: {
                 $cond: [
-                  { $in: ['$status', [OrderStatus.ACCEPTED, OrderStatus.COMPLETED]] },
+                  {
+                    $in: [
+                      '$status',
+                      [OrderStatus.ACCEPTED, OrderStatus.COMPLETED],
+                    ],
+                  },
                   '$amount',
                   0,
                 ],
@@ -469,28 +497,111 @@ export class MerchantDashboardService {
           },
         },
       ]),
-      this.voucherModel.countDocuments({ merchantId: mId, status: 'redeemed', redeemedAt: { $gte: startOfDay } }),
-      this.offerPromotionModel.find(offerQuery).sort({ createdAt: -1 }).limit(5).lean(),
+      this.voucherModel.countDocuments({
+        merchantId: mId,
+        status: 'redeemed',
+        redeemedAt: { $gte: startOfDay },
+      }),
+      this.offerPromotionModel
+        .find(offerQuery)
+        .sort({ createdAt: -1 })
+        .limit(5)
+        .lean(),
       // Custom Range Stats
       this.orderModel.aggregate([
-        { $match: { merchantId: mId, placedAt: { $gte: thirtyDaysAgo, $lte: end } } },
-        { $group: { _id: null, orders: { $sum: 1 }, revenue: { $sum: { $cond: [{ $in: ['$status', [OrderStatus.ACCEPTED, OrderStatus.COMPLETED]] }, '$amount', 0] } } } }
+        {
+          $match: {
+            merchantId: mId,
+            placedAt: { $gte: thirtyDaysAgo, $lte: end },
+          },
+        },
+        {
+          $group: {
+            _id: null,
+            orders: { $sum: 1 },
+            revenue: {
+              $sum: {
+                $cond: [
+                  {
+                    $in: [
+                      '$status',
+                      [OrderStatus.ACCEPTED, OrderStatus.COMPLETED],
+                    ],
+                  },
+                  '$amount',
+                  0,
+                ],
+              },
+            },
+          },
+        },
       ]),
       // Prev Equal Length Range Stats
       this.orderModel.aggregate([
-        { $match: { merchantId: mId, placedAt: { $gte: sixtyDaysAgo, $lte: thirtyDaysAgo } } },
-        { $group: { _id: null, orders: { $sum: 1 }, revenue: { $sum: { $cond: [{ $in: ['$status', [OrderStatus.ACCEPTED, OrderStatus.COMPLETED]] }, '$amount', 0] } } } }
+        {
+          $match: {
+            merchantId: mId,
+            placedAt: { $gte: sixtyDaysAgo, $lte: thirtyDaysAgo },
+          },
+        },
+        {
+          $group: {
+            _id: null,
+            orders: { $sum: 1 },
+            revenue: {
+              $sum: {
+                $cond: [
+                  {
+                    $in: [
+                      '$status',
+                      [OrderStatus.ACCEPTED, OrderStatus.COMPLETED],
+                    ],
+                  },
+                  '$amount',
+                  0,
+                ],
+              },
+            },
+          },
+        },
       ]),
-      this.offerPromotionModel.countDocuments({ ...offerQuery, createdAt: { $gte: thirtyDaysAgo, $lte: end } }),
-      this.offerPromotionModel.countDocuments({ ...offerQuery, createdAt: { $gte: sixtyDaysAgo, $lte: thirtyDaysAgo } }),
-      this.followModel.countDocuments({ merchantId: { $in: [String(merchantId), String(mId), profileId].filter(Boolean) }, createdAt: { $gte: thirtyDaysAgo, $lte: end } }),
-      this.followModel.countDocuments({ merchantId: { $in: [String(merchantId), String(mId), profileId].filter(Boolean) }, createdAt: { $gte: sixtyDaysAgo, $lte: thirtyDaysAgo } }),
-      this.voucherModel.countDocuments({ merchantId: mId, createdAt: { $gte: startOfDay } }),
-      this.merchantDailyViewModel.findOne({ merchantId: String(merchantId), date: new Date().toISOString().split('T')[0] }).lean(),
+      this.offerPromotionModel.countDocuments({
+        ...offerQuery,
+        createdAt: { $gte: thirtyDaysAgo, $lte: end },
+      }),
+      this.offerPromotionModel.countDocuments({
+        ...offerQuery,
+        createdAt: { $gte: sixtyDaysAgo, $lte: thirtyDaysAgo },
+      }),
+      this.followModel.countDocuments({
+        merchantId: {
+          $in: [String(merchantId), String(mId), profileId].filter(Boolean),
+        },
+        createdAt: { $gte: thirtyDaysAgo, $lte: end },
+      }),
+      this.followModel.countDocuments({
+        merchantId: {
+          $in: [String(merchantId), String(mId), profileId].filter(Boolean),
+        },
+        createdAt: { $gte: sixtyDaysAgo, $lte: thirtyDaysAgo },
+      }),
+      this.voucherModel.countDocuments({
+        merchantId: mId,
+        createdAt: { $gte: startOfDay },
+      }),
+      this.merchantDailyViewModel
+        .findOne({
+          merchantId: String(merchantId),
+          date: new Date().toISOString().split('T')[0],
+        })
+        .lean(),
     ]);
 
     const offerIds = topPerformingOffers.map((o: any) => o._id);
-    const offerVouchers = await this.voucherModel.find({ offerId: { $in: offerIds } }).select('offerId voucherId status').lean();
+    const offerVouchers = await this.voucherModel
+      .find({ offerId: { $in: offerIds } })
+      .select('offerId voucherId status')
+      .lean();
 
     const offerStatsMap = new Map();
     const voucherToOfferMap = new Map();
@@ -507,11 +618,16 @@ export class MerchantDashboardService {
       }
     }
 
-    const voucherIds = offerVouchers.map(v => v.voucherId).filter(Boolean);
+    const voucherIds = offerVouchers.map((v) => v.voucherId).filter(Boolean);
     if (voucherIds.length > 0) {
       const orderRevenue = await this.orderModel.aggregate([
-        { $match: { voucherId: { $in: voucherIds }, status: { $in: ['accepted', 'completed'] } } },
-        { $group: { _id: '$voucherId', totalRevenue: { $sum: '$amount' } } }
+        {
+          $match: {
+            voucherId: { $in: voucherIds },
+            status: { $in: ['accepted', 'completed'] },
+          },
+        },
+        { $group: { _id: '$voucherId', totalRevenue: { $sum: '$amount' } } },
       ]);
 
       for (const o of orderRevenue) {
@@ -522,9 +638,16 @@ export class MerchantDashboardService {
       }
     }
 
-    const recentOrderUserIds = recentOrders.map((o: any) => o.userId).filter(Boolean);
-    const recentOrderUsers = await this.userModel.find({ _id: { $in: recentOrderUserIds } }).select('name').lean();
-    const recentOrderUserMap = new Map(recentOrderUsers.map((u: any) => [String(u._id), u.name]));
+    const recentOrderUserIds = recentOrders
+      .map((o: any) => o.userId)
+      .filter(Boolean);
+    const recentOrderUsers = await this.userModel
+      .find({ _id: { $in: recentOrderUserIds } })
+      .select('name')
+      .lean();
+    const recentOrderUserMap = new Map(
+      recentOrderUsers.map((u: any) => [String(u._id), u.name]),
+    );
 
     const reviewUserIds = latestReviews
       .map((r: any) => r.userId)
@@ -551,7 +674,10 @@ export class MerchantDashboardService {
     const profileViews = merchant?.profileViews || 0;
     const profileViewsIncrease = calcInc(l30Stats.orders, p30Stats.orders); // Proxy based on traffic
 
-    const conversionRate = profileViews > 0 ? Number(((redeemedVouchersCount / profileViews) * 100).toFixed(2)) : 0;
+    const conversionRate =
+      profileViews > 0
+        ? Number(((redeemedVouchersCount / profileViews) * 100).toFixed(2))
+        : 0;
     // Proxy conversion rate increase based on orders
     const convRateL30 = l30Stats.orders;
     const convRateP30 = p30Stats.orders;
@@ -564,7 +690,9 @@ export class MerchantDashboardService {
           totalOrders: totalOrdersCount,
           revenue: totalRevenueCount,
           totalReviews: reviewStats?.[0]?.totalReviews || 0,
-          averageRating: Number((reviewStats?.[0]?.averageRating || 0).toFixed(2)),
+          averageRating: Number(
+            (reviewStats?.[0]?.averageRating || 0).toFixed(2),
+          ),
           totalViews: adStats?.[0]?.totalViews || 0,
           weeklyViews: adStats?.[0]?.weeklyViews || 0,
           profileViews: profileViews,
@@ -584,11 +712,19 @@ export class MerchantDashboardService {
           todayRevenue: todayOrderStats?.[0]?.todayRevenue || 0,
           todayRedemptions: todayRedemptionsCount || 0,
           todayVisitors: todayViewsData?.views || 0,
-          todayConversionRate: todayClaimsCount > 0 
-            ? Number(((todayRedemptionsCount / todayClaimsCount) * 100).toFixed(2)) 
-            : 0,
+          todayConversionRate:
+            todayClaimsCount > 0
+              ? Number(
+                  ((todayRedemptionsCount / todayClaimsCount) * 100).toFixed(2),
+                )
+              : 0,
           todayAvgOrderValue: todayOrderStats?.[0]?.todayOrders
-            ? Number((todayOrderStats[0].todayRevenue / todayOrderStats[0].todayOrders).toFixed(2))
+            ? Number(
+                (
+                  todayOrderStats[0].todayRevenue /
+                  todayOrderStats[0].todayOrders
+                ).toFixed(2),
+              )
             : 0,
         },
         performanceGraph: await this.getRealPerformanceGraph(mId),
@@ -610,13 +746,21 @@ export class MerchantDashboardService {
           userName: reviewUserMap.get(String(r.userId)) || 'Customer',
         })),
         topPerformingOffers: topPerformingOffers.map((o: any) => {
-          const stats = offerStatsMap.get(String(o._id)) || { claimed: 0, redeemed: 0, revenue: 0 };
-          const conversion = stats.claimed > 0 ? (stats.redeemed / stats.claimed) * 100 : 0;
+          const stats = offerStatsMap.get(String(o._id)) || {
+            claimed: 0,
+            redeemed: 0,
+            revenue: 0,
+          };
+          const conversion =
+            stats.claimed > 0 ? (stats.redeemed / stats.claimed) * 100 : 0;
           return {
             _id: String(o._id),
             title: o.title,
             productName: o.selectedProducts?.[0]?.productName || 'N/A',
-            status: o.status === 'under_review' || o.status === 'approved' ? 'active' : o.status,
+            status:
+              o.status === 'under_review' || o.status === 'approved'
+                ? 'active'
+                : o.status,
             category: o.category,
             imageUrl: o.imageUrl || '/images/default-offer.png',
             redeemed: stats.redeemed,
@@ -639,17 +783,23 @@ export class MerchantDashboardService {
     yearStart.setDate(1);
     yearStart.setHours(0, 0, 0, 0);
 
-    const orders = await this.orderModel.find({
-      merchantId,
-      placedAt: { $gte: yearStart },
-      status: { $in: [OrderStatus.ACCEPTED, OrderStatus.COMPLETED] }
-    }).select('placedAt amount').lean();
+    const orders = await this.orderModel
+      .find({
+        merchantId,
+        placedAt: { $gte: yearStart },
+        status: { $in: [OrderStatus.ACCEPTED, OrderStatus.COMPLETED] },
+      })
+      .select('placedAt amount')
+      .lean();
 
-    const vouchers = await this.voucherModel.find({
-      merchantId,
-      status: 'redeemed',
-      redeemedAt: { $gte: yearStart }
-    }).select('redeemedAt').lean();
+    const vouchers = await this.voucherModel
+      .find({
+        merchantId,
+        status: 'redeemed',
+        redeemedAt: { $gte: yearStart },
+      })
+      .select('redeemedAt')
+      .lean();
 
     const formatData = (type: string, count: number) => {
       const data = [];
@@ -663,10 +813,13 @@ export class MerchantDashboardService {
           start.setHours(0, 0, 0, 0);
           end = new Date(start);
           end.setDate(end.getDate() + 1);
-          label = start.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+          label = start.toLocaleDateString('en-GB', {
+            day: 'numeric',
+            month: 'short',
+          });
         } else if (type === 'monthly') {
           // week buckets
-          end.setDate(now.getDate() - (i * 7));
+          end.setDate(now.getDate() - i * 7);
           end.setHours(23, 59, 59, 999);
           start = new Date(end);
           start.setDate(start.getDate() - 6);
@@ -681,15 +834,22 @@ export class MerchantDashboardService {
           label = start.toLocaleDateString('en-GB', { month: 'short' });
         }
 
-        const bucketOrders = orders.filter((o: any) => o.placedAt >= start && o.placedAt < end);
-        const bucketVouchers = vouchers.filter((v: any) => v.redeemedAt >= start && v.redeemedAt < end);
+        const bucketOrders = orders.filter(
+          (o: any) => o.placedAt >= start && o.placedAt < end,
+        );
+        const bucketVouchers = vouchers.filter(
+          (v: any) => v.redeemedAt >= start && v.redeemedAt < end,
+        );
 
         const oCount = bucketOrders.length;
-        const rev = bucketOrders.reduce((sum, o: any) => sum + (o.amount || 0), 0);
+        const rev = bucketOrders.reduce(
+          (sum, o: any) => sum + (o.amount || 0),
+          0,
+        );
         const red = bucketVouchers.length;
 
         // Proxy conversion rate: redemptions / (orders + redemptions + 1) * 100 for a realistic looking figure
-        const conv = (oCount + red) > 0 ? (red / (oCount + red + 1)) * 100 : 0;
+        const conv = oCount + red > 0 ? (red / (oCount + red + 1)) * 100 : 0;
 
         data.push({
           label,
@@ -709,9 +869,15 @@ export class MerchantDashboardService {
     };
   }
 
-
-  async getMerchantDeviceBreakdown(merchantId: string, startDate?: Date, endDate?: Date) {
-    const query: any = { userId: merchantId, 'metadata.platform': { $exists: true, $ne: null } };
+  async getMerchantDeviceBreakdown(
+    merchantId: string,
+    startDate?: Date,
+    endDate?: Date,
+  ) {
+    const query: any = {
+      userId: merchantId,
+      'metadata.platform': { $exists: true, $ne: null },
+    };
     if (startDate || endDate) {
       query.placedAt = {};
       if (startDate) query.placedAt.$gte = startDate;
@@ -742,14 +908,21 @@ export class MerchantDashboardService {
     };
   }
 
-  async getMerchantTopRegions(merchantId: string, startDate?: Date, endDate?: Date) {
+  async getMerchantTopRegions(
+    merchantId: string,
+    startDate?: Date,
+    endDate?: Date,
+  ) {
     const merchantObjectId = Types.ObjectId.isValid(merchantId)
       ? new Types.ObjectId(merchantId)
       : null;
     const regionCounts = new Map<string, number>();
 
     if (merchantObjectId) {
-      const query: any = { merchantId: merchantObjectId, claimLocation: { $exists: true, $ne: '' } };
+      const query: any = {
+        merchantId: merchantObjectId,
+        claimLocation: { $exists: true, $ne: '' },
+      };
       if (startDate || endDate) {
         query.redeemedAt = {};
         if (startDate) query.redeemedAt.$gte = startDate;
@@ -797,7 +970,11 @@ export class MerchantDashboardService {
     };
   }
 
-  async getMerchantDemographics(merchantId: string, startDate?: Date, endDate?: Date) {
+  async getMerchantDemographics(
+    merchantId: string,
+    startDate?: Date,
+    endDate?: Date,
+  ) {
     const customers = await this.getMerchantCustomerUsers(merchantId);
     // Note: User demographics are relatively static, but we can filter by the customers active in date range if needed.
     // For now, we will return the demographics of all customers.
@@ -849,7 +1026,11 @@ export class MerchantDashboardService {
     };
   }
 
-  async getMerchantTopProducts(merchantId: string, startDate?: Date, endDate?: Date) {
+  async getMerchantTopProducts(
+    merchantId: string,
+    startDate?: Date,
+    endDate?: Date,
+  ) {
     const query: any = { merchantId };
     // We fetch all active products for the merchant
     query.isActive = true;
@@ -860,7 +1041,9 @@ export class MerchantDashboardService {
       .select('name category status createdAt views')
       .lean();
 
-    const activeOffers = await this.offerPromotionModel.find({ merchantId: merchantId }).lean();
+    const activeOffers = await this.offerPromotionModel
+      .find({ merchantId: merchantId })
+      .lean();
     const offerIds = activeOffers.map((o: any) => String(o._id));
 
     const voucherQuery: any = { offerId: { $in: offerIds } };
@@ -869,7 +1052,10 @@ export class MerchantDashboardService {
       if (startDate) voucherQuery.createdAt.$gte = startDate;
       if (endDate) voucherQuery.createdAt.$lte = endDate;
     }
-    const offerVouchers = await this.voucherModel.find(voucherQuery).select('offerId').lean();
+    const offerVouchers = await this.voucherModel
+      .find(voucherQuery)
+      .select('offerId')
+      .lean();
 
     const offerClaims = new Map();
     for (const v of offerVouchers) {
@@ -900,7 +1086,7 @@ export class MerchantDashboardService {
         likes: likes,
         views: product.views || 0,
         status: product.status === 'In Stock' ? 'Active' : 'Inactive',
-        createdAt: product.createdAt
+        createdAt: product.createdAt,
       };
     });
 
@@ -911,27 +1097,41 @@ export class MerchantDashboardService {
     };
   }
 
-  async getMerchantEventStats(merchantId: string, startDate?: Date, endDate?: Date) {
+  async getMerchantEventStats(
+    merchantId: string,
+    startDate?: Date,
+    endDate?: Date,
+  ) {
     const mId = new Types.ObjectId(merchantId);
 
     // Default to last 7 days if no dates provided (for isolated method calls)
     const start = startDate || new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
     const end = endDate || new Date();
 
-    const [totalOrders, uniqueCustomers, allTimeUserOrders] =
-      await Promise.all([
-        this.orderModel.countDocuments({ merchantId: mId, placedAt: { $gte: start, $lte: end } }),
+    const [totalOrders, uniqueCustomers, allTimeUserOrders] = await Promise.all(
+      [
+        this.orderModel.countDocuments({
+          merchantId: mId,
+          placedAt: { $gte: start, $lte: end },
+        }),
         this.orderModel.distinct('userId', {
           merchantId: mId,
           placedAt: { $gte: start, $lte: end },
         }),
         this.orderModel.aggregate([
           { $match: { merchantId: mId } },
-          { $group: { _id: '$userId', firstOrder: { $min: '$placedAt' }, totalOrders: { $sum: 1 } } }
-        ])
-      ]);
+          {
+            $group: {
+              _id: '$userId',
+              firstOrder: { $min: '$placedAt' },
+              totalOrders: { $sum: 1 },
+            },
+          },
+        ]),
+      ],
+    );
 
-    const activeUserIds = uniqueCustomers.map(id => String(id));
+    const activeUserIds = uniqueCustomers.map((id) => String(id));
 
     let newSignupsCount = 0;
     let returningCount = 0;
@@ -993,11 +1193,21 @@ export class MerchantDashboardService {
     const { keys, labels, counts } = this.buildDateRangeBuckets(start, end);
 
     const rows = await this.orderModel.aggregate([
-      { $match: { merchantId: mId, completedAt: { $gte: start, $lte: end }, status: OrderStatus.COMPLETED } },
+      {
+        $match: {
+          merchantId: mId,
+          completedAt: { $gte: start, $lte: end },
+          status: OrderStatus.COMPLETED,
+        },
+      },
       {
         $group: {
           _id: {
-            $dateToString: { format: '%Y-%m-%d', date: '$completedAt', timezone: '+05:30' },
+            $dateToString: {
+              format: '%Y-%m-%d',
+              date: '$completedAt',
+              timezone: '+05:30',
+            },
           },
           count: { $sum: 1 },
         },
@@ -1022,7 +1232,7 @@ export class MerchantDashboardService {
 
   async getRealtimeAnalytics(merchantId: string, start?: string, end?: string) {
     const cacheKey = `analytics:realtime:${merchantId}:${start || 'all'}:${end || 'all'}`;
-    const cached = await this.redisService.get(cacheKey) as any;
+    const cached = (await this.redisService.get(cacheKey)) as any;
     if (cached) return cached;
 
     const endDate = end ? new Date(end) : new Date();
@@ -1062,7 +1272,11 @@ export class MerchantDashboardService {
       if (start) offerQuery.endDate = { $gte: startDate };
       if (end) offerQuery.startDate = { $lte: endDate };
     }
-    const topOffers = await this.offerPromotionModel.find(offerQuery).sort({ createdAt: -1 }).limit(50).lean();
+    const topOffers = await this.offerPromotionModel
+      .find(offerQuery)
+      .sort({ createdAt: -1 })
+      .limit(50)
+      .lean();
 
     const displayOffers = topOffers;
 
@@ -1074,7 +1288,10 @@ export class MerchantDashboardService {
       if (start) voucherQuery.createdAt.$gte = startDate;
       if (end) voucherQuery.createdAt.$lte = endDate;
     }
-    const offerVouchers = await this.voucherModel.find(voucherQuery).select('offerId status createdAt redeemedAt').lean();
+    const offerVouchers = await this.voucherModel
+      .find(voucherQuery)
+      .select('offerId status createdAt redeemedAt')
+      .lean();
 
     const likeQuery: any = { offerPublicId: { $in: offerIds } };
     if (start || end) {
@@ -1082,17 +1299,32 @@ export class MerchantDashboardService {
       if (start) likeQuery.createdAt.$gte = startDate;
       if (end) likeQuery.createdAt.$lte = endDate;
     }
-    const offerLikes = await this.offerLikeHistoryModel.find(likeQuery).select('offerPublicId createdAt').lean();
+    const offerLikes = await this.offerLikeHistoryModel
+      .find(likeQuery)
+      .select('offerPublicId createdAt')
+      .lean();
 
     const offerStats = new Map();
     for (const offer of displayOffers) {
-      offerStats.set(String(offer._id), { 
-        claimed: 0, 
-        redeemed: 0, 
-        liked: 0, 
-        claimedTrend: { weekly: new Array(7).fill(0), monthly: new Array(4).fill(0), yearly: new Array(12).fill(0) }, 
-        redeemedTrend: { weekly: new Array(7).fill(0), monthly: new Array(4).fill(0), yearly: new Array(12).fill(0) }, 
-        likedTrend: { weekly: new Array(7).fill(0), monthly: new Array(4).fill(0), yearly: new Array(12).fill(0) } 
+      offerStats.set(String(offer._id), {
+        claimed: 0,
+        redeemed: 0,
+        liked: 0,
+        claimedTrend: {
+          weekly: new Array(7).fill(0),
+          monthly: new Array(4).fill(0),
+          yearly: new Array(12).fill(0),
+        },
+        redeemedTrend: {
+          weekly: new Array(7).fill(0),
+          monthly: new Array(4).fill(0),
+          yearly: new Array(12).fill(0),
+        },
+        likedTrend: {
+          weekly: new Array(7).fill(0),
+          monthly: new Array(4).fill(0),
+          yearly: new Array(12).fill(0),
+        },
       });
     }
 
@@ -1106,24 +1338,27 @@ export class MerchantDashboardService {
 
       if ((v as any).createdAt) {
         const date = new Date((v as any).createdAt);
-        
+
         // Yearly (Jan-Dec)
         if (date.getFullYear() === now.getFullYear()) {
           stats.claimedTrend.yearly[date.getMonth()] += 1;
         }
-        
+
         // Monthly (Wk 1 - Wk 4)
-        if (date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth()) {
+        if (
+          date.getFullYear() === now.getFullYear() &&
+          date.getMonth() === now.getMonth()
+        ) {
           const weekIdx = Math.min(3, Math.floor((date.getDate() - 1) / 7));
           stats.claimedTrend.monthly[weekIdx] += 1;
         }
-        
+
         // Weekly (Mon-Sun of current week)
         const nowMonday = new Date(now);
         const currentDayOfWeek = now.getDay() === 0 ? 6 : now.getDay() - 1;
         nowMonday.setDate(now.getDate() - currentDayOfWeek);
         nowMonday.setHours(0, 0, 0, 0);
-        
+
         if (date >= nowMonday) {
           const dateDayIndex = date.getDay() === 0 ? 6 : date.getDay() - 1;
           stats.claimedTrend.weekly[dateDayIndex] += 1;
@@ -1134,21 +1369,24 @@ export class MerchantDashboardService {
         stats.redeemed += 1;
         if (v.redeemedAt) {
           const date = new Date(v.redeemedAt);
-          
+
           if (date.getFullYear() === now.getFullYear()) {
             stats.redeemedTrend.yearly[date.getMonth()] += 1;
           }
-          
-          if (date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth()) {
+
+          if (
+            date.getFullYear() === now.getFullYear() &&
+            date.getMonth() === now.getMonth()
+          ) {
             const weekIdx = Math.min(3, Math.floor((date.getDate() - 1) / 7));
             stats.redeemedTrend.monthly[weekIdx] += 1;
           }
-          
+
           const nowMonday = new Date(now);
           const currentDayOfWeek = now.getDay() === 0 ? 6 : now.getDay() - 1;
           nowMonday.setDate(now.getDate() - currentDayOfWeek);
           nowMonday.setHours(0, 0, 0, 0);
-          
+
           if (date >= nowMonday) {
             const dateDayIndex = date.getDay() === 0 ? 6 : date.getDay() - 1;
             stats.redeemedTrend.weekly[dateDayIndex] += 1;
@@ -1165,24 +1403,27 @@ export class MerchantDashboardService {
 
       if ((like as any).createdAt) {
         const date = new Date((like as any).createdAt);
-        
+
         // Yearly (Jan-Dec)
         if (date.getFullYear() === now.getFullYear()) {
           stats.likedTrend.yearly[date.getMonth()] += 1;
         }
-        
+
         // Monthly (Wk 1 - Wk 4)
-        if (date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth()) {
+        if (
+          date.getFullYear() === now.getFullYear() &&
+          date.getMonth() === now.getMonth()
+        ) {
           const weekIdx = Math.min(3, Math.floor((date.getDate() - 1) / 7));
           stats.likedTrend.monthly[weekIdx] += 1;
         }
-        
+
         // Weekly (Mon-Sun of current week)
         const nowMonday = new Date(now);
         const currentDayOfWeek = now.getDay() === 0 ? 6 : now.getDay() - 1;
         nowMonday.setDate(now.getDate() - currentDayOfWeek);
         nowMonday.setHours(0, 0, 0, 0);
-        
+
         if (date >= nowMonday) {
           const dateDayIndex = date.getDay() === 0 ? 6 : date.getDay() - 1;
           stats.likedTrend.weekly[dateDayIndex] += 1;
@@ -1209,11 +1450,13 @@ export class MerchantDashboardService {
         createdAt: offer.createdAt,
         liked: { total: liked, trend: likedTrend },
         claimed: { total: claimed, trend: claimedTrend },
-        redeemed: { total: redeemed, trend: redeemedTrend }
+        redeemed: { total: redeemed, trend: redeemedTrend },
       };
     });
 
-    const mIdObj = Types.ObjectId.isValid(merchantId) ? new Types.ObjectId(merchantId) : null;
+    const mIdObj = Types.ObjectId.isValid(merchantId)
+      ? new Types.ObjectId(merchantId)
+      : null;
     let retentionList = [];
     if (mIdObj) {
       const orderQuery: any = { merchantId: mIdObj };
@@ -1230,33 +1473,56 @@ export class MerchantDashboardService {
             orders: { $sum: 1 },
             totalSpent: { $sum: '$amount' },
             firstVisit: { $min: '$placedAt' },
-            lastVisit: { $max: '$placedAt' }
-          }
+            lastVisit: { $max: '$placedAt' },
+          },
         },
         { $sort: { lastVisit: -1 } },
-        { $limit: 50 }
+        { $limit: 50 },
       ]);
 
       const userIds = customerStats.map((s: any) => s._id).filter(Boolean);
-      const users = await this.userModel.find({ _id: { $in: userIds } }).select('name').lean();
-      const userMap = new Map(users.map((u: any) => [String(u._id), u.name || 'Anonymous']));
+      const users = await this.userModel
+        .find({ _id: { $in: userIds } })
+        .select('name')
+        .lean();
+      const userMap = new Map(
+        users.map((u: any) => [String(u._id), u.name || 'Anonymous']),
+      );
 
       // Fetch lifetime stats for these specific users to correctly determine "Returning" vs "New"
       const lifetimeStats = await this.orderModel.aggregate([
         { $match: { merchantId: mIdObj, userId: { $in: userIds } } },
-        { $group: { _id: '$userId', totalOrders: { $sum: 1 }, lifetimeFirstVisit: { $min: '$placedAt' } } }
+        {
+          $group: {
+            _id: '$userId',
+            totalOrders: { $sum: 1 },
+            lifetimeFirstVisit: { $min: '$placedAt' },
+          },
+        },
       ]);
-      const lifetimeMap = new Map(lifetimeStats.map((s: any) => [String(s._id), { totalOrders: s.totalOrders, firstVisit: s.lifetimeFirstVisit }]));
+      const lifetimeMap = new Map(
+        lifetimeStats.map((s: any) => [
+          String(s._id),
+          { totalOrders: s.totalOrders, firstVisit: s.lifetimeFirstVisit },
+        ]),
+      );
 
       const nowTime = new Date().getTime();
 
       retentionList = customerStats.map((s: any, idx) => {
         const uId = String(s._id);
-        const lifetime = lifetimeMap.get(uId) || { totalOrders: s.orders, firstVisit: s.firstVisit };
-        const isNew = lifetime.firstVisit && (nowTime - new Date(lifetime.firstVisit).getTime()) < 7 * 24 * 60 * 60 * 1000;
+        const lifetime = lifetimeMap.get(uId) || {
+          totalOrders: s.orders,
+          firstVisit: s.firstVisit,
+        };
+        const isNew =
+          lifetime.firstVisit &&
+          nowTime - new Date(lifetime.firstVisit).getTime() <
+            7 * 24 * 60 * 60 * 1000;
 
         // Unify logic: Returning = >1 lifetime orders. If 1 order but it's old, mark At Risk.
-        const status = lifetime.totalOrders > 1 ? 'Returning' : (isNew ? 'New' : 'At Risk');
+        const status =
+          lifetime.totalOrders > 1 ? 'Returning' : isNew ? 'New' : 'At Risk';
 
         return {
           id: idx + 1,
@@ -1266,7 +1532,7 @@ export class MerchantDashboardService {
           lastVisit: s.lastVisit,
           orders: lifetime.totalOrders, // Show lifetime orders in the table to avoid confusion
           totalSpent: s.totalSpent,
-          status
+          status,
         };
       });
     }

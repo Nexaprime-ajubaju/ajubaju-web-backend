@@ -48,8 +48,10 @@ export class BestSellingStrategy implements RecommendationStrategy {
 
       let candidates = await this.candidateRetriever.findBestSellingMerchants(
         limit * 2,
-        context.latitude && context.longitude ? { latitude: context.latitude, longitude: context.longitude } : undefined,
-        20 // maxDistanceKm
+        context.latitude && context.longitude
+          ? { latitude: context.latitude, longitude: context.longitude }
+          : undefined,
+        20, // maxDistanceKm
       );
 
       if (candidates.length === 0) {
@@ -58,8 +60,10 @@ export class BestSellingStrategy implements RecommendationStrategy {
         );
         candidates = await this.candidateRetriever.findPopularMerchants(
           limit * 2,
-          context.latitude && context.longitude ? { latitude: context.latitude, longitude: context.longitude } : undefined,
-          20 // maxDistanceKm
+          context.latitude && context.longitude
+            ? { latitude: context.latitude, longitude: context.longitude }
+            : undefined,
+          20, // maxDistanceKm
         );
         confidence = 0.72;
         reason = RecommendationReason.HIGH_CLICKS;

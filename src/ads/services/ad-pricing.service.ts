@@ -17,13 +17,13 @@ const BASE_PRICES: Record<number, number> = {
  * Each entry: [minPopulation, multiplier]
  */
 const POPULATION_TIERS: [number, number][] = [
-  [0,          1.0], // Tier 1: < 50,000
-  [50000,      1.5], // Tier 2: 50k – 1L
-  [100000,     2.0], // Tier 3: 1L – 2L
-  [200000,     3.0], // Tier 4: 2L – 5L
-  [500000,     4.0], // Tier 5: 5L – 10L
-  [1000000,    6.0], // Tier 6: 10L – 50L
-  [5000000,    8.0], // Tier 7: >= 50L
+  [0, 1.0], // Tier 1: < 50,000
+  [50000, 1.5], // Tier 2: 50k – 1L
+  [100000, 2.0], // Tier 3: 1L – 2L
+  [200000, 3.0], // Tier 4: 2L – 5L
+  [500000, 4.0], // Tier 5: 5L – 10L
+  [1000000, 6.0], // Tier 6: 10L – 50L
+  [5000000, 8.0], // Tier 7: >= 50L
 ];
 
 @Injectable()
@@ -52,7 +52,11 @@ export class AdPricingService {
    * Returns a rates object for all 3 templates for a given population.
    * Useful for returning pricing info in the search API.
    */
-  getAllTemplateRates(population: number): { t1: number; t2: number; t3: number } {
+  getAllTemplateRates(population: number): {
+    t1: number;
+    t2: number;
+    t3: number;
+  } {
     return {
       t1: this.getAdDailyRate(population, 1),
       t2: this.getAdDailyRate(population, 2),

@@ -16,7 +16,10 @@ import {
   RecommendationEvent,
   RecommendationEventDocument,
 } from '../../analytics/schemas/recommendation-event.schema';
-import { OfferPromotion, OfferPromotionDocument } from '../../offers/schemas/offer-promotion.schema';
+import {
+  OfferPromotion,
+  OfferPromotionDocument,
+} from '../../offers/schemas/offer-promotion.schema';
 
 @Injectable()
 export class RepeatPurchaseStrategy implements RecommendationStrategy {
@@ -51,7 +54,8 @@ export class RepeatPurchaseStrategy implements RecommendationStrategy {
   constructor(
     @InjectModel(RecommendationEvent.name)
     private readonly eventModel: Model<RecommendationEventDocument>,
-    @InjectModel(OfferPromotion.name) private readonly offerModel: Model<OfferPromotionDocument>,
+    @InjectModel(OfferPromotion.name)
+    private readonly offerModel: Model<OfferPromotionDocument>,
     private readonly candidateRetriever: CandidateRetrieverService,
     private readonly rankingService: RankingService,
     private readonly postProcessor: PostProcessorService,
@@ -142,7 +146,9 @@ export class RepeatPurchaseStrategy implements RecommendationStrategy {
       // We need category info to adjust the score
       const productsMeta = await this.offerModel
         .find({ _id: { $in: productIds } })
-        .select('_id title originalPrice offerPrice selectedProducts category imageUrl merchantId')
+        .select(
+          '_id title originalPrice offerPrice selectedProducts category imageUrl merchantId',
+        )
         .lean();
 
       const finalScores: Record<string, number> = {};
@@ -193,8 +199,10 @@ export class RepeatPurchaseStrategy implements RecommendationStrategy {
       const candidates = await this.candidateRetriever.findByProductIds(
         sortedProductIds,
         limit * 2,
-        context.latitude && context.longitude ? { latitude: context.latitude, longitude: context.longitude } : undefined,
-        20 // maxDistanceKm
+        context.latitude && context.longitude
+          ? { latitude: context.latitude, longitude: context.longitude }
+          : undefined,
+        20, // maxDistanceKm
       );
 
       if (candidates.length === 0) return emptyResult;

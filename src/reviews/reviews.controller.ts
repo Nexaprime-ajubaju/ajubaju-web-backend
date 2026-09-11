@@ -82,7 +82,8 @@ export class ReviewsController {
     const cached = await this.redisService.get<any>(cacheKey);
     if (cached) return cached;
 
-    const result = await this.reviewsService.getPublicMerchantReviewStats(merchantId);
+    const result =
+      await this.reviewsService.getPublicMerchantReviewStats(merchantId);
     if (result && result.success) {
       await this.redisService.set(cacheKey, result, 60);
     }
@@ -97,11 +98,7 @@ export class ReviewsController {
     @Body('status') status: ReviewStatus,
   ) {
     const merchantId = user?.id || user?._id;
-    return this.reviewsService.updateReviewStatus(
-      merchantId,
-      reviewId,
-      status,
-    );
+    return this.reviewsService.updateReviewStatus(merchantId, reviewId, status);
   }
 
   // ==================== PLATFORM REVIEWS ====================
@@ -115,12 +112,17 @@ export class ReviewsController {
     @Headers('user-agent') userAgent?: string,
   ) {
     let finalSource = source;
-    
+
     // If source is not provided, or if it's 'website' but userAgent implies app,
     // we can override it to 'app'.
     if (!finalSource || finalSource === 'website') {
       const ua = (userAgent || '').toLowerCase();
-      if (ua.includes('dart') || ua.includes('android') || ua.includes('iphone') || ua.includes('okhttp')) {
+      if (
+        ua.includes('dart') ||
+        ua.includes('android') ||
+        ua.includes('iphone') ||
+        ua.includes('okhttp')
+      ) {
         finalSource = 'app';
       }
     }

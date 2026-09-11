@@ -62,56 +62,58 @@ export class SystemSettingsService {
       );
 
       if (updateDto.applyTrialChangesToExistingMerchants) {
-        const totalDays = (settings.merchantTrialDays || 0);
-        const totalHours = (settings.merchantTrialHours || 0);
-        const totalMinutes = (settings.merchantTrialMinutes || 0);
+        const totalDays = settings.merchantTrialDays || 0;
+        const totalHours = settings.merchantTrialHours || 0;
+        const totalMinutes = settings.merchantTrialMinutes || 0;
         const hasTrial = totalDays > 0 || totalHours > 0 || totalMinutes > 0;
 
-        const merchants = await this.merchantModel.find({
-           $or: [
-             { 'subscription.status': 'TRIAL' },
-             { subscription: { $exists: false } },
-             { 'subscription.planId': 'Free Tier' }
-           ]
-        }).session(session);
+        const merchants = await this.merchantModel
+          .find({
+            $or: [
+              { 'subscription.status': 'TRIAL' },
+              { subscription: { $exists: false } },
+              { 'subscription.planId': 'Free Tier' },
+            ],
+          })
+          .session(session);
 
         for (const merchant of merchants) {
-            if (!hasTrial) {
-              // No trial duration set — move to Free Tier immediately
-              if (!merchant.subscription) merchant.subscription = {} as any;
-              merchant.subscription.planId = 'Free Tier';
-              merchant.subscription.status = 'ACTIVE';
-              merchant.subscription.trialEndsAt = null;
+          if (!hasTrial) {
+            // No trial duration set — move to Free Tier immediately
+            if (!merchant.subscription) merchant.subscription = {} as any;
+            merchant.subscription.planId = 'Free Tier';
+            merchant.subscription.status = 'ACTIVE';
+            merchant.subscription.trialEndsAt = null;
+          } else {
+            // Reset trial from NOW so the merchant gets the FULL new duration
+            const newTrialEndsAt = moment()
+              .add(totalDays, 'days')
+              .add(totalHours, 'hours')
+              .add(totalMinutes, 'minutes')
+              .toDate();
+
+            if (!merchant.subscription) {
+              merchant.subscription = {
+                planId: 'Premium',
+                status: 'TRIAL',
+                startedAt: new Date(),
+                expiresAt: null,
+                trialEndsAt: newTrialEndsAt,
+                billingCycle: 'monthly',
+                autoRenew: false,
+                assignedBy: 'system',
+                assignedAt: new Date(),
+              };
             } else {
-              // Reset trial from NOW so the merchant gets the FULL new duration
-              const newTrialEndsAt = moment()
-                .add(totalDays, 'days')
-                .add(totalHours, 'hours')
-                .add(totalMinutes, 'minutes')
-                .toDate();
-
-              if (!merchant.subscription) {
-                merchant.subscription = {
-                  planId: 'Premium',
-                  status: 'TRIAL',
-                  startedAt: new Date(),
-                  expiresAt: null,
-                  trialEndsAt: newTrialEndsAt,
-                  billingCycle: 'monthly',
-                  autoRenew: false,
-                  assignedBy: 'system',
-                  assignedAt: new Date()
-                };
-              } else {
-                merchant.subscription.planId = 'Premium';
-                merchant.subscription.status = 'TRIAL';
-                merchant.subscription.startedAt = new Date();
-                merchant.subscription.trialEndsAt = newTrialEndsAt;
-              }
+              merchant.subscription.planId = 'Premium';
+              merchant.subscription.status = 'TRIAL';
+              merchant.subscription.startedAt = new Date();
+              merchant.subscription.trialEndsAt = newTrialEndsAt;
             }
+          }
 
-            merchant.markModified('subscription');
-            await merchant.save({ session });
+          merchant.markModified('subscription');
+          await merchant.save({ session });
         }
       }
 

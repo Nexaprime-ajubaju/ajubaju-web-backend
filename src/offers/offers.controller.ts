@@ -31,7 +31,7 @@ export class OffersController {
     private readonly bannersService: BannersService,
     private readonly kafkaService: KafkaService,
     private readonly redisService: RedisService,
-  ) { }
+  ) {}
 
   @Post('request')
   @UseGuards(JwtAuthGuard)
@@ -164,7 +164,8 @@ export class OffersController {
   ) {
     const cacheKey = `ads:nearby:${merchantId || ''}:${lat || ''}:${lng || ''}:${radiusKm || ''}:${location || ''}:${q || ''}:${category || ''}:${sort || ''}:${topDiscount || ''}:${activeNow || ''}:${maxPrice || ''}:${page || '1'}:${limit || '20'}`;
     const cached = await this.redisService.get<any>(cacheKey);
-    if (cached) return { success: true, ...cached, timestamp: new Date().toISOString() };
+    if (cached)
+      return { success: true, ...cached, timestamp: new Date().toISOString() };
 
     const requestPayload = {
       merchantId,
@@ -222,7 +223,7 @@ export class OffersController {
         },
       };
     }
-    
+
     try {
       await this.redisService.set(cacheKey, data, 60);
     } catch (e) {
@@ -282,7 +283,9 @@ export class OffersController {
       if (authHeader && authHeader.startsWith('Bearer ')) {
         const token = authHeader.split(' ')[1];
         if (token) {
-          const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString());
+          const payload = JSON.parse(
+            Buffer.from(token.split('.')[1], 'base64').toString(),
+          );
           userId = payload.sub || payload.id || payload._id;
         }
       }

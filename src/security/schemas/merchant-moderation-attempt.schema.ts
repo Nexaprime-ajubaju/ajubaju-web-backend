@@ -1,9 +1,13 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document } from 'mongoose';
 
-export type MerchantModerationAttemptDocument = MerchantModerationAttempt & Document;
+export type MerchantModerationAttemptDocument = MerchantModerationAttempt &
+  Document;
 
-@Schema({ timestamps: { createdAt: true, updatedAt: false }, collection: 'merchant_moderation_attempts' })
+@Schema({
+  timestamps: { createdAt: true, updatedAt: false },
+  collection: 'merchant_moderation_attempts',
+})
 export class MerchantModerationAttempt {
   @Prop({ required: true, index: true })
   merchantId: string;
@@ -22,5 +26,7 @@ export class MerchantModerationAttempt {
   createdAt: Date;
 }
 
-export const MerchantModerationAttemptSchema = SchemaFactory.createForClass(MerchantModerationAttempt);
+export const MerchantModerationAttemptSchema = SchemaFactory.createForClass(
+  MerchantModerationAttempt,
+);
 MerchantModerationAttemptSchema.index({ merchantId: 1, createdAt: 1 });

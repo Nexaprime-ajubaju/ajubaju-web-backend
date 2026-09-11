@@ -8,7 +8,10 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { UserDocument } from '../users/schemas/user.schema';
 import { Review, ReviewDocument, ReviewStatus } from './schemas/review.schema';
-import { PlatformReview, PlatformReviewDocument } from './schemas/platform-review.schema';
+import {
+  PlatformReview,
+  PlatformReviewDocument,
+} from './schemas/platform-review.schema';
 import {
   Voucher,
   VoucherDocument,
@@ -29,10 +32,14 @@ export class ReviewsService {
     @Optional() private readonly redisService?: RedisService,
   ) {}
 
-  private async invalidateMerchantStatsCache(merchantId: string | Types.ObjectId) {
+  private async invalidateMerchantStatsCache(
+    merchantId: string | Types.ObjectId,
+  ) {
     if (this.redisService && merchantId) {
       try {
-        await this.redisService.del(`golo:reviews:stats:public:${merchantId.toString()}`);
+        await this.redisService.del(
+          `golo:reviews:stats:public:${merchantId.toString()}`,
+        );
       } catch (e) {
         // Ignore cache deletion error
       }
@@ -364,7 +371,7 @@ export class ReviewsService {
 
   async submitPlatformReview(
     userId: string | undefined,
-    payload: { rating: number; content: string; source?: string }
+    payload: { rating: number; content: string; source?: string },
   ) {
     const rating = Number(payload?.rating);
     const content = String(payload?.content || '').trim();
@@ -417,7 +424,8 @@ export class ReviewsService {
       },
     ]);
 
-    const averageRating = aggregation.length > 0 ? Number(aggregation[0].avgRating.toFixed(1)) : 0;
+    const averageRating =
+      aggregation.length > 0 ? Number(aggregation[0].avgRating.toFixed(1)) : 0;
 
     return {
       success: true,

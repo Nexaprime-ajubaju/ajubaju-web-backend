@@ -69,7 +69,7 @@ const logger = new Logger('MongoDB');
         abortEarly: true,
       },
     }),
-    
+
     // Schedule Module for Cron Jobs
     ScheduleModule.forRoot(),
 

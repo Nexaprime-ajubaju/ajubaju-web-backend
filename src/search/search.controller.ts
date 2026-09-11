@@ -13,7 +13,10 @@ export class SearchController {
     @Query('limit') limit: string = '15',
   ) {
     if (!query) {
-      return { success: true, data: { merchants: [], products: [], offers: [] } };
+      return {
+        success: true,
+        data: { merchants: [], products: [], offers: [] },
+      };
     }
 
     const pageNum = Math.max(1, parseInt(page, 10) || 1);

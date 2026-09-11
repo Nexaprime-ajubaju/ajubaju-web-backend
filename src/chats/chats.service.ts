@@ -29,7 +29,7 @@ export class ChatsService {
     @InjectModel(Ad.name) private adModel: Model<AdDocument>,
     @InjectModel(User.name) private userModel: Model<UserDocument>,
     private usersService: UsersService,
-  ) { }
+  ) {}
 
   private toConversationId(id: any): string {
     return id instanceof Types.ObjectId ? id.toString() : String(id);
@@ -140,20 +140,20 @@ export class ChatsService {
         participants: conversation.participants,
         otherUser: otherUser
           ? {
-            id: String(otherUser._id),
-            name: otherUser.name,
-            email: otherUser.email,
-            avatar: otherUser.profile?.avatar || null,
-          }
+              id: String(otherUser._id),
+              name: otherUser.name,
+              email: otherUser.email,
+              avatar: otherUser.profile?.avatar || null,
+            }
           : null,
         ad: ad
           ? {
-            id: ad.adId || this.toConversationId(ad._id),
-            title: ad.title,
-            image: ad.images?.[0] || null,
-            price: ad.price,
-            location: ad.location,
-          }
+              id: ad.adId || this.toConversationId(ad._id),
+              title: ad.title,
+              image: ad.images?.[0] || null,
+              price: ad.price,
+              location: ad.location,
+            }
           : null,
         lastMessageText: conversation.lastMessageText || '',
         lastMessageAdId:
@@ -220,10 +220,10 @@ export class ChatsService {
         senderId: message.senderId,
         sender: senderMap.get(message.senderId)
           ? {
-            id: message.senderId,
-            name: senderMap.get(message.senderId)?.name,
-            avatar: senderMap.get(message.senderId)?.profile?.avatar || null,
-          }
+              id: message.senderId,
+              name: senderMap.get(message.senderId)?.name,
+              avatar: senderMap.get(message.senderId)?.profile?.avatar || null,
+            }
           : null,
         text: message.text,
         attachments: message.attachments || [],
@@ -253,19 +253,19 @@ export class ChatsService {
     const text = dto.text?.trim();
     const attachments = Array.isArray(dto.attachments)
       ? dto.attachments
-        .filter(
-          (attachment) =>
-            attachment?.url && attachment?.name && attachment?.mimeType,
-        )
-        .map((attachment) => ({
-          name: attachment.name,
-          mimeType: attachment.mimeType,
-          url: attachment.url,
-          type:
-            attachment.type ||
-            (attachment.mimeType.startsWith('image/') ? 'image' : 'file'),
-          size: attachment.size,
-        }))
+          .filter(
+            (attachment) =>
+              attachment?.url && attachment?.name && attachment?.mimeType,
+          )
+          .map((attachment) => ({
+            name: attachment.name,
+            mimeType: attachment.mimeType,
+            url: attachment.url,
+            type:
+              attachment.type ||
+              (attachment.mimeType.startsWith('image/') ? 'image' : 'file'),
+            size: attachment.size,
+          }))
       : [];
 
     if (!text && attachments.length === 0) {
@@ -307,18 +307,24 @@ export class ChatsService {
     const sender = await this.userModel.findById(userId).exec();
 
     // Notify recipient
-    const recipientId = conversation.participants.find(id => id !== String(userId));
+    const recipientId = conversation.participants.find(
+      (id) => id !== String(userId),
+    );
     if (recipientId) {
-      this.usersService.createNotificationAndPush(
-        recipientId,
-        String(userId),
-        sender?.name || 'A user',
-        resolvedAdId || '',
-        resolvedAdTitle || '',
-        'new_message',
-        `${sender?.name || 'Someone'} sent you a message: ${text || '📷 Photo'}`,
-        'New Message'
-      ).catch(err => this.logger.warn(`Failed to send chat notification: ${err.message}`));
+      this.usersService
+        .createNotificationAndPush(
+          recipientId,
+          String(userId),
+          sender?.name || 'A user',
+          resolvedAdId || '',
+          resolvedAdTitle || '',
+          'new_message',
+          `${sender?.name || 'Someone'} sent you a message: ${text || '📷 Photo'}`,
+          'New Message',
+        )
+        .catch((err) =>
+          this.logger.warn(`Failed to send chat notification: ${err.message}`),
+        );
     }
 
     return {
@@ -332,10 +338,10 @@ export class ChatsService {
       senderId: message.senderId,
       sender: sender
         ? {
-          id: String(sender._id),
-          name: sender.name,
-          avatar: sender.profile?.avatar || null,
-        }
+            id: String(sender._id),
+            name: sender.name,
+            avatar: sender.profile?.avatar || null,
+          }
         : null,
       text: message.text,
       attachments: message.attachments || [],
@@ -453,20 +459,20 @@ export class ChatsService {
       participants: conversation.participants,
       otherUser: otherUser
         ? {
-          id: String(otherUser._id),
-          name: otherUser.name,
-          email: otherUser.email,
-          avatar: otherUser.profile?.avatar || null,
-        }
+            id: String(otherUser._id),
+            name: otherUser.name,
+            email: otherUser.email,
+            avatar: otherUser.profile?.avatar || null,
+          }
         : null,
       ad: ad
         ? {
-          id: ad.adId || this.toConversationId(ad._id),
-          title: ad.title,
-          image: ad.images?.[0] || null,
-          price: ad.price,
-          location: ad.location,
-        }
+            id: ad.adId || this.toConversationId(ad._id),
+            title: ad.title,
+            image: ad.images?.[0] || null,
+            price: ad.price,
+            location: ad.location,
+          }
         : null,
       lastMessageText: conversation.lastMessageText || '',
       lastMessageAdId:

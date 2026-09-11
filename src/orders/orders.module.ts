@@ -1,7 +1,10 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { User, UserSchema } from '../users/schemas/user.schema';
-import { Notification, NotificationSchema } from '../users/schemas/notification.schema';
+import {
+  Notification,
+  NotificationSchema,
+} from '../users/schemas/notification.schema';
 import { OrdersKafkaController } from './orders.kafka.controller';
 import { OrdersController } from './orders.controller';
 import { OrdersService } from './orders.service';

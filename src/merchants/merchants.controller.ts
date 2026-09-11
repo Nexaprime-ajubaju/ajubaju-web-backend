@@ -130,10 +130,7 @@ export class MerchantsController {
    * DELETE /merchant/account
    */
   @Delete('account')
-  async deleteAccount(
-    @CurrentUser() user: any,
-    @Body() dto: DeleteAccountDto,
-  ) {
+  async deleteAccount(@CurrentUser() user: any, @Body() dto: DeleteAccountDto) {
     if (!user?.id && !user?._id) {
       throw new BadRequestException('User authentication required');
     }

@@ -24,7 +24,12 @@ export class MerchantBannerCredits {
   updatedAt: Date;
 }
 
-export const MerchantBannerCreditsSchema = SchemaFactory.createForClass(MerchantBannerCredits);
+export const MerchantBannerCreditsSchema = SchemaFactory.createForClass(
+  MerchantBannerCredits,
+);
 
 // A merchant has one credit record per month
-MerchantBannerCreditsSchema.index({ merchantId: 1, month: 1 }, { unique: true });
+MerchantBannerCreditsSchema.index(
+  { merchantId: 1, month: 1 },
+  { unique: true },
+);

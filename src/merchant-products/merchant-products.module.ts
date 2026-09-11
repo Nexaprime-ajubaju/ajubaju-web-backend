@@ -15,7 +15,10 @@ import { SubscriptionsModule } from '../subscriptions/subscriptions.module';
 import { Merchant, MerchantSchema } from '../users/schemas/merchant.schema';
 import { TransactionModule } from '../common/services/transaction.module';
 
-import { OfferPromotion, OfferPromotionSchema } from '../offers/schemas/offer-promotion.schema';
+import {
+  OfferPromotion,
+  OfferPromotionSchema,
+} from '../offers/schemas/offer-promotion.schema';
 
 @Module({
   imports: [

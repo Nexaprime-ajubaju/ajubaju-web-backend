@@ -14,20 +14,35 @@ export class TextModerationService implements OnModuleInit {
       if (fs.existsSync(filePath)) {
         const rawData = fs.readFileSync(filePath, 'utf8');
         this.badWords = JSON.parse(rawData);
-        this.logger.log(`Loaded ${this.badWords.length} bad words into local dictionary.`);
+        this.logger.log(
+          `Loaded ${this.badWords.length} bad words into local dictionary.`,
+        );
       } else {
         // Fallback search path in dev context (src vs dist)
-        const devPath = path.join(process.cwd(), 'src', 'moderation', 'data', 'bad-words.json');
+        const devPath = path.join(
+          process.cwd(),
+          'src',
+          'moderation',
+          'data',
+          'bad-words.json',
+        );
         if (fs.existsSync(devPath)) {
           const rawData = fs.readFileSync(devPath, 'utf8');
           this.badWords = JSON.parse(rawData);
-          this.logger.log(`Loaded ${this.badWords.length} bad words from dev path.`);
+          this.logger.log(
+            `Loaded ${this.badWords.length} bad words from dev path.`,
+          );
         } else {
-          this.logger.warn('bad-words.json not found. Local dictionary checks will be bypassed.');
+          this.logger.warn(
+            'bad-words.json not found. Local dictionary checks will be bypassed.',
+          );
         }
       }
     } catch (err) {
-      this.logger.error('Failed to initialize local bad words dictionary:', err.message);
+      this.logger.error(
+        'Failed to initialize local bad words dictionary:',
+        err.message,
+      );
     }
   }
 
@@ -40,7 +55,10 @@ export class TextModerationService implements OnModuleInit {
       .trim();
   }
 
-  checkLocalDictionary(text: string): { isSafe: boolean; matchedWord?: string } {
+  checkLocalDictionary(text: string): {
+    isSafe: boolean;
+    matchedWord?: string;
+  } {
     const normalized = this.cleanAndNormalize(text);
     if (!normalized) return { isSafe: true };
 
@@ -64,22 +82,28 @@ export class TextModerationService implements OnModuleInit {
     return { isSafe: true };
   }
 
-  async checkGeminiAI(texts: string[]): Promise<{ isSafe: boolean; reason?: string }> {
+  async checkGeminiAI(
+    texts: string[],
+  ): Promise<{ isSafe: boolean; reason?: string }> {
     const apiKey = process.env.GEMINI_API_KEY;
     const mode = process.env.TEXT_MODERATION || 'enable';
 
     if (mode === 'disable') {
-      this.logger.log('Gemini text moderation bypassed (TEXT_MODERATION=disable).');
+      this.logger.log(
+        'Gemini text moderation bypassed (TEXT_MODERATION=disable).',
+      );
       return { isSafe: true };
     }
 
     if (!apiKey) {
-      this.logger.warn('GEMINI_API_KEY is not defined in environment. Bypassing Gemini AI fallback.');
+      this.logger.warn(
+        'GEMINI_API_KEY is not defined in environment. Bypassing Gemini AI fallback.',
+      );
       return { isSafe: true };
     }
 
     try {
-      const filteredTexts = texts.map(t => t.trim()).filter(Boolean);
+      const filteredTexts = texts.map((t) => t.trim()).filter(Boolean);
       if (filteredTexts.length === 0) return { isSafe: true };
 
       const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
@@ -91,19 +115,20 @@ export class TextModerationService implements OnModuleInit {
             {
               parts: [
                 {
-                  text: `You are a text content moderation AI. Analyze the following list of text fields from an ad submission and determine if any of them contain inappropriate, offensive, hateful, sexual, violent, fraudulent, or policy-violating content. Respond ONLY with a JSON object in this format: { "isSafe": boolean, "reason": "brief explanation of why it is unsafe or null" }.\n\nText fields to analyze:\n${JSON.stringify(filteredTexts, null, 2)}`
-                }
-              ]
-            }
+                  text: `You are a text content moderation AI. Analyze the following list of text fields from an ad submission and determine if any of them contain inappropriate, offensive, hateful, sexual, violent, fraudulent, or policy-violating content. Respond ONLY with a JSON object in this format: { "isSafe": boolean, "reason": "brief explanation of why it is unsafe or null" }.\n\nText fields to analyze:\n${JSON.stringify(filteredTexts, null, 2)}`,
+                },
+              ],
+            },
           ],
           generationConfig: {
-            responseMimeType: 'application/json'
-          }
+            responseMimeType: 'application/json',
+          },
         },
-        { timeout: 5000 }
+        { timeout: 5000 },
       );
 
-      const responseText = response.data?.candidates?.[0]?.content?.parts?.[0]?.text;
+      const responseText =
+        response.data?.candidates?.[0]?.content?.parts?.[0]?.text;
       if (!responseText) {
         throw new Error('Empty response from Gemini API');
       }
@@ -111,10 +136,12 @@ export class TextModerationService implements OnModuleInit {
       const result = JSON.parse(responseText.trim());
       return {
         isSafe: result.isSafe !== false,
-        reason: result.reason || undefined
+        reason: result.reason || undefined,
       };
     } catch (err) {
-      this.logger.error(`Gemini AI moderation failed: ${err.message}. Defaulting to safe.`);
+      this.logger.error(
+        `Gemini AI moderation failed: ${err.message}. Defaulting to safe.`,
+      );
       return { isSafe: true };
     }
   }
@@ -129,7 +156,12 @@ export class TextModerationService implements OnModuleInit {
         if (/^[0-9a-fA-F]{24}$/.test(trimmed)) return; // ObjectId
         if (/^https?:\/\//i.test(trimmed)) return; // URL
         if (/^\+?[0-9]{7,15}$/.test(trimmed)) return; // Phone number
-        if (/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(trimmed)) return; // UUID
+        if (
+          /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(
+            trimmed,
+          )
+        )
+          return; // UUID
         strings.push(trimmed);
       } else if (Array.isArray(item)) {
         for (const val of item) {
@@ -137,7 +169,24 @@ export class TextModerationService implements OnModuleInit {
         }
       } else if (typeof item === 'object') {
         for (const key of Object.keys(item)) {
-          if (['userId', 'userType', 'category', 'subCategory', 'location', 'city', 'state', 'pincode', 'status', 'paymentStatus', 'id', '_id', 'images', 'videos'].includes(key)) {
+          if (
+            [
+              'userId',
+              'userType',
+              'category',
+              'subCategory',
+              'location',
+              'city',
+              'state',
+              'pincode',
+              'status',
+              'paymentStatus',
+              'id',
+              '_id',
+              'images',
+              'videos',
+            ].includes(key)
+          ) {
             continue;
           }
           walk(item[key]);
@@ -148,7 +197,12 @@ export class TextModerationService implements OnModuleInit {
     return strings;
   }
 
-  async moderatePayload(payload: any): Promise<{ isSafe: boolean; failedContent?: string; matchedWord?: string; reason?: string }> {
+  async moderatePayload(payload: any): Promise<{
+    isSafe: boolean;
+    failedContent?: string;
+    matchedWord?: string;
+    reason?: string;
+  }> {
     const texts = this.extractAllStrings(payload);
     if (texts.length === 0) return { isSafe: true };
 
@@ -156,11 +210,13 @@ export class TextModerationService implements OnModuleInit {
     for (const text of texts) {
       const localCheck = this.checkLocalDictionary(text);
       if (!localCheck.isSafe) {
-        this.logger.warn(`Local dictionary moderation rejected content: "${text}" (Matched: "${localCheck.matchedWord}")`);
+        this.logger.warn(
+          `Local dictionary moderation rejected content: "${text}" (Matched: "${localCheck.matchedWord}")`,
+        );
         return {
           isSafe: false,
           failedContent: text,
-          matchedWord: localCheck.matchedWord
+          matchedWord: localCheck.matchedWord,
         };
       }
     }
@@ -168,10 +224,12 @@ export class TextModerationService implements OnModuleInit {
     // 2. Fallback to Gemini AI for nuanced checks in a single call
     const aiCheck = await this.checkGeminiAI(texts);
     if (!aiCheck.isSafe) {
-      this.logger.warn(`Gemini AI moderation rejected payload. (Reason: "${aiCheck.reason}")`);
+      this.logger.warn(
+        `Gemini AI moderation rejected payload. (Reason: "${aiCheck.reason}")`,
+      );
       return {
         isSafe: false,
-        reason: aiCheck.reason
+        reason: aiCheck.reason,
       };
     }
 

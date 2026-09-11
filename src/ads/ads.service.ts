@@ -596,16 +596,32 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
     }
 
     // --- Image Moderation Check ---
-    if (this.moderationService && createAdDto.images && createAdDto.images.length > 0) {
+    if (
+      this.moderationService &&
+      createAdDto.images &&
+      createAdDto.images.length > 0
+    ) {
       const isMulti = createAdDto.images.length > 1;
       const context = isMulti ? 'multi' : 'single';
 
       for (const imageUrl of createAdDto.images) {
-        const isSafe = await this.moderationService.isImageSafe(imageUrl, createAdDto.userId);
+        const isSafe = await this.moderationService.isImageSafe(
+          imageUrl,
+          createAdDto.userId,
+        );
         if (!isSafe) {
           if (this.moderationSecurityService) {
-            const imageHash = crypto.createHash('sha256').update(imageUrl).digest('hex');
-            await this.moderationSecurityService.handleFailure(createAdDto.userId, 'new_ad', imageHash, 'INAPPROPRIATE_CONTENT', context);
+            const imageHash = crypto
+              .createHash('sha256')
+              .update(imageUrl)
+              .digest('hex');
+            await this.moderationSecurityService.handleFailure(
+              createAdDto.userId,
+              'new_ad',
+              imageHash,
+              'INAPPROPRIATE_CONTENT',
+              context,
+            );
           }
           throw new BadRequestException(
             'One or more images contain inappropriate content and cannot be uploaded.',
@@ -613,14 +629,18 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
         }
       }
       if (this.moderationSecurityService) {
-        await this.moderationSecurityService.handleSuccess(createAdDto.userId, 'new_ad');
+        await this.moderationSecurityService.handleSuccess(
+          createAdDto.userId,
+          'new_ad',
+        );
       }
     }
     // ------------------------------
 
     // --- Text Moderation Check ---
     if (this.textModerationService) {
-      const textCheck = await this.textModerationService.moderatePayload(createAdDto);
+      const textCheck =
+        await this.textModerationService.moderatePayload(createAdDto);
       if (!textCheck.isSafe) {
         throw new BadRequestException(
           'Your ad contains prohibited or inappropriate content. Please review your input.',
@@ -631,7 +651,9 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
     let categorySpecificData: any = {};
     const payload: any = createAdDto as any;
 
-    this.logger.log(`Received createAdDto: ${JSON.stringify(createAdDto, null, 2)}`);
+    this.logger.log(
+      `Received createAdDto: ${JSON.stringify(createAdDto, null, 2)}`,
+    );
 
     switch (createAdDto.category) {
       case 'Vehicle':
@@ -731,13 +753,13 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
 
     const locationCoordinates =
       latitude !== undefined &&
-        longitude !== undefined &&
-        !Number.isNaN(latitude) &&
-        !Number.isNaN(longitude)
+      longitude !== undefined &&
+      !Number.isNaN(latitude) &&
+      !Number.isNaN(longitude)
         ? {
-          type: 'Point' as const,
-          coordinates: [longitude, latitude] as [number, number],
-        }
+            type: 'Point' as const,
+            coordinates: [longitude, latitude] as [number, number],
+          }
         : undefined;
 
     const namedCategoryData: any = {};
@@ -763,7 +785,11 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
       Other: 'otherData',
     };
     const namedKey = categoryKeyMap[createAdDto.category];
-    if (namedKey && categorySpecificData && Object.keys(categorySpecificData).length > 0) {
+    if (
+      namedKey &&
+      categorySpecificData &&
+      Object.keys(categorySpecificData).length > 0
+    ) {
       namedCategoryData[namedKey] = categorySpecificData;
     }
 
@@ -800,22 +826,30 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
     if (!ad) {
       throw new NotFoundException('Ad not found');
     }
-    
+
     if (ad.status === 'deleted' || ad.status === 'expired') {
       throw new BadRequestException('Ad is already cancelled or expired');
     }
 
     const now = new Date();
     // Normalize today's date to midnight for fair comparison
-    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    
+    const todayStart = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate(),
+    );
+
     let leftoverAmount = 0;
-    
+
     // Calculate based on selected dates in the future (including today)
     if (ad.selectedDates && ad.selectedDates.length > 0 && ad.adDailyRate) {
-      const futureDatesCount = ad.selectedDates.filter(d => {
+      const futureDatesCount = ad.selectedDates.filter((d) => {
         const dDate = new Date(d);
-        const normalizedD = new Date(dDate.getFullYear(), dDate.getMonth(), dDate.getDate());
+        const normalizedD = new Date(
+          dDate.getFullYear(),
+          dDate.getMonth(),
+          dDate.getDate(),
+        );
         return normalizedD >= todayStart;
       }).length;
       if (futureDatesCount > 0) {
@@ -831,14 +865,21 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
     }
 
     if (this.walletsService && leftoverAmount > 0) {
-      await this.walletsService.credit(userId, ad.userType === 'Admin' ? 'merchant' : 'user', leftoverAmount, `Refund for cancelled Ad: ${ad.title}`, adId, 'ad');
+      await this.walletsService.credit(
+        userId,
+        ad.userType === 'Admin' ? 'merchant' : 'user',
+        leftoverAmount,
+        `Refund for cancelled Ad: ${ad.title}`,
+        adId,
+        'ad',
+      );
     }
 
     ad.status = 'deleted';
     await ad.save();
 
     await this.invalidateAdsCache();
-    
+
     if (this.kafkaService) {
       await this.kafkaService.emit(KAFKA_TOPICS.AD_DELETED, {
         adId,
@@ -982,12 +1023,7 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
     }
 
     const [ads, total] = await Promise.all([
-      this.adModel
-        .find(filter)
-        .sort(sort)
-        .skip(skip)
-        .limit(limit)
-        .exec(),
+      this.adModel.find(filter).sort(sort).skip(skip).limit(limit).exec(),
       this.adModel.countDocuments(filter),
     ]);
 
@@ -1075,13 +1111,14 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
         if (resolvedCity) break;
       }
 
-      // Build a list of terms to match: always include the first meaningful specific segment, 
+      // Build a list of terms to match: always include the first meaningful specific segment,
       // plus any resolved broad city/district aliases.
       const isBroadTerm = (term: string) => {
         const broad = ['india', 'maharashtra', 'state', 'district', 'country'];
         return broad.includes(stripDiacritics(term)) || /^\d+$/.test(term);
       };
-      const firstMeaningfulSegment = segments.find((s) => s.length >= 2 && !isBroadTerm(s)) || segments[0];
+      const firstMeaningfulSegment =
+        segments.find((s) => s.length >= 2 && !isBroadTerm(s)) || segments[0];
       const termsToMatch: string[] = [];
       if (firstMeaningfulSegment) {
         termsToMatch.push(firstMeaningfulSegment);
@@ -1193,7 +1230,10 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
         const maxDistance = 50000; // 50 km in meters
 
         // Infer city name from known city/coordinate lookup (reverse lookup by proximity)
-        const CITY_COORDS: Record<string, { lat: number; lng: number; aliases: string[] }> = {
+        const CITY_COORDS: Record<
+          string,
+          { lat: number; lng: number; aliases: string[] }
+        > = {
           kolhapur: {
             lat: 16.7058,
             lng: 74.2437,
@@ -1221,17 +1261,30 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
               'kupwad',
             ],
           },
-          mumbai: { lat: 19.0760, lng: 72.8777, aliases: ['mumbai', 'bombay', 'navi mumbai'] },
+          mumbai: {
+            lat: 19.076,
+            lng: 72.8777,
+            aliases: ['mumbai', 'bombay', 'navi mumbai'],
+          },
           pune: { lat: 18.5204, lng: 73.8567, aliases: ['pune', 'poona'] },
           ashta: { lat: 17.0333, lng: 74.4167, aliases: ['ashta', 'walwa'] },
         };
 
         const toRad = (deg: number) => (deg * Math.PI) / 180;
-        const haversineDistKm = (lat1: number, lng1: number, lat2: number, lng2: number) => {
+        const haversineDistKm = (
+          lat1: number,
+          lng1: number,
+          lat2: number,
+          lng2: number,
+        ) => {
           const R = 6371;
           const dLat = toRad(lat2 - lat1);
           const dLng = toRad(lng2 - lng1);
-          const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+          const a =
+            Math.sin(dLat / 2) ** 2 +
+            Math.cos(toRad(lat1)) *
+              Math.cos(toRad(lat2)) *
+              Math.sin(dLng / 2) ** 2;
           return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
         };
 
@@ -1249,14 +1302,18 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
         }
 
         // Build text conditions for ads without coordinates
-        const textFallbackConditions: any[] = cityAliasesInRange.flatMap((alias) => {
-          const regex = makeDiacriticFlexibleRegex(alias);
-          return [
-            { location: regex },
-            { city: regex },
-            { cities: { $elemMatch: { $regex: regex.source, $options: 'i' } } },
-          ];
-        });
+        const textFallbackConditions: any[] = cityAliasesInRange.flatMap(
+          (alias) => {
+            const regex = makeDiacriticFlexibleRegex(alias);
+            return [
+              { location: regex },
+              { city: regex },
+              {
+                cities: { $elemMatch: { $regex: regex.source, $options: 'i' } },
+              },
+            ];
+          },
+        );
 
         // Combine geo-boundary (for ads with coords) and text fallback (for ads without coords)
         const geoCondition = {
@@ -1267,7 +1324,10 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
           },
         };
 
-        const boundaryConditions: any[] = [geoCondition, ...textFallbackConditions];
+        const boundaryConditions: any[] = [
+          geoCondition,
+          ...textFallbackConditions,
+        ];
 
         if (mongoQuery.$or) {
           // Wrap existing $or (location text filter) with the boundary conditions
@@ -1504,12 +1564,24 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
         return;
       }
 
-      let targetAd = await this.adModel.findOne({ adId }).select('_id adId').lean().exec();
+      let targetAd = await this.adModel
+        .findOne({ adId })
+        .select('_id adId')
+        .lean()
+        .exec();
       if (!targetAd && /^[0-9a-fA-F]{24}$/.test(adId)) {
-        targetAd = await this.adModel.findById(adId).select('_id adId').lean().exec();
+        targetAd = await this.adModel
+          .findById(adId)
+          .select('_id adId')
+          .lean()
+          .exec();
       }
       if (!targetAd) {
-        targetAd = await this.adModel.findOne({ id: adId }).select('_id adId').lean().exec();
+        targetAd = await this.adModel
+          .findOne({ id: adId })
+          .select('_id adId')
+          .lean()
+          .exec();
       }
 
       if (!targetAd) {
@@ -1518,28 +1590,25 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
       }
 
       await this.adModel
-        .findByIdAndUpdate(
-          targetAd._id,
-          [
-            {
-              $set: {
-                viewHistory: {
-                  $cond: {
-                    if: { $in: [userId, { $ifNull: ['$viewHistory', []] }] },
-                    then: '$viewHistory',
-                    else: {
-                      $concatArrays: [
-                        { $ifNull: ['$viewHistory', []] },
-                        [userId],
-                      ],
-                    },
+        .findByIdAndUpdate(targetAd._id, [
+          {
+            $set: {
+              viewHistory: {
+                $cond: {
+                  if: { $in: [userId, { $ifNull: ['$viewHistory', []] }] },
+                  then: '$viewHistory',
+                  else: {
+                    $concatArrays: [
+                      { $ifNull: ['$viewHistory', []] },
+                      [userId],
+                    ],
                   },
                 },
-                updatedAt: new Date(),
               },
+              updatedAt: new Date(),
             },
-          ],
-        )
+          },
+        ])
         .exec();
 
       const merchantId = await this.resolveMerchantIdForAd(adId);
@@ -1555,12 +1624,20 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
 
   private async resolveMerchantIdForAd(adId: string): Promise<string | null> {
     try {
-      let ad = await this.adModel.findOne({ adId }).select('userId').lean().exec();
+      let ad = await this.adModel
+        .findOne({ adId })
+        .select('userId')
+        .lean()
+        .exec();
       if (!ad && /^[0-9a-fA-F]{24}$/.test(adId)) {
         ad = await this.adModel.findById(adId).select('userId').lean().exec();
       }
       if (!ad) {
-        ad = await this.adModel.findOne({ id: adId }).select('userId').lean().exec();
+        ad = await this.adModel
+          .findOne({ id: adId })
+          .select('userId')
+          .lean()
+          .exec();
       }
 
       return ad?.userId ? String(ad.userId) : null;
@@ -1738,21 +1815,21 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
       clickThroughRate:
         (ad.viewHistory?.length || 0) > 0
           ? Number(
-            (
-              ((ad.contactClicks || 0) / (ad.viewHistory?.length || 0)) *
-              100
-            ).toFixed(2),
-          )
+              (
+                ((ad.contactClicks || 0) / (ad.viewHistory?.length || 0)) *
+                100
+              ).toFixed(2),
+            )
           : 0,
       wishlistRate:
         (ad.viewHistory?.length || 0) > 0
           ? Number(
-            (
-              ((wishlistCounts[ad.adId] || 0) /
-                (ad.viewHistory?.length || 0)) *
-              100
-            ).toFixed(2),
-          )
+              (
+                ((wishlistCounts[ad.adId] || 0) /
+                  (ad.viewHistory?.length || 0)) *
+                100
+              ).toFixed(2),
+            )
           : 0,
       isPromoted: ad.isPromoted || false,
       promotedUntil: ad.promotedUntil || null,
@@ -1874,18 +1951,34 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
     }
 
     // --- Image Moderation Check ---
-    if (this.moderationService && updateData.images && updateData.images.length > 0) {
+    if (
+      this.moderationService &&
+      updateData.images &&
+      updateData.images.length > 0
+    ) {
       const isMulti = updateData.images.length > 1;
       const context = isMulti ? 'multi' : 'single';
 
       for (const imageUrl of updateData.images) {
-        // Optionally skip if image is already in the old ad, 
+        // Optionally skip if image is already in the old ad,
         // but for safety, we check all provided images.
-        const isSafe = await this.moderationService.isImageSafe(imageUrl, userId);
+        const isSafe = await this.moderationService.isImageSafe(
+          imageUrl,
+          userId,
+        );
         if (!isSafe) {
           if (this.moderationSecurityService) {
-            const imageHash = crypto.createHash('sha256').update(imageUrl).digest('hex');
-            await this.moderationSecurityService.handleFailure(userId, adId, imageHash, 'INAPPROPRIATE_CONTENT', context);
+            const imageHash = crypto
+              .createHash('sha256')
+              .update(imageUrl)
+              .digest('hex');
+            await this.moderationSecurityService.handleFailure(
+              userId,
+              adId,
+              imageHash,
+              'INAPPROPRIATE_CONTENT',
+              context,
+            );
           }
           throw new BadRequestException(
             'One or more images contain inappropriate content and cannot be uploaded.',
@@ -1900,7 +1993,8 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
 
     // --- Text Moderation Check ---
     if (this.textModerationService) {
-      const textCheck = await this.textModerationService.moderatePayload(updateData);
+      const textCheck =
+        await this.textModerationService.moderatePayload(updateData);
       if (!textCheck.isSafe) {
         throw new BadRequestException(
           'Your ad contains prohibited or inappropriate content. Please review your input.',
@@ -2728,15 +2822,16 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
                 </div>
               </div>
 
-              ${data.description
-        ? `
+              ${
+                data.description
+                  ? `
                 <div class="detail-row">
                   <div class="label">Reporter's Description</div>
                   <div class="value" style="font-style: italic;">"${data.description}"</div>
                 </div>
               `
-        : ''
-      }
+                  : ''
+              }
 
               <div class="detail-row">
                 <div class="label">Reported By (User ID)</div>
@@ -2749,8 +2844,9 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
                 </a>
               </div>
 
-              ${data.reportCount >= 10
-        ? `
+              ${
+                data.reportCount >= 10
+                  ? `
                 <div style="margin-top: 20px; padding: 15px; background: #fef2f2; border: 2px solid #dc2626; border-radius: 8px;">
                   <strong style="color: #dc2626;">⚠️ AUTO-DISABLED</strong>
                   <p style="margin: 10px 0 0 0; color: #991b1b; font-size: 14px;">
@@ -2758,8 +2854,8 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
                   </p>
                 </div>
               `
-        : ''
-      }
+                  : ''
+              }
 
               <div class="footer">
                 <p>This is an automated notification from GOLO's content moderation system.</p>
@@ -2931,19 +3027,22 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
       const endOfDay = new Date(date.setHours(23, 59, 59, 999));
 
       const intake = await this.adModel.countDocuments({
-        createdAt: { $gte: startOfDay, $lte: endOfDay }
+        createdAt: { $gte: startOfDay, $lte: endOfDay },
       });
       const active = await this.adModel.countDocuments({
         status: 'active',
-        createdAt: { $lte: endOfDay }
+        createdAt: { $lte: endOfDay },
       });
 
-      const formattedDate = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      const formattedDate = date.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+      });
       trend.push({
         name: formattedDate, // using "name" for recharts XAxis if needed, or date
         date: formattedDate,
         intakeAds: intake,
-        activeLoad: active
+        activeLoad: active,
       });
     }
     return trend;
@@ -3010,8 +3109,9 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
       if (response.data && response.data.secure_url) {
         return response.data.secure_url;
       }
-      throw new BadRequestException('Cloudinary upload returned invalid response');
+      throw new BadRequestException(
+        'Cloudinary upload returned invalid response',
+      );
     }
   }
 }
-

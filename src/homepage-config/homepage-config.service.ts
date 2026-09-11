@@ -1,4 +1,9 @@
-import { BadRequestException, Injectable, Logger, Optional } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  Logger,
+  Optional,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import {
@@ -154,7 +159,9 @@ export class HomepageConfigService {
 
     if (this.redisService) {
       try {
-        const cached = await this.redisService.get<HomepageConfig>(this.CACHE_KEY);
+        const cached = await this.redisService.get<HomepageConfig>(
+          this.CACHE_KEY,
+        );
         if (cached) {
           this.cachedConfig = cached;
           return cached;

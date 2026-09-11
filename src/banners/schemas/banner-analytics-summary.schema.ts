@@ -24,5 +24,10 @@ export class BannerAnalyticsSummary {
   ctrPercentage: number;
 }
 
-export const BannerAnalyticsSummarySchema = SchemaFactory.createForClass(BannerAnalyticsSummary);
-BannerAnalyticsSummarySchema.index({ bannerId: 1, dateStr: 1 }, { unique: true });
+export const BannerAnalyticsSummarySchema = SchemaFactory.createForClass(
+  BannerAnalyticsSummary,
+);
+BannerAnalyticsSummarySchema.index(
+  { bannerId: 1, dateStr: 1 },
+  { unique: true },
+);

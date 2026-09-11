@@ -4,10 +4,16 @@ import { MerchantsService } from './merchants.service';
 import { MerchantsController } from './merchants.controller';
 import { PublicMerchantsController } from './public-merchants.controller';
 import { Merchant, MerchantSchema } from '../users/schemas/merchant.schema';
-import { MerchantDailyView, MerchantDailyViewSchema } from './schemas/merchant-daily-view.schema';
+import {
+  MerchantDailyView,
+  MerchantDailyViewSchema,
+} from './schemas/merchant-daily-view.schema';
 import { User, UserSchema } from '../users/schemas/user.schema';
 import { OTP, OTPSchema } from '../users/schemas/otp.schema';
-import { DeletedAccount, DeletedAccountSchema } from '../users/schemas/deleted-account.schema';
+import {
+  DeletedAccount,
+  DeletedAccountSchema,
+} from '../users/schemas/deleted-account.schema';
 
 import { RedisModule } from '../common/services/redis.module';
 

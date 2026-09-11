@@ -32,11 +32,11 @@ export class TransactionService {
             this.logger.warn(
               'Standalone MongoDB detected (no replica set); executing operation without transaction session.',
             );
-            return await work(null as any);
+            return await work(null);
           }
         }
 
-        const result = await work(session as ClientSession);
+        const result = await work(session);
 
         if (shouldManageSession && session) {
           await session.commitTransaction();
@@ -59,7 +59,7 @@ export class TransactionService {
           this.logger.warn(
             'Standalone MongoDB detected (no replica set); executing operation without transaction session.',
           );
-          return await work(null as any);
+          return await work(null);
         }
 
         if (

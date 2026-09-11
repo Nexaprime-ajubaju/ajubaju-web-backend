@@ -45,4 +45,5 @@ export class DeletedAccount {
   deletedAt: Date;
 }
 
-export const DeletedAccountSchema = SchemaFactory.createForClass(DeletedAccount);
+export const DeletedAccountSchema =
+  SchemaFactory.createForClass(DeletedAccount);

@@ -60,8 +60,6 @@ export function validatePreferredCategories(categories: any): {
     return { valid: false, errors };
   }
 
-
-
   const seen = new Set<string>();
   for (const cat of categories) {
     const canonical = toCanonicalCategory(cat);

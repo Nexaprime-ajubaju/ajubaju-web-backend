@@ -147,7 +147,12 @@ export class ProductsController {
     try {
       const pageNum = Math.max(1, parseInt(page || '1', 10));
       const limitNum = Math.min(50, Math.max(1, parseInt(limit || '10', 10)));
-      const products = await this.productsService.searchProducts(query, undefined, pageNum, limitNum);
+      const products = await this.productsService.searchProducts(
+        query,
+        undefined,
+        pageNum,
+        limitNum,
+      );
 
       return {
         success: true,

@@ -48,8 +48,10 @@ export class FlashDealsStrategy implements RecommendationStrategy {
 
       let candidates = await this.candidateRetriever.findDiscounted(
         limit * 2,
-        context.latitude && context.longitude ? { latitude: context.latitude, longitude: context.longitude } : undefined,
-        20 // maxDistanceKm
+        context.latitude && context.longitude
+          ? { latitude: context.latitude, longitude: context.longitude }
+          : undefined,
+        20, // maxDistanceKm
       );
 
       if (candidates.length === 0) {

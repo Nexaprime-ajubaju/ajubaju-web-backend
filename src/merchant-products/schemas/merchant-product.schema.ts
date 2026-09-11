@@ -56,5 +56,8 @@ MerchantProductSchema.index({ merchantId: 1, name: 1 });
 // Text index for fast product search (replaces regex collection scans)
 MerchantProductSchema.index(
   { name: 'text', description: 'text', category: 'text' },
-  { name: 'product_text_search', weights: { name: 10, category: 5, description: 1 } },
+  {
+    name: 'product_text_search',
+    weights: { name: 10, category: 5, description: 1 },
+  },
 );

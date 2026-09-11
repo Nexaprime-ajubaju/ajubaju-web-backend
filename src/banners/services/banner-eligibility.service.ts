@@ -12,17 +12,27 @@ export class BannerEligibilityService {
   /**
    * Pipeline check to verify if a banner campaign is eligible for display in a given city
    */
-  isEligibleForCity(campaign: BannerPromotion, city: string, now: Date = new Date()): boolean {
+  isEligibleForCity(
+    campaign: BannerPromotion,
+    city: string,
+    now: Date = new Date(),
+  ): boolean {
     if (!campaign) return false;
 
     // 1. Status check (APPROVED or ACTIVE)
-    const validStatuses = [BannerPromotionStatus.APPROVED, BannerPromotionStatus.ACTIVE];
+    const validStatuses = [
+      BannerPromotionStatus.APPROVED,
+      BannerPromotionStatus.ACTIVE,
+    ];
     if (!validStatuses.includes(campaign.status)) {
       return false;
     }
 
     // 2. Type check
-    if (campaign.promotionType && campaign.promotionType !== BannerPromotionType.BANNER) {
+    if (
+      campaign.promotionType &&
+      campaign.promotionType !== BannerPromotionType.BANNER
+    ) {
       return false;
     }
 
@@ -40,7 +50,12 @@ export class BannerEligibilityService {
     }
 
     // 5. City targeting check (if targetCities specified, matches city or if city is 'global')
-    if (campaign.targetCities && campaign.targetCities.length > 0 && city && city.toLowerCase() !== 'global') {
+    if (
+      campaign.targetCities &&
+      campaign.targetCities.length > 0 &&
+      city &&
+      city.toLowerCase() !== 'global'
+    ) {
       const cityLower = city.trim().toLowerCase();
       const matchesCity = campaign.targetCities.some(
         (tc) => String(tc).trim().toLowerCase() === cityLower,

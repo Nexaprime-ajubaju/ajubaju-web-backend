@@ -4,11 +4,17 @@ import { Merchant, MerchantSchema } from '../users/schemas/merchant.schema';
 import { MongooseModule } from '@nestjs/mongoose';
 import { Ad, AdSchema } from '../ads/schemas/category-schemas/ad.schema';
 import { Order, OrderSchema } from '../orders/schemas/order.schema';
-import { MerchantProduct, MerchantProductSchema } from '../merchant-products/schemas/merchant-product.schema';
+import {
+  MerchantProduct,
+  MerchantProductSchema,
+} from '../merchant-products/schemas/merchant-product.schema';
 import { Review, ReviewSchema } from '../reviews/schemas/review.schema';
 import { User, UserSchema } from '../users/schemas/user.schema';
 import { Voucher, VoucherSchema } from '../vouchers/schemas/voucher.schema';
-import { MerchantDailyView, MerchantDailyViewSchema } from '../merchants/schemas/merchant-daily-view.schema';
+import {
+  MerchantDailyView,
+  MerchantDailyViewSchema,
+} from '../merchants/schemas/merchant-daily-view.schema';
 import {
   OfferLikeHistory,
   OfferLikeHistorySchema,

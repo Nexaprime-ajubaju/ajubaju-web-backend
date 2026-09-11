@@ -60,8 +60,10 @@ export class TrendingStrategy implements RecommendationStrategy {
         );
         candidates = await this.candidateRetriever.findPopularProducts(
           limit * 2,
-          context.latitude && context.longitude ? { latitude: context.latitude, longitude: context.longitude } : undefined,
-          20 // maxDistanceKm
+          context.latitude && context.longitude
+            ? { latitude: context.latitude, longitude: context.longitude }
+            : undefined,
+          20, // maxDistanceKm
         );
         confidence = 0.78;
         reason = RecommendationReason.POPULAR_PRODUCTS;
@@ -76,8 +78,10 @@ export class TrendingStrategy implements RecommendationStrategy {
         candidates = await this.candidateRetriever.findRecentProducts(
           14,
           limit * 2,
-          context.latitude && context.longitude ? { latitude: context.latitude, longitude: context.longitude } : undefined,
-          20 // maxDistanceKm
+          context.latitude && context.longitude
+            ? { latitude: context.latitude, longitude: context.longitude }
+            : undefined,
+          20, // maxDistanceKm
         );
         confidence = 0.61;
         reason = RecommendationReason.RECENT_PRODUCTS;

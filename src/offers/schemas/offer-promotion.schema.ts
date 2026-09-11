@@ -193,6 +193,21 @@ OfferPromotionSchema.index({ status: 1, createdAt: -1 });
 OfferPromotionSchema.index({ status: 1, businessCategory: 1, createdAt: -1 });
 // Text index for fast full-text search (replaces regex collection scans)
 OfferPromotionSchema.index(
-  { title: 'text', description: 'text', category: 'text', businessCategory: 'text', promoTag: 'text' },
-  { name: 'offer_text_search', weights: { title: 10, businessCategory: 5, category: 5, promoTag: 3, description: 1 } },
+  {
+    title: 'text',
+    description: 'text',
+    category: 'text',
+    businessCategory: 'text',
+    promoTag: 'text',
+  },
+  {
+    name: 'offer_text_search',
+    weights: {
+      title: 10,
+      businessCategory: 5,
+      category: 5,
+      promoTag: 3,
+      description: 1,
+    },
+  },
 );

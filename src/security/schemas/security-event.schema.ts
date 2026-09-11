@@ -10,7 +10,10 @@ export enum SecurityEventType {
   FINAL_WARNING = 'FINAL_WARNING',
 }
 
-@Schema({ timestamps: { createdAt: true, updatedAt: false }, collection: 'merchant_security_events' })
+@Schema({
+  timestamps: { createdAt: true, updatedAt: false },
+  collection: 'merchant_security_events',
+})
 export class SecurityEvent {
   @Prop({ required: true, index: true })
   merchantId: string;

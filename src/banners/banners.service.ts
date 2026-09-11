@@ -28,9 +28,7 @@ import {
   BannerPromotionDocument,
   BannerPromotionStatus,
 } from './schemas/banner-promotion.schema';
-import {
-  SubmitBannerPromotionDto,
-} from './dto/submit-banner-promotion.dto';
+import { SubmitBannerPromotionDto } from './dto/submit-banner-promotion.dto';
 import { UpdateBannerPromotionDto } from './dto/update-banner-promotion.dto';
 import { TransactionService } from '../common/services/transaction.service';
 import { BannerQueueService } from './services/banner-queue.service';
@@ -69,7 +67,7 @@ export class BannersService implements OnModuleInit {
     @Optional() private readonly kafkaService?: KafkaService,
     private readonly walletsService?: WalletsService,
     @Optional() private readonly referralsService?: ReferralsService,
-  ) { }
+  ) {}
 
   private toRadians(value: number): number {
     return (value * Math.PI) / 180;
@@ -88,9 +86,9 @@ export class BannersService implements OnModuleInit {
     const a =
       Math.sin(dLat / 2) * Math.sin(dLat / 2) +
       Math.cos(this.toRadians(latitudeA)) *
-      Math.cos(this.toRadians(latitudeB)) *
-      Math.sin(dLon / 2) *
-      Math.sin(dLon / 2);
+        Math.cos(this.toRadians(latitudeB)) *
+        Math.sin(dLon / 2) *
+        Math.sin(dLon / 2);
 
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     return earthRadiusKm * c;
@@ -127,9 +125,17 @@ export class BannersService implements OnModuleInit {
     return `golo:banners:admin:${status || 'all'}`;
   }
 
-  private activeBannersCacheKey(limit: number, city?: string, location?: { lat: number; lng: number; radius: number }): string {
-    const cityStr = city ? `:city:${city.toLowerCase().replace(/[^a-z0-9]/g, '')}` : '';
-    const locStr = location ? `:loc:${location.lat.toFixed(2)},${location.lng.toFixed(2)},${location.radius}` : '';
+  private activeBannersCacheKey(
+    limit: number,
+    city?: string,
+    location?: { lat: number; lng: number; radius: number },
+  ): string {
+    const cityStr = city
+      ? `:city:${city.toLowerCase().replace(/[^a-z0-9]/g, '')}`
+      : '';
+    const locStr = location
+      ? `:loc:${location.lat.toFixed(2)},${location.lng.toFixed(2)},${location.radius}`
+      : '';
     return `golo:banners:active:${limit}${cityStr}${locStr}`;
   }
 
@@ -251,12 +257,19 @@ export class BannersService implements OnModuleInit {
     return { cleared: true };
   }
 
-  async checkBannerAvailability(city?: string): Promise<{ available: boolean; currentCount: number; maxCapacity: number; message: string }> {
+  async checkBannerAvailability(city?: string): Promise<{
+    available: boolean;
+    currentCount: number;
+    maxCapacity: number;
+    message: string;
+  }> {
     const MAX_CAPACITY = 200;
     const now = new Date();
 
     const query: any = {
-      status: { $in: [BannerPromotionStatus.ACTIVE, BannerPromotionStatus.APPROVED] },
+      status: {
+        $in: [BannerPromotionStatus.ACTIVE, BannerPromotionStatus.APPROVED],
+      },
       isHomepageVisible: true,
       startDate: { $lte: now },
       endDate: { $gte: now },
@@ -272,7 +285,9 @@ export class BannersService implements OnModuleInit {
       ];
     }
 
-    const currentCount = await this.bannerPromotionModel.countDocuments(query).exec();
+    const currentCount = await this.bannerPromotionModel
+      .countDocuments(query)
+      .exec();
     const available = currentCount < MAX_CAPACITY;
 
     return {
@@ -290,21 +305,26 @@ export class BannersService implements OnModuleInit {
     payload: SubmitBannerPromotionDto,
   ): Promise<BannerPromotion> {
     await this.moderationSecurityService.checkRestriction(merchantId);
-    const targetCity = (payload.targetCities && payload.targetCities[0]) || 'global';
-    
+    const targetCity =
+      (payload.targetCities && payload.targetCities[0]) || 'global';
+
     // Image URL Validation
     if (!payload.imageUrl) {
       throw new BadRequestException('Image URL is required');
     }
-    
+
     if (payload.imageUrl.startsWith('data:image')) {
-      throw new BadRequestException('Base64 images are not allowed. Image must be uploaded to Cloudinary.');
+      throw new BadRequestException(
+        'Base64 images are not allowed. Image must be uploaded to Cloudinary.',
+      );
     }
-    
+
     if (payload.imageUrl.length > 2048) {
-      throw new BadRequestException('Image URL is too long. Image must be uploaded to Cloudinary.');
+      throw new BadRequestException(
+        'Image URL is too long. Image must be uploaded to Cloudinary.',
+      );
     }
-    
+
     try {
       const url = new URL(payload.imageUrl);
       if (url.protocol !== 'https:' && url.protocol !== 'http:') {
@@ -388,7 +408,7 @@ export class BannersService implements OnModuleInit {
     const selectedDays = normalizedDates.length;
     // Extract Scale and Location
     const scale = payload.coverageType || 'City'; // Fallback
-    
+
     // Verify Population via GeoNames
     let verifiedPopulation = 0;
     try {
@@ -396,17 +416,21 @@ export class BannersService implements OnModuleInit {
       let url = `http://api.geonames.org/searchJSON?name_equals=${encodeURIComponent(targetCity)}&country=IN&maxRows=1&username=${username}`;
       if (scale === 'District') url += '&featureCode=ADM2';
       else url += '&featureClass=P';
-      
+
       const response = await axios.get(url);
       const geonames = response.data?.geonames || [];
       if (geonames.length > 0) {
         verifiedPopulation = geonames[0].population || 0;
       }
     } catch (e) {
-      console.error('Failed to verify population during submission:', e.message);
+      console.error(
+        'Failed to verify population during submission:',
+        e.message,
+      );
     }
 
-    const dailyRate = this.pricingService.calculateDailyRate(verifiedPopulation);
+    const dailyRate =
+      this.pricingService.calculateDailyRate(verifiedPopulation);
     const subtotal = dailyRate * selectedDays;
     const pgCharge = subtotal * 0.025; // 2.5% payment gateway charge
     const gst = (subtotal + pgCharge) * 0.18; // 18% GST
@@ -425,8 +449,16 @@ export class BannersService implements OnModuleInit {
     if (payload.imageUrl && this.moderationService) {
       const isSafe = await this.moderationService.isImageSafe(payload.imageUrl);
       if (!isSafe) {
-        await this.moderationSecurityService.handleFailure(merchantId, 'new_banner', payload.imageUrl, 'INAPPROPRIATE_CONTENT', 'single');
-        throw new BadRequestException('One or more images contain inappropriate content and cannot be uploaded.');
+        await this.moderationSecurityService.handleFailure(
+          merchantId,
+          'new_banner',
+          payload.imageUrl,
+          'INAPPROPRIATE_CONTENT',
+          'single',
+        );
+        throw new BadRequestException(
+          'One or more images contain inappropriate content and cannot be uploaded.',
+        );
       }
     }
 
@@ -445,7 +477,7 @@ export class BannersService implements OnModuleInit {
             imageUrl: payload.imageUrl,
             recommendedSize: payload.recommendedSize || '1920 x 520 px',
             targetCities: payload.targetCities || [],
-            targetLocations: (payload.targetLocations || []).map(loc => ({
+            targetLocations: (payload.targetLocations || []).map((loc) => ({
               type: 'Point',
               coordinates: [loc.lng, loc.lat],
             })),
@@ -456,7 +488,9 @@ export class BannersService implements OnModuleInit {
             dailyRate,
             pgCharge,
             gst,
-            totalPrice: isFreeBanner ? 0 : Number(payload.totalPrice || computedTotal),
+            totalPrice: isFreeBanner
+              ? 0
+              : Number(payload.totalPrice || computedTotal),
             loyaltyRewardEnabled: Boolean(payload.loyaltyRewardEnabled),
             loyaltyStarsToOffer: Number(payload.loyaltyStarsToOffer || 0),
             loyaltyStarsPerPurchase: Number(
@@ -467,8 +501,12 @@ export class BannersService implements OnModuleInit {
             termsAndConditions: payload.termsAndConditions || '',
             exampleUsage: payload.exampleUsage || '',
             selectedProducts,
-            status: isFreeBanner ? BannerPromotionStatus.ACTIVE : BannerPromotionStatus.PENDING,
-            paymentStatus: isFreeBanner ? BannerPaymentStatus.PAID : BannerPaymentStatus.PENDING,
+            status: isFreeBanner
+              ? BannerPromotionStatus.ACTIVE
+              : BannerPromotionStatus.PENDING,
+            paymentStatus: isFreeBanner
+              ? BannerPaymentStatus.PAID
+              : BannerPaymentStatus.PENDING,
             isHomepageVisible: isFreeBanner ? true : false,
           },
         ],
@@ -624,9 +662,7 @@ export class BannersService implements OnModuleInit {
     }
 
     if (request.status !== BannerPromotionStatus.PENDING) {
-      throw new BadRequestException(
-        'Only pending requests can be paid',
-      );
+      throw new BadRequestException('Only pending requests can be paid');
     }
 
     request.paymentStatus = BannerPaymentStatus.PAID;
@@ -639,7 +675,10 @@ export class BannersService implements OnModuleInit {
 
     // Trigger referral reward
     if (this.referralsService) {
-      await this.referralsService.processFirstPurchase(merchantId, this.merchantModel);
+      await this.referralsService.processFirstPurchase(
+        merchantId,
+        this.merchantModel,
+      );
     }
 
     if (this.kafkaService) {
@@ -680,11 +719,25 @@ export class BannersService implements OnModuleInit {
       request.description = payload.description.trim();
     }
     if (payload.imageUrl !== undefined) {
-      if (this.moderationService && payload.imageUrl && payload.imageUrl !== request.imageUrl) {
-        const isSafe = await this.moderationService.isImageSafe(payload.imageUrl);
+      if (
+        this.moderationService &&
+        payload.imageUrl &&
+        payload.imageUrl !== request.imageUrl
+      ) {
+        const isSafe = await this.moderationService.isImageSafe(
+          payload.imageUrl,
+        );
         if (!isSafe) {
-          await this.moderationSecurityService.handleFailure(merchantId, requestId, payload.imageUrl, 'INAPPROPRIATE_CONTENT', 'single');
-          throw new BadRequestException('Image contains inappropriate content and cannot be uploaded.');
+          await this.moderationSecurityService.handleFailure(
+            merchantId,
+            requestId,
+            payload.imageUrl,
+            'INAPPROPRIATE_CONTENT',
+            'single',
+          );
+          throw new BadRequestException(
+            'Image contains inappropriate content and cannot be uploaded.',
+          );
         }
       }
       request.imageUrl = payload.imageUrl;
@@ -754,7 +807,10 @@ export class BannersService implements OnModuleInit {
     }
 
     if (payload.action === 'pause') {
-      if (request.status === BannerPromotionStatus.ACTIVE || request.isHomepageVisible) {
+      if (
+        request.status === BannerPromotionStatus.ACTIVE ||
+        request.isHomepageVisible
+      ) {
         request.isHomepageVisible = false;
         request.status = BannerPromotionStatus.APPROVED;
         request.pausedAt = new Date();
@@ -767,15 +823,19 @@ export class BannersService implements OnModuleInit {
           'Only paid banner requests can be resumed',
         );
       }
-      
+
       if (request.pausedAt) {
-        const pauseDurationMs = new Date().getTime() - request.pausedAt.getTime();
-        request.totalPausedDuration = (request.totalPausedDuration || 0) + pauseDurationMs;
-        
+        const pauseDurationMs =
+          new Date().getTime() - request.pausedAt.getTime();
+        request.totalPausedDuration =
+          (request.totalPausedDuration || 0) + pauseDurationMs;
+
         if (request.endDate) {
-          request.endDate = new Date(request.endDate.getTime() + pauseDurationMs);
+          request.endDate = new Date(
+            request.endDate.getTime() + pauseDurationMs,
+          );
         }
-        
+
         request.pausedAt = null;
       }
 
@@ -785,7 +845,10 @@ export class BannersService implements OnModuleInit {
 
     await request.save();
 
-    if (this.queueService && (payload.action === 'pause' || payload.action === 'resume')) {
+    if (
+      this.queueService &&
+      (payload.action === 'pause' || payload.action === 'resume')
+    ) {
       if (request.targetCities && request.targetCities.length > 0) {
         for (const city of request.targetCities) {
           await this.queueService.rebuildCityQueue(city);
@@ -802,10 +865,14 @@ export class BannersService implements OnModuleInit {
   async getActiveHomepageBanners(
     limit = 9,
     city?: string,
-    location?: { lat: number; lng: number; radius: number }
+    location?: { lat: number; lng: number; radius: number },
   ): Promise<any[]> {
     if (this.servingService) {
-      return this.servingService.getActiveHomepageBanners(city, undefined, limit);
+      return this.servingService.getActiveHomepageBanners(
+        city,
+        undefined,
+        limit,
+      );
     }
     return [];
   }
@@ -831,7 +898,10 @@ export class BannersService implements OnModuleInit {
 
     await this.invalidateBannerCache(bannerPromotion.merchantId);
     if (this.queueService) {
-      if (bannerPromotion.targetCities && bannerPromotion.targetCities.length > 0) {
+      if (
+        bannerPromotion.targetCities &&
+        bannerPromotion.targetCities.length > 0
+      ) {
         for (const city of bannerPromotion.targetCities) {
           await this.queueService.rebuildCityQueue(city);
         }
@@ -861,24 +931,31 @@ export class BannersService implements OnModuleInit {
     // Calculate leftover money
     const now = new Date();
     let leftoverAmount = 0;
-    
+
     if (bannerPromotion.paymentStatus === BannerPaymentStatus.PAID) {
       const startDate = bannerPromotion.startDate || now;
       const totalDays = bannerPromotion.selectedDays || 1;
       const totalPrice = bannerPromotion.totalPrice || 0;
-      
+
       let usedDays = 0;
       if (now > startDate) {
         const diffTime = Math.abs(now.getTime() - startDate.getTime());
         usedDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
       }
-      
+
       if (usedDays < totalDays) {
         const leftoverDays = totalDays - usedDays;
         leftoverAmount = (totalPrice / totalDays) * leftoverDays;
         // Credit wallet
         if (this.walletsService && leftoverAmount > 0) {
-          await this.walletsService.credit(merchantId, 'merchant', leftoverAmount, `Refund for cancelled banner: ${bannerPromotion.bannerTitle}`, requestId, 'banner');
+          await this.walletsService.credit(
+            merchantId,
+            'merchant',
+            leftoverAmount,
+            `Refund for cancelled banner: ${bannerPromotion.bannerTitle}`,
+            requestId,
+            'banner',
+          );
         }
       }
     }
@@ -889,7 +966,10 @@ export class BannersService implements OnModuleInit {
 
     await this.invalidateBannerCache(merchantId);
     if (this.queueService) {
-      if (bannerPromotion.targetCities && bannerPromotion.targetCities.length > 0) {
+      if (
+        bannerPromotion.targetCities &&
+        bannerPromotion.targetCities.length > 0
+      ) {
         for (const city of bannerPromotion.targetCities) {
           await this.queueService.rebuildCityQueue(city);
         }
@@ -900,7 +980,12 @@ export class BannersService implements OnModuleInit {
     return bannerPromotion;
   }
 
-  async payWithWallet(requestId: string, merchantId: string, amountToPayFromWallet: number, externalPaymentReference?: string): Promise<BannerPromotion> {
+  async payWithWallet(
+    requestId: string,
+    merchantId: string,
+    amountToPayFromWallet: number,
+    externalPaymentReference?: string,
+  ): Promise<BannerPromotion> {
     const request = await this.bannerPromotionModel
       .findOne({ requestId, merchantId })
       .exec();
@@ -913,12 +998,20 @@ export class BannersService implements OnModuleInit {
     }
 
     if (amountToPayFromWallet > 0 && this.walletsService) {
-      await this.walletsService.debit(merchantId, 'merchant', amountToPayFromWallet, `Payment for banner: ${request.bannerTitle}`, requestId, 'banner');
+      await this.walletsService.debit(
+        merchantId,
+        'merchant',
+        amountToPayFromWallet,
+        `Payment for banner: ${request.bannerTitle}`,
+        requestId,
+        'banner',
+      );
     }
 
     request.paymentStatus = BannerPaymentStatus.PAID;
     request.paidAt = new Date();
-    request.paymentReference = externalPaymentReference || `WALLET-${Date.now()}`;
+    request.paymentReference =
+      externalPaymentReference || `WALLET-${Date.now()}`;
     request.status = BannerPromotionStatus.ACTIVE;
     request.isHomepageVisible = true;
 
@@ -926,7 +1019,10 @@ export class BannersService implements OnModuleInit {
 
     // Trigger referral reward
     if (this.referralsService) {
-      await this.referralsService.processFirstPurchase(merchantId, this.merchantModel);
+      await this.referralsService.processFirstPurchase(
+        merchantId,
+        this.merchantModel,
+      );
     }
 
     if (this.kafkaService) {
@@ -957,7 +1053,10 @@ export class BannersService implements OnModuleInit {
     await this.bannerPromotionModel.deleteOne({ requestId, merchantId }).exec();
     await this.invalidateBannerCache(merchantId);
     if (this.queueService) {
-      if (bannerPromotion.targetCities && bannerPromotion.targetCities.length > 0) {
+      if (
+        bannerPromotion.targetCities &&
+        bannerPromotion.targetCities.length > 0
+      ) {
         for (const city of bannerPromotion.targetCities) {
           await this.queueService.rebuildCityQueue(city);
         }
@@ -985,5 +1084,4 @@ export class BannersService implements OnModuleInit {
       )
       .exec();
   }
-
 }

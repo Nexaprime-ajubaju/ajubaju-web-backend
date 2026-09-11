@@ -34,9 +34,14 @@ export class PlatformReview {
   @Prop({ enum: PlatformReviewSource, default: PlatformReviewSource.WEBSITE })
   source: PlatformReviewSource;
 
-  @Prop({ enum: PlatformReviewStatus, default: PlatformReviewStatus.PENDING, index: true })
+  @Prop({
+    enum: PlatformReviewStatus,
+    default: PlatformReviewStatus.PENDING,
+    index: true,
+  })
   status: PlatformReviewStatus;
 }
 
-export const PlatformReviewSchema = SchemaFactory.createForClass(PlatformReview);
+export const PlatformReviewSchema =
+  SchemaFactory.createForClass(PlatformReview);
 PlatformReviewSchema.index({ status: 1, createdAt: -1 });

@@ -93,16 +93,24 @@ export class Merchant {
   @Prop({
     type: {
       planId: { type: String, default: null }, // Reference to SubscriptionPlan unique name or ObjectId
-      status: { type: String, enum: ['TRIAL', 'ACTIVE', 'EXPIRED'], default: 'TRIAL' },
+      status: {
+        type: String,
+        enum: ['TRIAL', 'ACTIVE', 'EXPIRED'],
+        default: 'TRIAL',
+      },
       startedAt: { type: Date, default: Date.now },
       expiresAt: { type: Date, default: null },
       trialEndsAt: { type: Date, default: null },
-      billingCycle: { type: String, enum: ['monthly', 'yearly', 'lifetime'], default: 'monthly' },
+      billingCycle: {
+        type: String,
+        enum: ['monthly', 'yearly', 'lifetime'],
+        default: 'monthly',
+      },
       autoRenew: { type: Boolean, default: false },
       assignedBy: { type: String, default: 'system' },
-      assignedAt: { type: Date, default: Date.now }
+      assignedAt: { type: Date, default: Date.now },
     },
-    default: null
+    default: null,
   })
   subscription?: {
     planId: string;
@@ -162,6 +170,19 @@ MerchantSchema.index({ storeCategory: 1 });
 MerchantSchema.index({ storeCategory: 1, storeSubCategory: 1 });
 // Text index for fast full-text search (replaces regex collection scans)
 MerchantSchema.index(
-  { storeName: 'text', storeCategory: 'text', storeSubCategory: 'text', storeLocation: 'text' },
-  { name: 'merchant_text_search', weights: { storeName: 10, storeCategory: 5, storeSubCategory: 3, storeLocation: 1 } },
+  {
+    storeName: 'text',
+    storeCategory: 'text',
+    storeSubCategory: 'text',
+    storeLocation: 'text',
+  },
+  {
+    name: 'merchant_text_search',
+    weights: {
+      storeName: 10,
+      storeCategory: 5,
+      storeSubCategory: 3,
+      storeLocation: 1,
+    },
+  },
 );

@@ -3,7 +3,10 @@ import { InjectModel } from '@nestjs/mongoose';
 import * as mongoose from 'mongoose';
 import { Model, Connection } from 'mongoose';
 import { InjectConnection } from '@nestjs/mongoose';
-import { OfferPromotion, OfferPromotionDocument } from '../../offers/schemas/offer-promotion.schema';
+import {
+  OfferPromotion,
+  OfferPromotionDocument,
+} from '../../offers/schemas/offer-promotion.schema';
 import { RecommendationContext } from '../interfaces/recommendation.context';
 import { ConfigService } from '@nestjs/config';
 
@@ -18,7 +21,8 @@ export class CandidateRetrieverService {
   private readonly logger = new Logger(CandidateRetrieverService.name);
 
   constructor(
-    @InjectModel(OfferPromotion.name) private readonly offerModel: Model<OfferPromotionDocument>,
+    @InjectModel(OfferPromotion.name)
+    private readonly offerModel: Model<OfferPromotionDocument>,
     @InjectConnection() private readonly connection: Connection,
     private readonly configService: ConfigService,
   ) {}
@@ -43,7 +47,9 @@ export class CandidateRetrieverService {
 
   private async enrichOffersWithMerchants(offers: any[]): Promise<any[]> {
     if (!offers || offers.length === 0) return [];
-    const merchantIds = [...new Set(offers.map((o) => o.merchantId).filter(Boolean))];
+    const merchantIds = [
+      ...new Set(offers.map((o) => o.merchantId).filter(Boolean)),
+    ];
     const merchantMap = new Map();
     if (merchantIds.length > 0) {
       const merchants = await this.connection
@@ -62,14 +68,33 @@ export class CandidateRetrieverService {
       const enriched: any = {
         ...offer,
         merchantName: o.merchantName || merchant?.storeName || '',
-        storeLocation: merchant?.storeLocation || o.storeLocation || o.merchantLocation || '',
-        location: merchant?.storeLocation || o.storeLocation || o.merchantLocation || '',
-        merchantLocation: merchant?.storeLocation || o.storeLocation || o.merchantLocation || '',
+        storeLocation:
+          merchant?.storeLocation ||
+          o.storeLocation ||
+          o.merchantLocation ||
+          '',
+        location:
+          merchant?.storeLocation ||
+          o.storeLocation ||
+          o.merchantLocation ||
+          '',
+        merchantLocation:
+          merchant?.storeLocation ||
+          o.storeLocation ||
+          o.merchantLocation ||
+          '',
       };
-      if (merchant && merchant.storeLocationLatitude && merchant.storeLocationLongitude) {
+      if (
+        merchant &&
+        merchant.storeLocationLatitude &&
+        merchant.storeLocationLongitude
+      ) {
         enriched.locationCoordinates = {
           type: 'Point',
-          coordinates: [merchant.storeLocationLongitude, merchant.storeLocationLatitude],
+          coordinates: [
+            merchant.storeLocationLongitude,
+            merchant.storeLocationLatitude,
+          ],
         };
       }
       return enriched;
@@ -93,12 +118,18 @@ export class CandidateRetrieverService {
       .filter(Boolean);
 
     const offers = await this.offerModel
-      .find({ _id: { $in: objectIds }, status: { $in: ['approved', 'active'] }, endDate: { $gte: new Date() } })
+      .find({
+        _id: { $in: objectIds },
+        status: { $in: ['approved', 'active'] },
+        endDate: { $gte: new Date() },
+      })
       .limit(limit)
       .select(this.baseSelect)
       .lean();
 
-    const merchantIds = [...new Set(offers.map((o) => o.merchantId).filter(Boolean))];
+    const merchantIds = [
+      ...new Set(offers.map((o) => o.merchantId).filter(Boolean)),
+    ];
     const merchantMap = new Map();
     let validMerchantIds = new Set<string>();
 
@@ -107,7 +138,8 @@ export class CandidateRetrieverService {
 
       if (coordinates) {
         const latDegreeKm = 111;
-        const lonDegreeKm = 111 * Math.cos((coordinates.latitude * Math.PI) / 180);
+        const lonDegreeKm =
+          111 * Math.cos((coordinates.latitude * Math.PI) / 180);
         const latOffset = maxDistanceKm / latDegreeKm;
         const lonOffset = maxDistanceKm / lonDegreeKm;
 
@@ -123,10 +155,7 @@ export class CandidateRetrieverService {
 
       const merchants = await this.connection
         .collection('merchants')
-        .find(
-          merchantQuery,
-          { projection: this.merchantSelect },
-        )
+        .find(merchantQuery, { projection: this.merchantSelect })
         .toArray();
 
       merchants.forEach((m) => {
@@ -136,7 +165,7 @@ export class CandidateRetrieverService {
     }
 
     // Filter offers by merchants that matched the geographic bounding box
-    const filteredOffers = coordinates 
+    const filteredOffers = coordinates
       ? offers.filter((offer) => validMerchantIds.has(offer.merchantId))
       : offers;
 
@@ -146,14 +175,33 @@ export class CandidateRetrieverService {
       const enriched: any = {
         ...offer,
         merchantName: o.merchantName || merchant?.storeName || '',
-        storeLocation: merchant?.storeLocation || o.storeLocation || o.merchantLocation || '',
-        location: merchant?.storeLocation || o.storeLocation || o.merchantLocation || '',
-        merchantLocation: merchant?.storeLocation || o.storeLocation || o.merchantLocation || '',
+        storeLocation:
+          merchant?.storeLocation ||
+          o.storeLocation ||
+          o.merchantLocation ||
+          '',
+        location:
+          merchant?.storeLocation ||
+          o.storeLocation ||
+          o.merchantLocation ||
+          '',
+        merchantLocation:
+          merchant?.storeLocation ||
+          o.storeLocation ||
+          o.merchantLocation ||
+          '',
       };
-      if (merchant && merchant.storeLocationLatitude && merchant.storeLocationLongitude) {
+      if (
+        merchant &&
+        merchant.storeLocationLatitude &&
+        merchant.storeLocationLongitude
+      ) {
         enriched.locationCoordinates = {
           type: 'Point',
-          coordinates: [merchant.storeLocationLongitude, merchant.storeLocationLatitude],
+          coordinates: [
+            merchant.storeLocationLongitude,
+            merchant.storeLocationLatitude,
+          ],
         };
       }
       return enriched;
@@ -165,7 +213,11 @@ export class CandidateRetrieverService {
     limit: number = 20,
   ): Promise<any[]> {
     const offers = await this.offerModel
-      .find({ merchantId: { $in: merchantIds }, status: { $in: ['approved', 'active'] }, endDate: { $gte: new Date() } })
+      .find({
+        merchantId: { $in: merchantIds },
+        status: { $in: ['approved', 'active'] },
+        endDate: { $gte: new Date() },
+      })
       .limit(limit)
       .select(this.baseSelect)
       .lean();
@@ -175,7 +227,8 @@ export class CandidateRetrieverService {
     const offers = await this.offerModel
       .find({
         $or: [{ category: { $in: tags } }, { businessCategory: { $in: tags } }],
-        status: { $in: ['approved', 'active'] }, endDate: { $gte: new Date() }
+        status: { $in: ['approved', 'active'] },
+        endDate: { $gte: new Date() },
       })
       .limit(limit)
       .select(this.baseSelect)
@@ -188,7 +241,11 @@ export class CandidateRetrieverService {
     limit: number = 20,
   ): Promise<any[]> {
     const offers = await this.offerModel
-      .find({ category: { $in: categories }, status: { $in: ['approved', 'active'] }, endDate: { $gte: new Date() } })
+      .find({
+        category: { $in: categories },
+        status: { $in: ['approved', 'active'] },
+        endDate: { $gte: new Date() },
+      })
       .limit(limit)
       .select(this.baseSelect)
       .lean();
@@ -233,7 +290,8 @@ export class CandidateRetrieverService {
     const offers = await this.offerModel
       .find({
         merchantId: { $in: merchantIds },
-        status: { $in: ['approved', 'active'] }, endDate: { $gte: new Date() },
+        status: { $in: ['approved', 'active'] },
+        endDate: { $gte: new Date() },
       })
       .sort({ createdAt: -1 })
       .limit(limit)
@@ -246,14 +304,33 @@ export class CandidateRetrieverService {
       const enriched: any = {
         ...offer,
         merchantName: o.merchantName || merchant?.storeName || '',
-        storeLocation: merchant?.storeLocation || o.storeLocation || o.merchantLocation || '',
-        location: merchant?.storeLocation || o.storeLocation || o.merchantLocation || '',
-        merchantLocation: merchant?.storeLocation || o.storeLocation || o.merchantLocation || '',
+        storeLocation:
+          merchant?.storeLocation ||
+          o.storeLocation ||
+          o.merchantLocation ||
+          '',
+        location:
+          merchant?.storeLocation ||
+          o.storeLocation ||
+          o.merchantLocation ||
+          '',
+        merchantLocation:
+          merchant?.storeLocation ||
+          o.storeLocation ||
+          o.merchantLocation ||
+          '',
       };
-      if (merchant && merchant.storeLocationLatitude && merchant.storeLocationLongitude) {
+      if (
+        merchant &&
+        merchant.storeLocationLatitude &&
+        merchant.storeLocationLongitude
+      ) {
         enriched.locationCoordinates = {
           type: 'Point',
-          coordinates: [merchant.storeLocationLongitude, merchant.storeLocationLatitude],
+          coordinates: [
+            merchant.storeLocationLongitude,
+            merchant.storeLocationLatitude,
+          ],
         };
       }
       return enriched;
@@ -268,13 +345,14 @@ export class CandidateRetrieverService {
   ): Promise<any[]> {
     const dateLimit = new Date();
     dateLimit.setDate(dateLimit.getDate() - days);
-    
+
     let merchantIdsFilter = null;
     let merchantMap = new Map();
 
     if (coordinates) {
       const latDegreeKm = 111;
-      const lonDegreeKm = 111 * Math.cos((coordinates.latitude * Math.PI) / 180);
+      const lonDegreeKm =
+        111 * Math.cos((coordinates.latitude * Math.PI) / 180);
 
       const latOffset = maxDistanceKm / latDegreeKm;
       const lonOffset = maxDistanceKm / lonDegreeKm;
@@ -296,13 +374,14 @@ export class CandidateRetrieverService {
         .toArray();
 
       if (merchants.length === 0) return [];
-      
+
       merchantIdsFilter = merchants.map((m) => m.userId);
       merchants.forEach((m) => merchantMap.set(m.userId, m));
     }
 
     const query: any = {
-      status: { $in: ['approved', 'active'] }, endDate: { $gte: new Date() },
+      status: { $in: ['approved', 'active'] },
+      endDate: { $gte: new Date() },
       createdAt: { $gte: dateLimit },
     };
     if (merchantIdsFilter) {
@@ -317,7 +396,9 @@ export class CandidateRetrieverService {
       .lean();
 
     if (!coordinates) {
-      const merchantIds = [...new Set(offers.map((o) => o.merchantId).filter(Boolean))];
+      const merchantIds = [
+        ...new Set(offers.map((o) => o.merchantId).filter(Boolean)),
+      ];
       if (merchantIds.length > 0) {
         const merchants = await this.connection
           .collection('merchants')
@@ -336,14 +417,33 @@ export class CandidateRetrieverService {
       const enriched: any = {
         ...offer,
         merchantName: o.merchantName || merchant?.storeName || '',
-        storeLocation: merchant?.storeLocation || o.storeLocation || o.merchantLocation || '',
-        location: merchant?.storeLocation || o.storeLocation || o.merchantLocation || '',
-        merchantLocation: merchant?.storeLocation || o.storeLocation || o.merchantLocation || '',
+        storeLocation:
+          merchant?.storeLocation ||
+          o.storeLocation ||
+          o.merchantLocation ||
+          '',
+        location:
+          merchant?.storeLocation ||
+          o.storeLocation ||
+          o.merchantLocation ||
+          '',
+        merchantLocation:
+          merchant?.storeLocation ||
+          o.storeLocation ||
+          o.merchantLocation ||
+          '',
       };
-      if (merchant && merchant.storeLocationLatitude && merchant.storeLocationLongitude) {
+      if (
+        merchant &&
+        merchant.storeLocationLatitude &&
+        merchant.storeLocationLongitude
+      ) {
         enriched.locationCoordinates = {
           type: 'Point',
-          coordinates: [merchant.storeLocationLongitude, merchant.storeLocationLatitude],
+          coordinates: [
+            merchant.storeLocationLongitude,
+            merchant.storeLocationLatitude,
+          ],
         };
       }
       return enriched;
@@ -360,7 +460,8 @@ export class CandidateRetrieverService {
 
     if (coordinates) {
       const latDegreeKm = 111;
-      const lonDegreeKm = 111 * Math.cos((coordinates.latitude * Math.PI) / 180);
+      const lonDegreeKm =
+        111 * Math.cos((coordinates.latitude * Math.PI) / 180);
 
       const latOffset = maxDistanceKm / latDegreeKm;
       const lonOffset = maxDistanceKm / lonDegreeKm;
@@ -382,12 +483,15 @@ export class CandidateRetrieverService {
         .toArray();
 
       if (merchants.length === 0) return [];
-      
+
       merchantIdsFilter = merchants.map((m) => m.userId);
       merchants.forEach((m) => merchantMap.set(m.userId, m));
     }
 
-    const query: any = { status: { $in: ['approved', 'active'] }, endDate: { $gte: new Date() } };
+    const query: any = {
+      status: { $in: ['approved', 'active'] },
+      endDate: { $gte: new Date() },
+    };
     if (merchantIdsFilter) {
       query.merchantId = { $in: merchantIdsFilter };
     }
@@ -400,7 +504,9 @@ export class CandidateRetrieverService {
       .lean();
 
     if (!coordinates) {
-      const merchantIds = [...new Set(offers.map((o) => o.merchantId).filter(Boolean))];
+      const merchantIds = [
+        ...new Set(offers.map((o) => o.merchantId).filter(Boolean)),
+      ];
       if (merchantIds.length > 0) {
         const merchants = await this.connection
           .collection('merchants')
@@ -419,14 +525,33 @@ export class CandidateRetrieverService {
       const enriched: any = {
         ...offer,
         merchantName: o.merchantName || merchant?.storeName || '',
-        storeLocation: merchant?.storeLocation || o.storeLocation || o.merchantLocation || '',
-        location: merchant?.storeLocation || o.storeLocation || o.merchantLocation || '',
-        merchantLocation: merchant?.storeLocation || o.storeLocation || o.merchantLocation || '',
+        storeLocation:
+          merchant?.storeLocation ||
+          o.storeLocation ||
+          o.merchantLocation ||
+          '',
+        location:
+          merchant?.storeLocation ||
+          o.storeLocation ||
+          o.merchantLocation ||
+          '',
+        merchantLocation:
+          merchant?.storeLocation ||
+          o.storeLocation ||
+          o.merchantLocation ||
+          '',
       };
-      if (merchant && merchant.storeLocationLatitude && merchant.storeLocationLongitude) {
+      if (
+        merchant &&
+        merchant.storeLocationLatitude &&
+        merchant.storeLocationLongitude
+      ) {
         enriched.locationCoordinates = {
           type: 'Point',
-          coordinates: [merchant.storeLocationLongitude, merchant.storeLocationLatitude],
+          coordinates: [
+            merchant.storeLocationLongitude,
+            merchant.storeLocationLatitude,
+          ],
         };
       }
       return enriched;
@@ -443,7 +568,8 @@ export class CandidateRetrieverService {
 
     if (coordinates) {
       const latDegreeKm = 111;
-      const lonDegreeKm = 111 * Math.cos((coordinates.latitude * Math.PI) / 180);
+      const lonDegreeKm =
+        111 * Math.cos((coordinates.latitude * Math.PI) / 180);
 
       const latOffset = maxDistanceKm / latDegreeKm;
       const lonOffset = maxDistanceKm / lonDegreeKm;
@@ -465,13 +591,14 @@ export class CandidateRetrieverService {
         .toArray();
 
       if (merchants.length === 0) return [];
-      
+
       merchantIdsFilter = merchants.map((m) => m.userId);
       merchants.forEach((m) => merchantMap.set(m.userId, m));
     }
 
     const matchStage: any = {
-      status: { $in: ['approved', 'active'] }, endDate: { $gte: new Date() },
+      status: { $in: ['approved', 'active'] },
+      endDate: { $gte: new Date() },
     };
     if (merchantIdsFilter) {
       matchStage.merchantId = { $in: merchantIdsFilter };
@@ -482,9 +609,9 @@ export class CandidateRetrieverService {
       this.baseSelect.split(' ').forEach((field) => {
         if (field.trim()) {
           if (field.startsWith('-')) {
-             projection[field.substring(1)] = 0;
+            projection[field.substring(1)] = 0;
           } else {
-             projection[field] = 1;
+            projection[field] = 1;
           }
         }
       });
@@ -506,28 +633,35 @@ export class CandidateRetrieverService {
                       $multiply: [
                         {
                           $divide: [
-                            { $subtract: ['$$product.originalPrice', '$$product.offerPrice'] },
-                            '$$product.originalPrice'
-                          ]
+                            {
+                              $subtract: [
+                                '$$product.originalPrice',
+                                '$$product.offerPrice',
+                              ],
+                            },
+                            '$$product.originalPrice',
+                          ],
                         },
-                        100
-                      ]
+                        100,
+                      ],
                     },
-                    0
-                  ]
-                }
-              }
-            }
-          }
-        }
+                    0,
+                  ],
+                },
+              },
+            },
+          },
+        },
       },
       { $sort: { maxDiscountPct: -1 } },
       { $limit: limit },
-      { $project: projection }
+      { $project: projection },
     ]);
 
     if (!coordinates) {
-      const merchantIds = [...new Set(offers.map((o) => o.merchantId).filter(Boolean))];
+      const merchantIds = [
+        ...new Set(offers.map((o) => o.merchantId).filter(Boolean)),
+      ];
       if (merchantIds.length > 0) {
         const merchants = await this.connection
           .collection('merchants')
@@ -546,14 +680,33 @@ export class CandidateRetrieverService {
       const enriched: any = {
         ...offer,
         merchantName: o.merchantName || merchant?.storeName || '',
-        storeLocation: merchant?.storeLocation || o.storeLocation || o.merchantLocation || '',
-        location: merchant?.storeLocation || o.storeLocation || o.merchantLocation || '',
-        merchantLocation: merchant?.storeLocation || o.storeLocation || o.merchantLocation || '',
+        storeLocation:
+          merchant?.storeLocation ||
+          o.storeLocation ||
+          o.merchantLocation ||
+          '',
+        location:
+          merchant?.storeLocation ||
+          o.storeLocation ||
+          o.merchantLocation ||
+          '',
+        merchantLocation:
+          merchant?.storeLocation ||
+          o.storeLocation ||
+          o.merchantLocation ||
+          '',
       };
-      if (merchant && merchant.storeLocationLatitude && merchant.storeLocationLongitude) {
+      if (
+        merchant &&
+        merchant.storeLocationLatitude &&
+        merchant.storeLocationLongitude
+      ) {
         enriched.locationCoordinates = {
           type: 'Point',
-          coordinates: [merchant.storeLocationLongitude, merchant.storeLocationLatitude],
+          coordinates: [
+            merchant.storeLocationLongitude,
+            merchant.storeLocationLatitude,
+          ],
         };
       }
       return enriched;
@@ -563,7 +716,8 @@ export class CandidateRetrieverService {
   async findSponsored(limit: number = 20): Promise<any[]> {
     const offers = await this.offerModel
       .find({
-        status: { $in: ['approved', 'active'] }, endDate: { $gte: new Date() },
+        status: { $in: ['approved', 'active'] },
+        endDate: { $gte: new Date() },
         isActive: true,
       })
       .limit(limit)
@@ -583,7 +737,10 @@ export class CandidateRetrieverService {
       const collection = this.connection.collection(collectionName);
       if (!collection) return [];
 
-      const records = await collection.find(filter).limit(limit * 2).toArray(); // Fetch more since we might filter out
+      const records = await collection
+        .find(filter)
+        .limit(limit * 2)
+        .toArray(); // Fetch more since we might filter out
       if (records.length === 0) return [];
 
       // We assume offline collections store product IDs, so we fetch the products
@@ -603,7 +760,12 @@ export class CandidateRetrieverService {
         Boolean,
       );
 
-      return this.findByProductIds(productIds, limit, coordinates, maxDistanceKm);
+      return this.findByProductIds(
+        productIds,
+        limit,
+        coordinates,
+        maxDistanceKm,
+      );
     } catch (err) {
       this.logger.error(
         `Failed to query offline collection ${collectionName}: ${err.message}`,
@@ -621,30 +783,50 @@ export class CandidateRetrieverService {
       const collection = this.connection.collection('best_sellers');
       if (!collection) return [];
 
-      const records = await collection.find({}).limit(limit * 2).toArray();
+      const records = await collection
+        .find({})
+        .limit(limit * 2)
+        .toArray();
       if (records.length === 0) return [];
 
       let productIds = records.map((r) => r.productId).filter(Boolean);
-      productIds = [...new Set(productIds.map((id) => id.toString()))].filter(Boolean);
+      productIds = [...new Set(productIds.map((id) => id.toString()))].filter(
+        Boolean,
+      );
 
-      const objectIds = productIds.map((id) => {
-        try { return new mongoose.Types.ObjectId(id); } catch (e) { return null; }
-      }).filter(Boolean);
+      const objectIds = productIds
+        .map((id) => {
+          try {
+            return new mongoose.Types.ObjectId(id);
+          } catch (e) {
+            return null;
+          }
+        })
+        .filter(Boolean);
 
-      const offers = await this.offerModel.find({ _id: { $in: objectIds }, status: { $in: ['approved', 'active'] }, endDate: { $gte: new Date() } }).lean();
-      
-      let merchantIds = [...new Set(offers.map((o) => o.merchantId).filter(Boolean))];
-      
+      const offers = await this.offerModel
+        .find({
+          _id: { $in: objectIds },
+          status: { $in: ['approved', 'active'] },
+          endDate: { $gte: new Date() },
+        })
+        .lean();
+
+      let merchantIds = [
+        ...new Set(offers.map((o) => o.merchantId).filter(Boolean)),
+      ];
+
       if (merchantIds.length === 0) return [];
 
       let merchantFilter: any = { userId: { $in: merchantIds } };
 
       if (coordinates) {
         const latDegreeKm = 111;
-        const lonDegreeKm = 111 * Math.cos((coordinates.latitude * Math.PI) / 180);
+        const lonDegreeKm =
+          111 * Math.cos((coordinates.latitude * Math.PI) / 180);
         const latOffset = maxDistanceKm / latDegreeKm;
         const lonOffset = maxDistanceKm / lonDegreeKm;
-        
+
         merchantFilter.storeLocationLatitude = {
           $gte: coordinates.latitude - latOffset,
           $lte: coordinates.latitude + latOffset,
@@ -661,16 +843,18 @@ export class CandidateRetrieverService {
         .limit(limit)
         .toArray();
 
-      return merchants.map(m => ({
+      return merchants.map((m) => ({
         ...m,
         type: 'merchant',
         locationCoordinates: {
           type: 'Point',
           coordinates: [m.storeLocationLongitude, m.storeLocationLatitude],
-        }
+        },
       }));
     } catch (err) {
-      this.logger.error(`Failed to find best selling merchants: ${err.message}`);
+      this.logger.error(
+        `Failed to find best selling merchants: ${err.message}`,
+      );
       return [];
     }
   }
@@ -684,33 +868,38 @@ export class CandidateRetrieverService {
       const sevenDaysAgo = new Date();
       sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
-      const matchStage: any = { 
-        status: { $in: ['approved', 'active'] }, endDate: { $gte: new Date() },
-        createdAt: { $gte: sevenDaysAgo }
+      const matchStage: any = {
+        status: { $in: ['approved', 'active'] },
+        endDate: { $gte: new Date() },
+        createdAt: { $gte: sevenDaysAgo },
       };
 
       if (coordinates) {
         const latDegreeKm = 111;
-        const lonDegreeKm = 111 * Math.cos((coordinates.latitude * Math.PI) / 180);
+        const lonDegreeKm =
+          111 * Math.cos((coordinates.latitude * Math.PI) / 180);
         const latOffset = maxDistanceKm / latDegreeKm;
         const lonOffset = maxDistanceKm / lonDegreeKm;
-        
+
         const localMerchants = await this.connection
           .collection('merchants')
-          .find({
-            storeLocationLatitude: {
-              $gte: coordinates.latitude - latOffset,
-              $lte: coordinates.latitude + latOffset,
+          .find(
+            {
+              storeLocationLatitude: {
+                $gte: coordinates.latitude - latOffset,
+                $lte: coordinates.latitude + latOffset,
+              },
+              storeLocationLongitude: {
+                $gte: coordinates.longitude - lonOffset,
+                $lte: coordinates.longitude + lonOffset,
+              },
             },
-            storeLocationLongitude: {
-              $gte: coordinates.longitude - lonOffset,
-              $lte: coordinates.longitude + lonOffset,
-            }
-          }, { projection: { userId: 1 } })
+            { projection: { userId: 1 } },
+          )
           .toArray();
-          
+
         if (localMerchants.length === 0) return [];
-        matchStage.merchantId = { $in: localMerchants.map(m => m.userId) };
+        matchStage.merchantId = { $in: localMerchants.map((m) => m.userId) };
       }
 
       const topOffers = await this.offerModel.aggregate([
@@ -718,12 +907,12 @@ export class CandidateRetrieverService {
         { $sort: { views: -1 } },
         { $group: { _id: '$merchantId', totalViews: { $sum: '$views' } } },
         { $sort: { totalViews: -1 } },
-        { $limit: limit }
+        { $limit: limit },
       ]);
 
       if (topOffers.length === 0) return [];
 
-      const merchantIds = topOffers.map(o => o._id).filter(Boolean);
+      const merchantIds = topOffers.map((o) => o._id).filter(Boolean);
 
       const merchants = await this.connection
         .collection('merchants')
@@ -731,8 +920,10 @@ export class CandidateRetrieverService {
         .toArray();
 
       // Sort merchants to match the topOffers order
-      const merchantMap = new Map(merchants.map(m => [m.userId, m]));
-      const sortedMerchants = merchantIds.map(id => merchantMap.get(id)).filter(Boolean);
+      const merchantMap = new Map(merchants.map((m) => [m.userId, m]));
+      const sortedMerchants = merchantIds
+        .map((id) => merchantMap.get(id))
+        .filter(Boolean);
 
       return sortedMerchants.map((m: any) => ({
         ...m,
@@ -740,9 +931,8 @@ export class CandidateRetrieverService {
         locationCoordinates: {
           type: 'Point',
           coordinates: [m.storeLocationLongitude, m.storeLocationLatitude],
-        }
+        },
       }));
-
     } catch (err) {
       this.logger.error(`Failed to find popular merchants: ${err.message}`);
       return [];
@@ -759,14 +949,18 @@ export class CandidateRetrieverService {
     options: RetrieverOptions = {},
   ): Promise<any[]> {
     const maxCandidates = options.maxCandidates || 100;
-    const baseQuery: any = { status: { $in: ['approved', 'active'] }, endDate: { $gte: new Date() } };
+    const baseQuery: any = {
+      status: { $in: ['approved', 'active'] },
+      endDate: { $gte: new Date() },
+    };
 
     // Match categories OR tags
     if (categories.length > 0 || tags.length > 0) {
       baseQuery.$or = [];
       if (categories.length > 0)
         baseQuery.$or.push({ category: { $in: categories } });
-      if (tags.length > 0) baseQuery.$or.push({ businessCategory: { $in: tags } });
+      if (tags.length > 0)
+        baseQuery.$or.push({ businessCategory: { $in: tags } });
     }
 
     let merchantIdsFilter = null;
@@ -775,7 +969,7 @@ export class CandidateRetrieverService {
     if (context.latitude && context.longitude) {
       // Use the largest radius for the bounding box since progressive search
       // requires multiple DB queries which is expensive without an index.
-      // We'll fetch all merchants within the max radius (e.g. 20km) and let 
+      // We'll fetch all merchants within the max radius (e.g. 20km) and let
       // the ranking engine's DistanceComponent score them perfectly anyway.
       let defaultRadii = [5, 10, 20];
       const envRadiiStr = this.configService.get<string>('RADIUS_EXPANSION');
@@ -811,7 +1005,7 @@ export class CandidateRetrieverService {
         .toArray();
 
       if (merchants.length === 0) return [];
-      
+
       merchantIdsFilter = merchants.map((m) => m.userId);
       merchants.forEach((m) => merchantMap.set(m.userId, m));
     }
@@ -827,7 +1021,9 @@ export class CandidateRetrieverService {
       .lean();
 
     if (!context.latitude || !context.longitude) {
-      const merchantIds = [...new Set(offers.map((o) => o.merchantId).filter(Boolean))];
+      const merchantIds = [
+        ...new Set(offers.map((o) => o.merchantId).filter(Boolean)),
+      ];
       if (merchantIds.length > 0) {
         const merchants = await this.connection
           .collection('merchants')
@@ -846,14 +1042,33 @@ export class CandidateRetrieverService {
       const enriched: any = {
         ...offer,
         merchantName: o.merchantName || merchant?.storeName || '',
-        storeLocation: merchant?.storeLocation || o.storeLocation || o.merchantLocation || '',
-        location: merchant?.storeLocation || o.storeLocation || o.merchantLocation || '',
-        merchantLocation: merchant?.storeLocation || o.storeLocation || o.merchantLocation || '',
+        storeLocation:
+          merchant?.storeLocation ||
+          o.storeLocation ||
+          o.merchantLocation ||
+          '',
+        location:
+          merchant?.storeLocation ||
+          o.storeLocation ||
+          o.merchantLocation ||
+          '',
+        merchantLocation:
+          merchant?.storeLocation ||
+          o.storeLocation ||
+          o.merchantLocation ||
+          '',
       };
-      if (merchant && merchant.storeLocationLatitude && merchant.storeLocationLongitude) {
+      if (
+        merchant &&
+        merchant.storeLocationLatitude &&
+        merchant.storeLocationLongitude
+      ) {
         enriched.locationCoordinates = {
           type: 'Point',
-          coordinates: [merchant.storeLocationLongitude, merchant.storeLocationLatitude],
+          coordinates: [
+            merchant.storeLocationLongitude,
+            merchant.storeLocationLatitude,
+          ],
         };
       }
       return enriched;
