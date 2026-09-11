@@ -10,7 +10,8 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-import Razorpay from 'razorpay';
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+import Razorpay = require('razorpay');
 import { createHmac, timingSafeEqual } from 'crypto';
 import { randomUUID } from 'crypto';
 import { CreateOrderDto } from './dto/create-order.dto';
