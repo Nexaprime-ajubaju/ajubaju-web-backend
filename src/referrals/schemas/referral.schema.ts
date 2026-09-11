@@ -33,3 +33,4 @@ export class Referral {
 export const ReferralSchema = SchemaFactory.createForClass(Referral);
 ReferralSchema.index({ referrerId: 1 });
 ReferralSchema.index({ referredUserId: 1 });
+ReferralSchema.index({ status: 1, referrerId: 1 }); // Performance index

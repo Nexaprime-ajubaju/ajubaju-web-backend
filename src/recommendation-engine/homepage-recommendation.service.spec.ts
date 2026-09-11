@@ -16,6 +16,7 @@ describe('HomepageRecommendationService', () => {
             enabled: true,
             limit: 10,
             displayOrder: 1,
+            fallbackStrategy: 'trending',
           },
         ],
       }),

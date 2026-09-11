@@ -72,7 +72,7 @@ export class MerchantProductsService implements OnModuleInit {
     );
   }
 
-  async onModuleInit() {
+  onModuleInit() {
     if (this.kafkaService) {
       this.logger.log('Kafka service connected for MerchantProductsService');
     }

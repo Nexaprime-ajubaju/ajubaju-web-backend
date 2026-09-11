@@ -48,3 +48,4 @@ export const OrderSchema = SchemaFactory.createForClass(Order);
 OrderSchema.index({ merchantId: 1, status: 1, placedAt: -1 });
 OrderSchema.index({ merchantId: 1, placedAt: -1 });
 OrderSchema.index({ voucherId: 1 });
+OrderSchema.index({ userId: 1, placedAt: -1 }); // Performance index

@@ -37,6 +37,7 @@ import { Payment, PaymentSchema } from '../payments/schemas/payment.schema';
 import { RedisModule } from '../common/services/redis.module';
 import { EmailModule } from '../common/services/email.service';
 import { ReferralsModule } from '../referrals/referrals.module';
+import { PendingMerchantLocationSchema } from './schemas/pending-merchant-location.schema';
 
 @Module({
   imports: [
@@ -47,8 +48,7 @@ import { ReferralsModule } from '../referrals/referrals.module';
       { name: Merchant.name, schema: MerchantSchema },
       {
         name: 'PendingMerchantLocation',
-        schema: require('./schemas/pending-merchant-location.schema')
-          .PendingMerchantLocationSchema,
+        schema: PendingMerchantLocationSchema,
       },
       { name: Payment.name, schema: PaymentSchema },
       { name: UserReport.name, schema: UserReportSchema },
@@ -61,7 +61,7 @@ import { ReferralsModule } from '../referrals/referrals.module';
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.registerAsync({
       imports: [ConfigModule],
-      useFactory: async (configService: ConfigService) => {
+      useFactory: (configService: ConfigService) => {
         const secret = configService.get<string>('JWT_SECRET');
         const expiresIn = configService.get<string>('JWT_EXPIRATION') || '15m';
 

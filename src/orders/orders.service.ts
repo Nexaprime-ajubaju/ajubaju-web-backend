@@ -173,7 +173,11 @@ export class OrdersService {
               if (voucher && voucher.offerId) {
                 realOfferId = String(voucher.offerId);
               }
-            } catch (e) {}
+            } catch (lookupErr: any) {
+              this.logger.warn(
+                `Could not resolve offerId from voucher: ${lookupErr?.message}`,
+              );
+            }
           }
 
           const notifications = await this.notificationModel.create(
@@ -475,7 +479,11 @@ export class OrdersService {
           if (voucher && voucher.offerId) {
             realOfferId = String(voucher.offerId);
           }
-        } catch (e) {}
+        } catch (lookupErr: any) {
+          this.logger.warn(
+            `Could not resolve offerId from voucher: ${lookupErr?.message}`,
+          );
+        }
       }
 
       if (status === OrderStatus.ACCEPTED) {

@@ -47,7 +47,7 @@ export class RecommendationService {
     // Build cache key based on context and version
     const versionStr =
       (await this.redisService.get('recommendation:cache:version')) || '4';
-    const cacheKey = `recommendations:v${versionStr}:strategy:${key}:${context.userId || 'guest'}:${context.city || 'all'}:${variant}`;
+    const cacheKey = `recommendations:v${String(versionStr)}:strategy:${key}:${context.userId || 'guest'}:${context.city || 'all'}:${variant}`;
 
     // Check cache
     const cachedData = await this.redisService.get(cacheKey);

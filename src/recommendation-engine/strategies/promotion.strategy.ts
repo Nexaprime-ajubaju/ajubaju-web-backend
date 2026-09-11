@@ -11,9 +11,7 @@ import { RecommendationContext } from '../interfaces/recommendation.context';
 export class PromotionStrategy implements RecommendationStrategy {
   readonly key = 'merchant_promotions';
 
-  async getRecommendations(
-    context: RecommendationContext,
-  ): Promise<StrategyResult> {
+  getRecommendations(context: RecommendationContext): Promise<StrategyResult> {
     const limit = context.limit || 10;
     // Placeholder implementation for PromotionStrategy
     // In a real implementation, this would inject required services (Users, Orders, Products)
@@ -31,7 +29,7 @@ export class PromotionStrategy implements RecommendationStrategy {
       },
     ].slice(0, limit);
 
-    return {
+    return Promise.resolve({
       products: mockProducts,
       metadata: {
         confidence: 0.5,
@@ -41,6 +39,6 @@ export class PromotionStrategy implements RecommendationStrategy {
         retrievedCandidates: mockProducts.length,
         returnedProducts: mockProducts.length,
       },
-    };
+    });
   }
 }

@@ -119,3 +119,5 @@ PaymentSchema.index(
   { userId: 1, idempotencyKey: 1 },
   { unique: true, sparse: true },
 );
+PaymentSchema.index({ status: 1 }); // Performance index
+PaymentSchema.index({ adId: 1 }); // Performance index

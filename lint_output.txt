@@ -1,0 +1,175 @@
+﻿
+> ads-microservice@1.0.0 lint
+> eslint "{src,apps,libs,test}/**/*.ts" --fix
+
+
+C:\Users\Atharv Apugade\GOLO\GOLO_Backend\src\ads\ads.controller.ts
+  1671:37  error  Unsafe usage of optional chaining. If it short-circuits with 'undefined' the evaluation will throw TypeError  no-unsafe-optional-chaining
+
+C:\Users\Atharv Apugade\GOLO\GOLO_Backend\src\ads\ads.service.ts
+  3064:26  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  3089:24  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  3090:21  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+C:\Users\Atharv Apugade\GOLO\GOLO_Backend\src\analytics\recommendation-analytics.controller.ts
+  11:3  error  Async method 'reportEvents' has no 'await' expression  @typescript-eslint/require-await
+
+C:\Users\Atharv Apugade\GOLO\GOLO_Backend\src\analytics\recommendation-health.service.ts
+  21:3  error  Async method 'handleRecommendationGenerated' has no 'await' expression  @typescript-eslint/require-await
+
+C:\Users\Atharv Apugade\GOLO\GOLO_Backend\src\app.controller.ts
+  32:25  error  The two values in this comparison do not have a shared enum type  @typescript-eslint/no-unsafe-enum-comparison
+
+C:\Users\Atharv Apugade\GOLO\GOLO_Backend\src\app.module.ts
+  120:7  error  Async method 'useFactory' has no 'await' expression  @typescript-eslint/require-await
+
+C:\Users\Atharv Apugade\GOLO\GOLO_Backend\src\banners\banners.controller.ts
+   72:7  error    The two values in this comparison do not have a shared enum type                                                                                                    @typescript-eslint/no-unsafe-enum-comparison
+  170:7  error    The two values in this comparison do not have a shared enum type                                                                                                    @typescript-eslint/no-unsafe-enum-comparison
+  195:7  error    The two values in this comparison do not have a shared enum type                                                                                                    @typescript-eslint/no-unsafe-enum-comparison
+  233:3  error    Async method 'trackBannerImpression' has no 'await' expression                                                                                                      @typescript-eslint/require-await
+  249:3  error    Async method 'trackBannerClick' has no 'await' expression                                                                                                           @typescript-eslint/require-await
+  258:5  warning  Promises must be awaited, end with a call to .catch, end with a call to .then with a rejection handler or be explicitly marked as ignored with the `void` operator  @typescript-eslint/no-floating-promises
+
+C:\Users\Atharv Apugade\GOLO\GOLO_Backend\src\banners\banners.service.ts
+  198:3   error  Async method 'onModuleInit' has no 'await' expression             @typescript-eslint/require-await
+  352:9   error  The two values in this comparison do not have a shared enum type  @typescript-eslint/no-unsafe-enum-comparison
+  417:11  error  The two values in this comparison do not have a shared enum type  @typescript-eslint/no-unsafe-enum-comparison
+
+C:\Users\Atharv Apugade\GOLO\GOLO_Backend\src\banners\services\banner-queue.service.ts
+  149:11  error  The two values in this comparison do not have a shared enum type  @typescript-eslint/no-unsafe-enum-comparison
+  152:18  error  The two values in this comparison do not have a shared enum type  @typescript-eslint/no-unsafe-enum-comparison
+  154:18  error  The two values in this comparison do not have a shared enum type  @typescript-eslint/no-unsafe-enum-comparison
+
+C:\Users\Atharv Apugade\GOLO\GOLO_Backend\src\banners\services\banner-rotation-scheduler.service.ts
+  49:3  error  Async method 'onModuleInit' has no 'await' expression  @typescript-eslint/require-await
+
+C:\Users\Atharv Apugade\GOLO\GOLO_Backend\src\banners\services\banner-tracking.service.ts
+   62:5  warning  Promises must be awaited, end with a call to .catch, end with a call to .then with a rejection handler or be explicitly marked as ignored with the `void` operator  @typescript-eslint/no-floating-promises
+  107:7  warning  Promises must be awaited, end with a call to .catch, end with a call to .then with a rejection handler or be explicitly marked as ignored with the `void` operator  @typescript-eslint/no-floating-promises
+  150:7  warning  Promises must be awaited, end with a call to .catch, end with a call to .then with a rejection handler or be explicitly marked as ignored with the `void` operator  @typescript-eslint/no-floating-promises
+
+C:\Users\Atharv Apugade\GOLO\GOLO_Backend\src\calls\calls.gateway.ts
+  41:3  error    Async method 'handleConnection' has no 'await' expression                                                                                                           @typescript-eslint/require-await
+  64:7  warning  Promises must be awaited, end with a call to .catch, end with a call to .then with a rejection handler or be explicitly marked as ignored with the `void` operator  @typescript-eslint/no-floating-promises
+
+C:\Users\Atharv Apugade\GOLO\GOLO_Backend\src\calls\calls.module.ts
+  27:7  error  Async method 'useFactory' has no 'await' expression  @typescript-eslint/require-await
+
+C:\Users\Atharv Apugade\GOLO\GOLO_Backend\src\chats\chats.controller.ts
+  48:28  error  A `require()` style import is forbidden               @typescript-eslint/no-require-imports
+  59:33  error  Expected the Promise rejection reason to be an Error  @typescript-eslint/prefer-promise-reject-errors
+  66:26  error  A `require()` style import is forbidden               @typescript-eslint/no-require-imports
+  67:23  error  A `require()` style import is forbidden               @typescript-eslint/no-require-imports
+
+C:\Users\Atharv Apugade\GOLO\GOLO_Backend\src\chats\chats.gateway.ts
+   38:3  error    Async method 'handleConnection' has no 'await' expression                                                                                                           @typescript-eslint/require-await
+   61:7  warning  Promises must be awaited, end with a call to .catch, end with a call to .then with a rejection handler or be explicitly marked as ignored with the `void` operator  @typescript-eslint/no-floating-promises
+  132:7  warning  Promises must be awaited, end with a call to .catch, end with a call to .then with a rejection handler or be explicitly marked as ignored with the `void` operator  @typescript-eslint/no-floating-promises
+  155:3  error    Async method 'leaveConversation' has no 'await' expression                                                                                                          @typescript-eslint/require-await
+  160:5  warning  Promises must be awaited, end with a call to .catch, end with a call to .then with a rejection handler or be explicitly marked as ignored with the `void` operator  @typescript-eslint/no-floating-promises
+
+C:\Users\Atharv Apugade\GOLO\GOLO_Backend\src\chats\chats.module.ts
+  30:7  error  Async method 'useFactory' has no 'await' expression  @typescript-eslint/require-await
+
+C:\Users\Atharv Apugade\GOLO\GOLO_Backend\src\common\filters\global-exception.filter.ts
+  44:9  error  The two values in this comparison do not have a shared enum type  @typescript-eslint/no-unsafe-enum-comparison
+  48:9  error  The two values in this comparison do not have a shared enum type  @typescript-eslint/no-unsafe-enum-comparison
+
+C:\Users\Atharv Apugade\GOLO\GOLO_Backend\src\common\services\transaction.service.ts
+  50:23  error  Empty block statement  no-empty
+  84:23  error  Empty block statement  no-empty
+
+C:\Users\Atharv Apugade\GOLO\GOLO_Backend\src\kafka\kafka.service.ts
+  233:7  error  Unexpected `await` of a non-Promise (non-"Thenable") value  @typescript-eslint/await-thenable
+  262:3  error  Async method 'isConnected' has no 'await' expression        @typescript-eslint/require-await
+
+C:\Users\Atharv Apugade\GOLO\GOLO_Backend\src\merchant-dashboard\merchant-dashboard.service.ts
+   616:11  error  The two values in this comparison do not have a shared enum type  @typescript-eslint/no-unsafe-enum-comparison
+  1368:11  error  The two values in this comparison do not have a shared enum type  @typescript-eslint/no-unsafe-enum-comparison
+
+C:\Users\Atharv Apugade\GOLO\GOLO_Backend\src\merchant-products\merchant-products.service.ts
+  75:3  error  Async method 'onModuleInit' has no 'await' expression  @typescript-eslint/require-await
+
+C:\Users\Atharv Apugade\GOLO\GOLO_Backend\src\moderation\moderation.service.ts
+  207:9   error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  211:19  error  Empty block statement                    no-empty
+  223:63  error  Unnecessary escape character: \.         no-useless-escape
+  227:28  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+C:\Users\Atharv Apugade\GOLO\GOLO_Backend\src\moderation\text-moderation.service.ts
+  53:20  error  Unnecessary escape character: \/  no-useless-escape
+  53:26  error  Unnecessary escape character: \^  no-useless-escape
+  53:29  error  Unnecessary escape character: \*  no-useless-escape
+
+C:\Users\Atharv Apugade\GOLO\GOLO_Backend\src\offers\offers.controller.ts
+  270:3  error  Async method 'getRecentlyViewedOffers' has no 'await' expression  @typescript-eslint/require-await
+
+C:\Users\Atharv Apugade\GOLO\GOLO_Backend\src\offers\offers.service.ts
+   464:11  error  The two values in this comparison do not have a shared enum type  @typescript-eslint/no-unsafe-enum-comparison
+   934:15  error  Empty block statement                                             no-empty
+  1153:21  error  Unnecessary escape character: \|                                  no-useless-escape
+
+C:\Users\Atharv Apugade\GOLO\GOLO_Backend\src\orders\orders.service.ts
+  176:25  error  Empty block statement  no-empty
+  478:21  error  Empty block statement  no-empty
+
+C:\Users\Atharv Apugade\GOLO\GOLO_Backend\src\payments\payments.service.ts
+  13:19  error  A `require()` style import is forbidden                @typescript-eslint/no-require-imports
+  64:3   error  Async method 'onModuleInit' has no 'await' expression  @typescript-eslint/require-await
+
+C:\Users\Atharv Apugade\GOLO\GOLO_Backend\src\recommendation-engine\offline-intelligence\fbt.job.ts
+  23:3  error  Async method 'execute' has no 'await' expression  @typescript-eslint/require-await
+
+C:\Users\Atharv Apugade\GOLO\GOLO_Backend\src\recommendation-engine\recommendation.service.ts
+  50:42  error  'versionStr' will use Object's default stringification format ('[object Object]') when stringified  @typescript-eslint/no-base-to-string
+  50:42  error  Invalid type "unknown" of template literal expression                                               @typescript-eslint/restrict-template-expressions
+
+C:\Users\Atharv Apugade\GOLO\GOLO_Backend\src\recommendation-engine\strategies\frequently-bought.strategy.ts
+  14:3  error  Async method 'getRecommendations' has no 'await' expression  @typescript-eslint/require-await
+
+C:\Users\Atharv Apugade\GOLO\GOLO_Backend\src\recommendation-engine\strategies\promotion.strategy.ts
+  14:3  error  Async method 'getRecommendations' has no 'await' expression  @typescript-eslint/require-await
+
+C:\Users\Atharv Apugade\GOLO\GOLO_Backend\src\recommendation-engine\strategies\search-recommendation.strategy.ts
+  14:3  error  Async method 'getRecommendations' has no 'await' expression  @typescript-eslint/require-await
+
+C:\Users\Atharv Apugade\GOLO\GOLO_Backend\src\referrals\referrals.service.ts
+  58:77  error  Invalid type "ObjectId" of template literal expression  @typescript-eslint/restrict-template-expressions
+
+C:\Users\Atharv Apugade\GOLO\GOLO_Backend\src\reports\reports.gateway.ts
+   46:3  error  Async method 'handleConnection' has no 'await' expression  @typescript-eslint/require-await
+  109:3  error  Async method 'handleDisconnect' has no 'await' expression  @typescript-eslint/require-await
+
+C:\Users\Atharv Apugade\GOLO\GOLO_Backend\src\reports\reports.kafka.controller.ts
+  47:3  error  Async method 'handleReportSubmitted' has no 'await' expression  @typescript-eslint/require-await
+  66:3  error  Async method 'handleStatus' has no 'await' expression           @typescript-eslint/require-await
+
+C:\Users\Atharv Apugade\GOLO\GOLO_Backend\src\subscriptions\subscriptions.service.ts
+  370:3  error  Async method 'calculateInitialTrialDates' has no 'await' expression  @typescript-eslint/require-await
+
+C:\Users\Atharv Apugade\GOLO\GOLO_Backend\src\users\users.module.ts
+  50:17  error  A `require()` style import is forbidden              @typescript-eslint/no-require-imports
+  64:7   error  Async method 'useFactory' has no 'await' expression  @typescript-eslint/require-await
+
+C:\Users\Atharv Apugade\GOLO\GOLO_Backend\src\users\users.service.ts
+   527:3   error  Async method 'onModuleInit' has no 'await' expression                                                                                              @typescript-eslint/require-await
+  1119:3   error  Async method 'sendForgotPasswordOTP' has no 'await' expression                                                                                     @typescript-eslint/require-await
+  1128:3   error  Async method 'verifyForgotPasswordOTP' has no 'await' expression                                                                                   @typescript-eslint/require-await
+  1589:32  error  The two values in this comparison do not have a shared enum type                                                                                   @typescript-eslint/no-unsafe-enum-comparison
+  2461:25  error  A `require()` style import is forbidden                                                                                                            @typescript-eslint/no-require-imports
+  2684:22  error  Using `join()` for customers will use Object's default stringification format ('[object Object]') when stringified                                 @typescript-eslint/no-base-to-string
+  2742:20  error  Using `join()` for Array.from(item.customerSet).slice(0, 4) will use Object's default stringification format ('[object Object]') when stringified  @typescript-eslint/no-base-to-string
+  3010:25  error  A `require()` style import is forbidden                                                                                                            @typescript-eslint/no-require-imports
+
+C:\Users\Atharv Apugade\GOLO\GOLO_Backend\src\vouchers\vouchers.service.ts
+   100:3   error  Async method 'onModuleInit' has no 'await' expression   @typescript-eslint/require-await
+  1065:63  error  Invalid type "ObjectId" of template literal expression  @typescript-eslint/restrict-template-expressions
+
+C:\Users\Atharv Apugade\GOLO\GOLO_Backend\src\wallets\wallets.controller.ts
+  20:38  error  Unsafe usage of optional chaining. If it short-circuits with 'undefined' the evaluation will throw TypeError  no-unsafe-optional-chaining
+  30:38  error  Unsafe usage of optional chaining. If it short-circuits with 'undefined' the evaluation will throw TypeError  no-unsafe-optional-chaining
+  52:38  error  Unsafe usage of optional chaining. If it short-circuits with 'undefined' the evaluation will throw TypeError  no-unsafe-optional-chaining
+
+Γ£û 88 problems (80 errors, 8 warnings)
+

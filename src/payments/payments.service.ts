@@ -10,7 +10,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-import Razorpay = require('razorpay');
+import Razorpay from 'razorpay';
 import { createHmac, timingSafeEqual } from 'crypto';
 import { randomUUID } from 'crypto';
 import { CreateOrderDto } from './dto/create-order.dto';
@@ -61,7 +61,7 @@ export class PaymentsService implements OnModuleInit {
     }
   }
 
-  async onModuleInit() {
+  onModuleInit() {
     if (this.kafkaService) {
       this.logger.log('Kafka service connected for PaymentsService');
     }

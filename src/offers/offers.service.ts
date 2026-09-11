@@ -461,7 +461,10 @@ export class OffersService implements OnModuleInit {
         `[submitOfferPromotionRequest] Merchant found: ${merchant.name}, role=${merchant.role}, accountType=${merchant.accountType}`,
       );
 
-      if (merchant.role !== 'merchant' && merchant.accountType !== 'merchant') {
+      if (
+        merchant.role !== ('merchant' as string) &&
+        merchant.accountType !== ('merchant' as string)
+      ) {
         throw new BadRequestException('Only merchants can submit offers');
       }
 
@@ -931,7 +934,11 @@ export class OffersService implements OnModuleInit {
           requestId,
           merchantId,
         });
-      } catch {}
+      } catch (emitErr: any) {
+        this.logger.warn(
+          `Could not emit offer deletion event: ${emitErr?.message}`,
+        );
+      }
     }
     await this.clearOfferCaches(merchantId, [requestId, String(offer._id)]);
     return offer;
@@ -1150,7 +1157,7 @@ export class OffersService implements OnModuleInit {
     const offerTypesRaw = String(params.offerTypes || '').trim();
     const offerTypeTokens = offerTypesRaw
       ? offerTypesRaw
-          .split(/[,\|;]+/)
+          .split(/[,|;]+/)
           .map((t) =>
             String(t || '')
               .trim()

@@ -180,3 +180,5 @@ export const UserSchema = SchemaFactory.createForClass(User);
 UserSchema.index({ email: 1, accountType: 1 }, { unique: true });
 UserSchema.index({ role: 1 });
 UserSchema.index({ preferredCategories: 1 });
+UserSchema.index({ referralCode: 1 }); // Performance index
+UserSchema.index({ 'profile.city': 1 }); // Performance index

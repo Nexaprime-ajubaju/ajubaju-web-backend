@@ -267,7 +267,7 @@ export class OffersController {
 
   @Get('user/recently-viewed')
   @UseGuards(JwtAuthGuard)
-  async getRecentlyViewedOffers(@CurrentUser() user: any) {
+  getRecentlyViewedOffers(@CurrentUser() user: any) {
     // getRecentlyViewedOffers was removed from OffersService. Returning empty array for backward compatibility.
     return { success: true, data: [], timestamp: new Date().toISOString() };
   }

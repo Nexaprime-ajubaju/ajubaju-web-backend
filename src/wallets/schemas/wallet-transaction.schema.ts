@@ -40,3 +40,5 @@ export const WalletTransactionSchema =
   SchemaFactory.createForClass(WalletTransaction);
 
 WalletTransactionSchema.index({ userId: 1, userType: 1 });
+WalletTransactionSchema.index({ status: 1 }); // Performance index
+WalletTransactionSchema.index({ createdAt: -1 }); // Performance index

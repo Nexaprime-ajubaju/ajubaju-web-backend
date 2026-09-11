@@ -47,7 +47,11 @@ export class TransactionService {
         if (shouldManageSession && session && session.inTransaction()) {
           try {
             await session.abortTransaction();
-          } catch (e) {}
+          } catch (abortErr: any) {
+            this.logger.warn(
+              `Could not abort transaction: ${abortErr?.message ?? abortErr}`,
+            );
+          }
         }
 
         const isStandaloneError =
@@ -81,7 +85,11 @@ export class TransactionService {
         if (shouldManageSession && session) {
           try {
             await session.endSession();
-          } catch (e) {}
+          } catch (endErr: any) {
+            this.logger.warn(
+              `Could not end session: ${endErr?.message ?? endErr}`,
+            );
+          }
         }
       }
     }

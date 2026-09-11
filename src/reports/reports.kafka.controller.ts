@@ -44,10 +44,7 @@ export class ReportsKafkaController {
   }
 
   @MessagePattern(KAFKA_TOPICS.AD_REPORT_SUBMITTED)
-  async handleReportSubmitted(
-    @Payload() message: any,
-    @Ctx() context: KafkaContext,
-  ) {
+  handleReportSubmitted(@Payload() message: any, @Ctx() context: KafkaContext) {
     const value = this.getValue(message);
     const correlationId = this.getCorrelationId(message);
 
@@ -63,7 +60,7 @@ export class ReportsKafkaController {
   }
 
   @MessagePattern(KAFKA_TOPICS.REPORTS_STATUS)
-  async handleStatus(@Payload() message: any, @Ctx() context: KafkaContext) {
+  handleStatus(@Payload() message: any, @Ctx() context: KafkaContext) {
     const correlationId = this.getCorrelationId(message);
 
     try {

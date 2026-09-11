@@ -367,7 +367,7 @@ export class SubscriptionsService {
     };
   }
 
-  async calculateInitialTrialDates() {
+  calculateInitialTrialDates() {
     const trialStartDate = new Date();
     const trialEndDate = moment(trialStartDate).add(50, 'days').toDate();
     return { trialStartDate, trialEndDate };

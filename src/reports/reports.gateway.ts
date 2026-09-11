@@ -43,7 +43,7 @@ export class ReportsGateway
     }
   }
 
-  async handleConnection(client: Socket) {
+  handleConnection(client: Socket) {
     try {
       const tokenFromAuth = client.handshake.auth?.token;
       const tokenFromHeader = client.handshake.headers.authorization?.replace(
@@ -106,7 +106,7 @@ export class ReportsGateway
     }
   }
 
-  async handleDisconnect(client: Socket) {
+  handleDisconnect(client: Socket) {
     this.adminSockets.delete(client.id);
     this.logger.log(
       `❌ Admin disconnected from reports (Total admins: ${this.adminSockets.size})`,

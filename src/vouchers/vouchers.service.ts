@@ -97,7 +97,7 @@ export class VouchersService implements OnModuleInit {
     }
   }
 
-  async onModuleInit() {
+  onModuleInit() {
     console.log('--> VOUCHERS SERVICE onModuleInit START');
     // Run DB migrations and indexing asynchronously to prevent blocking NestJS bootstrap
     this.ensureDatabaseSchema().catch((err) => {
@@ -1062,7 +1062,9 @@ export class VouchersService implements OnModuleInit {
       }
 
       // Get user details
-      console.log(`[verifyVoucher] Looking up user with ID: ${voucher.userId}`);
+      console.log(
+        `[verifyVoucher] Looking up user with ID: ${String(voucher.userId)}`,
+      );
       const user = await this.userModel
         .findById(voucher.userId)
         .select('name email');

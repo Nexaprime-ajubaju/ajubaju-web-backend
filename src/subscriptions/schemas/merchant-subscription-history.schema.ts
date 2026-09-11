@@ -33,3 +33,4 @@ export const MerchantSubscriptionHistorySchema = SchemaFactory.createForClass(
 );
 
 MerchantSubscriptionHistorySchema.index({ merchantId: 1 });
+MerchantSubscriptionHistorySchema.index({ createdAt: -1 }); // Performance index

@@ -11,9 +11,7 @@ import { RecommendationContext } from '../interfaces/recommendation.context';
 export class SearchRecommendationStrategy implements RecommendationStrategy {
   readonly key = 'ai_search_recommendation';
 
-  async getRecommendations(
-    context: RecommendationContext,
-  ): Promise<StrategyResult> {
+  getRecommendations(context: RecommendationContext): Promise<StrategyResult> {
     const limit = context.limit || 10;
     // Placeholder implementation for SearchRecommendationStrategy
     // In a real implementation, this would inject required services (Users, Orders, Products)
@@ -31,7 +29,7 @@ export class SearchRecommendationStrategy implements RecommendationStrategy {
       },
     ].slice(0, limit);
 
-    return {
+    return Promise.resolve({
       products: mockProducts,
       metadata: {
         confidence: 0.5,
@@ -41,6 +39,6 @@ export class SearchRecommendationStrategy implements RecommendationStrategy {
         retrievedCandidates: mockProducts.length,
         returnedProducts: mockProducts.length,
       },
-    };
+    });
   }
 }

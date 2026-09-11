@@ -3,6 +3,8 @@ import { ImageAnnotatorClient } from '@google-cloud/vision';
 import { RedisService } from '../common/services/redis.service';
 import { SecurityConfig } from '../security/config/security.config';
 import * as crypto from 'crypto';
+import * as fs from 'fs';
+import * as cloudinaryLib from 'cloudinary';
 
 @Injectable()
 export class ModerationService {
@@ -204,11 +206,15 @@ export class ModerationService {
         error.stack,
       );
       try {
-        require('fs').appendFileSync(
+        fs.appendFileSync(
           'moderation_error.log',
-          new Date().toISOString() + '\\n' + error.stack + '\\n\\n',
+          new Date().toISOString() + '\n' + error.stack + '\n\n',
         );
-      } catch (e) {}
+      } catch (logErr: any) {
+        this.logger.warn(
+          `Could not write to moderation log: ${logErr?.message}`,
+        );
+      }
       throw new BadRequestException(
         `Image moderation failed: ${error.message}`,
       );
@@ -220,11 +226,11 @@ export class ModerationService {
       if (!imageUrl || !imageUrl.includes('cloudinary.com')) return;
 
       // Extract public_id from Cloudinary URL
-      const matches = imageUrl.match(/\/upload\/(?:v\d+\/)?([^\.]+)/);
+      const matches = imageUrl.match(/\/upload\/(?:v\d+\/)?([^.]+)/);
       if (matches && matches[1]) {
         const publicId = matches[1];
         this.logger.log(`Deleting rejected image from Cloudinary: ${publicId}`);
-        const cloudinary = require('cloudinary').v2;
+        const cloudinary = cloudinaryLib.v2;
         cloudinary.config({
           cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
           api_key: process.env.CLOUDINARY_API_KEY,

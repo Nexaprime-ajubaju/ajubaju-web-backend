@@ -50,7 +50,7 @@ export class TextModerationService implements OnModuleInit {
     if (!text) return '';
     return text
       .toLowerCase()
-      .replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?"']/g, ' ') // Replace punctuation with space
+      .replace(/[.,/#!$%^&*;:{}=\-_`~()?'"]/g, ' ') // Replace punctuation with space
       .replace(/\s+/g, ' ') // Collapse spaces
       .trim();
   }

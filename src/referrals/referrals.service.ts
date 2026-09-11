@@ -55,7 +55,7 @@ export class ReferralsService {
       await pendingReferral.save();
 
       this.logger.log(
-        `Marked referral ${pendingReferral._id} as QUALIFIED for referrer ${pendingReferral.referrerId}. Purchase completed.`,
+        `Marked referral ${String(pendingReferral._id)} as QUALIFIED for referrer ${String(pendingReferral.referrerId)}. Purchase completed.`,
       );
     } catch (error) {
       this.logger.error(

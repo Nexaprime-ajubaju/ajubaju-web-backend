@@ -524,7 +524,7 @@ export class UsersService implements OnModuleInit {
     return merchant;
   }
 
-  async onModuleInit() {
+  onModuleInit() {
     if (this.kafkaService) {
       this.logger.log('Kafka service connected for UsersService');
     }
@@ -1116,7 +1116,7 @@ export class UsersService implements OnModuleInit {
     return { success: true, message: 'OTP verified' };
   }
 
-  async sendForgotPasswordOTP(email: string) {
+  sendForgotPasswordOTP(email: string) {
     if (!email) throw new BadRequestException('Email is required');
     return {
       success: true,
@@ -1125,7 +1125,7 @@ export class UsersService implements OnModuleInit {
     };
   }
 
-  async verifyForgotPasswordOTP(email: string, otp: string) {
+  verifyForgotPasswordOTP(email: string, otp: string) {
     if (!email || !otp)
       throw new BadRequestException('Email and OTP are required');
     return { success: true, message: 'OTP verified successfully' };
@@ -1586,7 +1586,8 @@ export class UsersService implements OnModuleInit {
       await this.deletedAccountModel.create({
         accountId: String(user._id),
         accountType:
-          user.accountType || (user.role === 'merchant' ? 'merchant' : 'user'),
+          user.accountType ||
+          (user.role === ('merchant' as string) ? 'merchant' : 'user'),
         name: user.name || 'User',
         email: user.email,
         phone: user.profile?.phone || (user as any).phone || '',
@@ -2458,7 +2459,7 @@ export class UsersService implements OnModuleInit {
     } else if (audience === 'all') {
       userQuery = {}; // All users
     } else if (audience === 'specific' && specificUserId) {
-      const { Types } = require('mongoose');
+      // Removed require('mongoose'), using imported Types
       userQuery = Types.ObjectId.isValid(specificUserId)
         ? { _id: specificUserId }
         : { _id: null };
@@ -2681,7 +2682,7 @@ export class UsersService implements OnModuleInit {
           image: item.image,
           likes: item.likes,
           customerCount: item.customerSet.size,
-          customers: customers.join(', '),
+          customers: customers.map((c: any) => String(c)).join(', '),
           selectedProducts: item.selectedProducts || [],
         };
       })
@@ -2739,7 +2740,10 @@ export class UsersService implements OnModuleInit {
         image: item.image,
         likes: item.likes,
         customerCount: item.customerSet.size,
-        customers: Array.from(item.customerSet).slice(0, 4).join(', '),
+        customers: Array.from(item.customerSet)
+          .slice(0, 4)
+          .map((c: any) => String(c))
+          .join(', '),
         offerName: item.offerName,
       }))
       .sort((a, b) => b.likes - a.likes)
@@ -3007,7 +3011,7 @@ export class UsersService implements OnModuleInit {
 
   async updateUserReportStatus(reportId: string, status: any) {
     try {
-      const { Types } = require('mongoose');
+      // Removed require('mongoose'), using imported Types
       const isObjId = Types.ObjectId.isValid(reportId);
       const query = isObjId
         ? { $or: [{ _id: reportId }, { reportId }] }

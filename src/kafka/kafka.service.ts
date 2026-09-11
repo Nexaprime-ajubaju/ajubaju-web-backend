@@ -229,8 +229,8 @@ export class KafkaService implements OnModuleInit, OnModuleDestroy {
   ) {
     if (!this.kafkaClient) return;
 
-    try {
-      await this.kafkaClient.emit(KAFKA_TOPICS.AD_DLQ, {
+    lastValueFrom(
+      this.kafkaClient.emit(KAFKA_TOPICS.AD_DLQ, {
         value: {
           originalTopic,
           originalMessage: data,
@@ -241,10 +241,10 @@ export class KafkaService implements OnModuleInit, OnModuleDestroy {
           timestamp: new Date().toISOString(),
           correlationId: correlationId || this.generateCorrelationId(),
         },
-      });
-    } catch (dlqError) {
+      }),
+    ).catch((dlqError) => {
       this.logger.error(`Failed to send to DLQ: ${dlqError.message}`);
-    }
+    });
   }
 
   // ==================== UTILITIES ====================
@@ -259,7 +259,7 @@ export class KafkaService implements OnModuleInit, OnModuleDestroy {
 
   // ==================== HEALTH CHECK ====================
 
-  async isConnected(): Promise<boolean> {
+  isConnected(): boolean {
     if (!this.kafkaClient) return false;
     try {
       // You can add a simple health check here

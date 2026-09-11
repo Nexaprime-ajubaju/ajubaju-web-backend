@@ -102,6 +102,36 @@ export class HomepageRecommendationService {
       };
     }
 
+    if (section.fallbackStrategy) {
+      this.logger.debug(
+        `Section ${section.key} falling back to ${section.fallbackStrategy}`,
+      );
+      const fallbackResult = await this.recommendationService.executeStrategy(
+        section.fallbackStrategy,
+        strategyContext,
+        section.title,
+        requestId,
+      );
+
+      const fallbackProducts = fallbackResult?.products || [];
+      const fallbackConfidence = fallbackResult?.metadata?.confidence || 0;
+
+      if (fallbackProducts.length > 0) {
+        return {
+          ...fallbackResult,
+          key: section.key,
+          title: section.title,
+          strategy: section.fallbackStrategy,
+          metadata: {
+            ...fallbackResult.metadata,
+            requestedStrategy: primaryStrategy,
+            resolvedStrategy: section.fallbackStrategy,
+            sectionKey: section.key,
+          },
+        };
+      }
+    }
+
     this.logger.debug(
       `Section ${section.key} using strategy ${primaryStrategy} produced ${products.length} products with confidence ${confidence}; returning null to omit section`,
     );

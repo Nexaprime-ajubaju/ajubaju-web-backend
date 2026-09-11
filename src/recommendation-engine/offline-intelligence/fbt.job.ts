@@ -20,7 +20,7 @@ export class FbtJob implements OfflineRecommendationJob {
     // @InjectModel(Order.name) private readonly orderModel: Model<OrderDocument>,
   ) {}
 
-  async execute(): Promise<void> {
+  execute(): Promise<void> {
     this.logger.log(
       'Starting offline Frequently Bought Together computation...',
     );
@@ -43,8 +43,10 @@ export class FbtJob implements OfflineRecommendationJob {
       // await this.relationshipModel.deleteMany({ relationType: 'frequently_bought_together' });
 
       this.logger.log('FBT computation placeholder executed successfully.');
+      return Promise.resolve();
     } catch (error) {
       this.logger.error(`Failed to compute FBT: ${error.message}`);
+      return Promise.reject(error);
     }
   }
 }

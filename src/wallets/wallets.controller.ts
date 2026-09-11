@@ -17,7 +17,7 @@ export class WalletsController {
 
     // For merchant, req.user._id is usually the User document ID. The Merchant document uses userId = User._id.
     // Ensure we pass the right ID. If req.user is the User doc, userId is req.user._id
-    const idToUse = (req.user?.id || req.user?._id).toString();
+    const idToUse = String(req.user?.id ?? req.user?._id ?? '');
 
     const balance = await this.walletsService.getBalance(idToUse, userType);
     return { balance };
@@ -27,7 +27,7 @@ export class WalletsController {
   @Roles(UserRole.USER, UserRole.MERCHANT)
   async getTransactions(@Req() req) {
     const userType = req.user?.role === UserRole.MERCHANT ? 'merchant' : 'user';
-    const idToUse = (req.user?.id || req.user?._id).toString();
+    const idToUse = String(req.user?.id ?? req.user?._id ?? '');
 
     const transactions = await this.walletsService.getTransactions(
       idToUse,
@@ -49,7 +49,7 @@ export class WalletsController {
     },
   ) {
     const userType = req.user?.role === UserRole.MERCHANT ? 'merchant' : 'user';
-    const idToUse = (req.user?.id || req.user?._id).toString();
+    const idToUse = String(req.user?.id ?? req.user?._id ?? '');
 
     if (!body.amount || body.amount <= 0) {
       return { success: false, message: 'Invalid amount' };
