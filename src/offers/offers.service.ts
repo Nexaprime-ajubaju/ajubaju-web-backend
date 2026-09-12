@@ -24,6 +24,12 @@ import { User, UserDocument } from '../users/schemas/user.schema';
 import { Merchant, MerchantDocument } from '../users/schemas/merchant.schema';
 import { Follow, FollowDocument } from '../users/schemas/follow.schema';
 import {
+  OfferReport,
+  OfferReportDocument,
+  OfferReportStatus,
+  OfferReportReason,
+} from './schemas/offer-report.schema';
+import {
   Notification,
   NotificationDocument,
 } from '../users/schemas/notification.schema';
@@ -53,6 +59,8 @@ export class OffersService implements OnModuleInit {
     @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
     @InjectModel(Merchant.name)
     private readonly merchantModel: Model<MerchantDocument>,
+    @InjectModel(OfferReport.name)
+    private readonly offerReportModel: Model<OfferReportDocument>,
     @InjectModel(MerchantProduct.name)
     private readonly merchantProductModel: Model<MerchantProductDocument>,
     @InjectModel(Follow.name)
@@ -1794,5 +1802,154 @@ export class OffersService implements OnModuleInit {
         err.stack,
       );
     }
+  }
+
+  // =========================================================================
+  // OFFER REPORTS (ADMIN & MODERATION)
+  // =========================================================================
+
+  async reportOffer(
+    userId: string,
+    offerId: string,
+    reason: OfferReportReason,
+    description?: string,
+  ): Promise<OfferReportDocument> {
+    if (!isValidObjectId(offerId)) {
+      throw new BadRequestException('Invalid offer ID');
+    }
+
+    const offer = await this.offerModel.findById(offerId);
+    if (!offer) {
+      throw new NotFoundException('Offer not found');
+    }
+
+    // Check if user already reported this offer
+    const existingReport = await this.offerReportModel.findOne({
+      offerId: new Types.ObjectId(offerId),
+      reportedBy: new Types.ObjectId(userId),
+    });
+
+    if (existingReport) {
+      throw new BadRequestException('You have already reported this offer');
+    }
+
+    const report = new this.offerReportModel({
+      reportId: `REP-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      offerId: new Types.ObjectId(offerId),
+      reportedBy: new Types.ObjectId(userId),
+      merchantId: offer.merchantId,
+      reason,
+      description,
+      status: OfferReportStatus.PENDING,
+    });
+
+    await report.save();
+
+    // Optionally emit event for admin dashboard real-time updates
+    // this.kafkaService?.emit(KAFKA_TOPICS.ADMIN_AUDIT_LOG, {
+    //   action: 'offer_reported',
+    //   offerId,
+    //   reportedBy: userId,
+    //   reason,
+    // });
+
+    return report;
+  }
+
+  async getOfferReports(
+    limit: number,
+    skip: number,
+    status?: string,
+  ): Promise<any[]> {
+    const query: any = {};
+    if (status) query.status = status;
+
+    const reports = await this.offerReportModel
+      .find(query)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .populate('reportedBy', 'name email')
+      .populate('merchantId', 'storeName storeEmail name')
+      .populate('offerId', 'title description images merchantName requestId')
+      .exec();
+
+    return reports;
+  }
+
+  async getOfferReportStats(): Promise<{ total: number; pending: number }> {
+    const [total, pending] = await Promise.all([
+      this.offerReportModel.countDocuments(),
+      this.offerReportModel.countDocuments({ status: OfferReportStatus.PENDING }),
+    ]);
+    return { total, pending };
+  }
+
+  async deleteReportedOffer(reportId: string, adminId: string): Promise<any> {
+    const report = await this.offerReportModel.findOne({ reportId });
+    if (!report) {
+      throw new NotFoundException('Report not found');
+    }
+
+    const offer = await this.offerModel.findById(report.offerId);
+    
+    if (offer) {
+      await this.deleteMerchantOffer(offer.requestId, offer.merchantId.toString());
+    }
+
+    // Mark all reports for this offer as resolved
+    await this.offerReportModel.updateMany(
+      { offerId: report.offerId },
+      { 
+        $set: { 
+          status: OfferReportStatus.RESOLVED,
+          resolvedBy: adminId,
+          resolutionNotes: 'Offer deleted by admin'
+        } 
+      }
+    );
+
+    return { message: 'Offer successfully deleted and reports resolved' };
+  }
+
+  async warnMerchantForOffer(reportId: string, adminId: string): Promise<any> {
+    const report = await this.offerReportModel.findOne({ reportId });
+    if (!report) {
+      throw new NotFoundException('Report not found');
+    }
+
+    const offer = await this.offerModel.findById(report.offerId);
+    if (!offer) {
+      throw new NotFoundException('Offer not found or already deleted');
+    }
+
+    // Send a warning notification to the merchant
+    const warningNote = new this.notificationModel({
+      recipientId: offer.merchantId,
+      type: 'admin_warning',
+      title: 'Action Required: Offer Reported',
+      message: `Your offer "${offer.title}" has received reports for violating platform guidelines. Please edit or clarify the offer within 12 hours, or it may be taken down.`,
+      read: false,
+    });
+    await warningNote.save();
+
+    // Try sending real-time push/socket if implemented
+    // this.kafkaService?.emit(KAFKA_TOPICS.NOTIFICATION_SEND, {
+    //   userId: offer.merchantId.toString(),
+    //   type: 'warning',
+    //   payload: {
+    //     title: warningNote.title,
+    //     message: warningNote.message,
+    //     offerId: offer._id.toString(),
+    //   }
+    // });
+
+    // Resolve report
+    report.status = OfferReportStatus.RESOLVED;
+    report.resolvedBy = adminId;
+    report.resolutionNotes = 'Warning sent to merchant';
+    await report.save();
+
+    return { message: 'Warning notification sent to merchant and report resolved' };
   }
 }

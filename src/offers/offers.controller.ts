@@ -22,6 +22,7 @@ import { KafkaService } from '../kafka/kafka.service';
 import { KAFKA_TOPICS } from '../common/constants/kafka-topics';
 import { SubmitOfferPromotionDto } from './dto/submit-offer-promotion.dto';
 import { UpdateOfferPromotionDto } from './dto/update-offer-promotion.dto';
+import { CreateOfferReportDto } from './dto/create-offer-report.dto';
 import { RedisService } from '../common/services/redis.service';
 
 @Controller('offers')
@@ -295,5 +296,71 @@ export class OffersController {
 
     const data = await this.offersService.getPublicOfferDetails(offerId);
     return { success: true, data, timestamp: new Date().toISOString() };
+  }
+
+  // =========================================================================
+  // REPORTS ENDPOINTS
+  // =========================================================================
+
+  @Post(':id/report')
+  @UseGuards(JwtAuthGuard)
+  async reportOffer(
+    @Param('id') id: string,
+    @Body() body: CreateOfferReportDto,
+    @CurrentUser() user: any,
+  ) {
+    const userId = user?.id || user?.sub || user?._id;
+    if (!userId) throw new UnauthorizedException('Authentication required');
+
+    const result = await this.offersService.reportOffer(
+      userId.toString(),
+      id,
+      body.reason,
+      body.description,
+    );
+
+    return { success: true, message: 'Offer reported successfully', data: result };
+  }
+
+  // Admin routes for offer reports
+  @Get('admin/reports')
+  async getOfferReports(
+    @Query('limit') limit = '50',
+    @Query('skip') skip = '0',
+    @Query('status') status?: string,
+  ) {
+    const result = await this.offersService.getOfferReports(
+      parseInt(limit, 10),
+      parseInt(skip, 10),
+      status,
+    );
+    return { success: true, data: result };
+  }
+
+  @Get('admin/reports/stats')
+  async getOfferReportStats() {
+    const result = await this.offersService.getOfferReportStats();
+    return { success: true, data: result };
+  }
+
+  @Delete('admin/reports/:reportId/delete-offer')
+  async deleteReportedOffer(
+    @Param('reportId') reportId: string,
+    @Req() req: Request,
+  ) {
+    // In a real app, you'd extract the admin ID from the JWT payload
+    const adminId = 'admin-user-placeholder'; 
+    const result = await this.offersService.deleteReportedOffer(reportId, adminId);
+    return { success: true, ...result };
+  }
+
+  @Post('admin/reports/:reportId/warn-merchant')
+  async warnMerchantForOffer(
+    @Param('reportId') reportId: string,
+    @Req() req: Request,
+  ) {
+    const adminId = 'admin-user-placeholder'; 
+    const result = await this.offersService.warnMerchantForOffer(reportId, adminId);
+    return { success: true, ...result };
   }
 }

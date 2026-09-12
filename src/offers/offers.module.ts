@@ -21,6 +21,7 @@ import {
   OfferLikeHistorySchema,
 } from './schemas/offer-like-history.schema';
 import { Voucher, VoucherSchema } from '../vouchers/schemas/voucher.schema';
+import { OfferReport, OfferReportSchema } from './schemas/offer-report.schema';
 import { OffersController } from './offers.controller';
 import { OffersService } from './offers.service';
 import { BannersModule } from '../banners/banners.module';
@@ -42,6 +43,7 @@ import { TransactionModule } from '../common/services/transaction.module';
       { name: Notification.name, schema: NotificationSchema },
       { name: MerchantProduct.name, schema: MerchantProductSchema },
       { name: Voucher.name, schema: VoucherSchema },
+      { name: OfferReport.name, schema: OfferReportSchema },
     ]),
     forwardRef(() => KafkaModule),
     BannersModule,
