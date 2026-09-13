@@ -84,6 +84,18 @@ export class PaymentsController {
     };
   }
 
+  @Get('admin/all')
+  @UseGuards(JwtAuthGuard)
+  async listAllPayments(
+    @Query() query: ListPaymentsQueryDto,
+  ) {
+    const data = await this.paymentsService.getAllPayments(query);
+    return {
+      success: true,
+      data,
+    };
+  }
+
   @Get(':paymentId')
   @UseGuards(JwtAuthGuard)
   async getPaymentById(

@@ -77,12 +77,13 @@ export class PaymentsService implements OnModuleInit {
     return this.razorpay;
   }
 
-  private toPublicPayment(payment: PaymentDocument | null) {
+  private toPublicPayment(payment: any) {
     if (!payment) return null;
 
     return {
       paymentId: payment.paymentId,
       userId: payment.userId,
+      userName: payment.user?.name || payment.userId,
       adId: payment.adId,
       amount: payment.amount,
       amountInPaise: payment.amountInPaise,
@@ -407,6 +408,62 @@ export class PaymentsService implements OnModuleInit {
         .skip(skip)
         .limit(limit)
         .exec(),
+      this.paymentModel.countDocuments(filter),
+    ]);
+
+    return {
+      items: items.map((item) => this.toPublicPayment(item)),
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
+
+  async getAllPayments(query: ListPaymentsQueryDto) {
+    const page = query.page || 1;
+    const limit = query.limit || 50;
+    const skip = (page - 1) * limit;
+
+    const filter: any = {};
+    if (query.status) {
+      filter.status = query.status;
+    }
+
+    const [items, total] = await Promise.all([
+      this.paymentModel.aggregate([
+        { $match: filter },
+        { $sort: { createdAt: -1 } },
+        { $skip: skip },
+        { $limit: limit },
+        {
+          $lookup: {
+            from: 'users',
+            let: { 
+              userObjId: { 
+                $convert: { 
+                  input: "$userId", 
+                  to: "objectId", 
+                  onError: null, 
+                  onNull: null 
+                } 
+              } 
+            },
+            pipeline: [
+              { $match: { $expr: { $eq: ["$_id", "$$userObjId"] } } },
+              { $project: { name: 1 } }
+            ],
+            as: 'userDetails'
+          }
+        },
+        {
+          $addFields: {
+            user: { $arrayElemAt: ["$userDetails", 0] }
+          }
+        }
+      ]).exec(),
       this.paymentModel.countDocuments(filter),
     ]);
 
