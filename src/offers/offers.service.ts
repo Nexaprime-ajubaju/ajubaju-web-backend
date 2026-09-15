@@ -202,6 +202,7 @@ export class OffersService implements OnModuleInit {
       this.clearExactKey(this.offerTemplateCacheKey(merchantId)),
       // Nearby is a wildcard pattern — use SCAN-based deleteByPattern
       this.clearCache('golo:offers:nearby:*'),
+      this.clearCache('ads:nearby:*'),
       // Public offer keys by known identifiers (exact)
       ...identifiers.map((id) =>
         this.clearExactKey(this.publicOfferCacheKey(id)),
@@ -657,8 +658,15 @@ export class OffersService implements OnModuleInit {
       );
       const computedTotal = dailyRate * selectedDays + platformFee;
 
+      const lng = Number(merchantProfile?.storeLocationLongitude) || 0;
+      const lat = Number(merchantProfile?.storeLocationLatitude) || 0;
+
       const request = await this.offerModel.create({
         requestId: uuidv4(),
+        location: {
+          type: 'Point',
+          coordinates: [lng, lat],
+        },
         merchantId,
         merchantName: merchant.name || 'Merchant',
         merchantEmail: merchant.email || '-',
@@ -687,6 +695,7 @@ export class OffersService implements OnModuleInit {
         loyaltyScorePerStar: Number(payload.loyaltyScorePerStar || 10),
         loyaltyPointsPerPurchase: Number(payload.loyaltyPointsPerPurchase || 0),
         promotionExpiryText: payload.promotionExpiryText || '',
+        qrValidityHours: Number(payload.qrValidityHours || 6),
         termsAndConditions: payload.termsAndConditions || '',
         exampleUsage: payload.exampleUsage || '',
         selectedProducts: Array.isArray(payload.selectedProducts)
@@ -865,6 +874,8 @@ export class OffersService implements OnModuleInit {
       request.promotionExpiryText = String(
         payload.promotionExpiryText || '',
       ).trim();
+    if (payload.qrValidityHours !== undefined)
+      request.qrValidityHours = Number(payload.qrValidityHours || 6);
     if (payload.termsAndConditions !== undefined)
       request.termsAndConditions = String(
         payload.termsAndConditions || '',
@@ -1316,19 +1327,46 @@ export class OffersService implements OnModuleInit {
 
     let offerRows: any[] = [];
     try {
-      offerRows = await this.offerModel
-        .find({
-          status: { $in: ['under_review', 'approved', 'active'] },
-          ...(params.merchantId ? { merchantId: params.merchantId } : {}),
-          ...categoryDbFilter,
-        })
-        .select(
-          'requestId merchantId merchantName title category businessCategory businessSubCategory totalPrice startDate endDate status createdAt imageUrl videoUrl selectedProducts',
-        )
-        .limit(prefetchLimit)
-        .maxTimeMS(7000)
-        .lean()
-        .exec();
+      if (hasUserCoordinates) {
+        offerRows = await this.offerModel.aggregate([
+          {
+            $geoNear: {
+              near: {
+                type: 'Point',
+                coordinates: [Number(params.longitude), Number(params.latitude)],
+              },
+              distanceField: 'distanceMeters',
+              maxDistance: safeRadiusKm * 1000,
+              spherical: true,
+            },
+          },
+          {
+            $match: {
+              status: { $in: ['under_review', 'approved', 'active'] },
+              ...(params.merchantId ? { merchantId: params.merchantId } : {}),
+              ...categoryDbFilter,
+            },
+          },
+          {
+            $limit: 5000,
+          },
+        ]).exec();
+      } else {
+        offerRows = await this.offerModel
+          .find({
+            status: { $in: ['under_review', 'approved', 'active'] },
+            ...(params.merchantId ? { merchantId: params.merchantId } : {}),
+            ...categoryDbFilter,
+          })
+          .select(
+            'requestId merchantId merchantName title category businessCategory businessSubCategory totalPrice startDate endDate status createdAt imageUrl videoUrl selectedProducts location',
+          )
+          .sort({ createdAt: -1 })
+          .limit(5000)
+          .maxTimeMS(7000)
+          .lean()
+          .exec();
+      }
     } catch (error: any) {
       this.logger.error(
         `Nearby offers query failed: ${error?.message || error}`,

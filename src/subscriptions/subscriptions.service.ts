@@ -87,7 +87,11 @@ export class SubscriptionsService {
           // In the schema, planId is a string, so we can use the unique name.
           merchant.subscription.planId = planId;
           merchant.subscription.status = 'ACTIVE';
-          await merchant.save();
+          await this.merchantModel.findOneAndUpdate(
+            { _id: merchant._id },
+            { $set: { 'subscription.planId': planId, 'subscription.status': 'ACTIVE' } },
+            { new: true }
+          ).exec();
         }
       }
     }
@@ -109,7 +113,11 @@ export class SubscriptionsService {
           merchant.subscription.status = 'ACTIVE';
           merchant.subscription.expiresAt = null;
 
-          await merchant.save();
+          await this.merchantModel.findOneAndUpdate(
+            { _id: merchant._id },
+            { $set: { 'subscription.planId': planId, 'subscription.status': 'ACTIVE', 'subscription.expiresAt': null } },
+            { new: true }
+          ).exec();
         }
       }
     }
@@ -396,7 +404,11 @@ export class SubscriptionsService {
           .add(50, 'days')
           .toDate();
       }
-      await merchant.save();
+      await this.merchantModel.findOneAndUpdate(
+        { _id: merchant._id },
+        { $set: { subscription: merchant.subscription } },
+        { new: true }
+      ).exec();
     }
     return merchant;
   }
@@ -521,7 +533,7 @@ export class SubscriptionsService {
     const query = isObjId
       ? { $or: [{ _id: merchantId }, { userId: merchantId }] }
       : { userId: merchantId };
-    const merchant = await this.merchantModel.findOne(query).exec();
+    let merchant = await this.merchantModel.findOne(query).exec();
     if (!merchant) throw new NotFoundException('Merchant not found');
 
     const plan = await this.subscriptionPlanModel
@@ -534,7 +546,7 @@ export class SubscriptionsService {
       .add(1, billingCycle === 'yearly' ? 'year' : 'month')
       .toDate();
 
-    merchant.subscription = {
+    const subscriptionData = {
       planId: planName,
       status: 'ACTIVE',
       startedAt,
@@ -546,8 +558,16 @@ export class SubscriptionsService {
       assignedAt: new Date(),
     };
 
-    merchant.hasSelectedActiveProducts = false;
-    await merchant.save();
+    merchant = await this.merchantModel.findOneAndUpdate(
+      { _id: merchant._id },
+      { 
+        $set: { 
+          subscription: subscriptionData,
+          hasSelectedActiveProducts: false 
+        } 
+      },
+      { new: true }
+    ).exec();
 
     // Trigger referral reward
     if (this.referralsService) {
@@ -650,7 +670,7 @@ export class SubscriptionsService {
           .add(1, data.billingCycle === 'yearly' ? 'year' : 'month')
           .toDate();
 
-    merchant.subscription = {
+    const subscriptionData = {
       planId: plan.name,
       status: data.status || 'ACTIVE',
       startedAt,
@@ -664,8 +684,16 @@ export class SubscriptionsService {
       assignedAt: new Date(),
     };
 
-    merchant.hasSelectedActiveProducts = false;
-    await merchant.save();
+    await this.merchantModel.findOneAndUpdate(
+      { _id: merchant._id },
+      { 
+        $set: { 
+          subscription: subscriptionData,
+          hasSelectedActiveProducts: false 
+        } 
+      },
+      { new: true }
+    ).exec();
 
     // Log history
     await this.historyModel.create({

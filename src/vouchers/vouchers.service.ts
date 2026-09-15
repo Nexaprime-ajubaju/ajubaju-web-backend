@@ -419,8 +419,9 @@ export class VouchersService implements OnModuleInit {
 
       const verificationCode = await this.generateUniqueVerificationCode();
 
-      // Calculate expiry (30 days from now)
-      const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+      // Calculate expiry dynamically based on offer qrValidityHours (fallback to 6 hours)
+      const validityHours = offer.qrValidityHours || 6;
+      const expiresAt = new Date(Date.now() + validityHours * 60 * 60 * 1000);
 
       const lockKey = `lock:voucher:claim:${userId}:${offerId}`;
       let lockToken: string | null = null;
@@ -485,7 +486,7 @@ export class VouchersService implements OnModuleInit {
                     ? claimLongitude
                     : null,
                   expiresAt,
-                  validityHours: 720, // 30 days
+                  validityHours,
                 },
               ],
               { session },
@@ -1170,19 +1171,20 @@ export class VouchersService implements OnModuleInit {
         throw new BadRequestException('Voucher already redeemed');
       }
 
-      // Check if expired (Enforce 6-hour validity from claim time)
+      // Check if expired (Enforce dynamic validity from claim time)
       const claimedTime = voucher.claimedAt
         ? new Date(voucher.claimedAt).getTime()
         : new Date((voucher as any).createdAt).getTime();
-      const sixHoursMs = 6 * 60 * 60 * 1000;
+      const validityHours = voucher.validityHours || 6;
+      const validityMs = validityHours * 60 * 60 * 1000;
       if (
-        Date.now() > claimedTime + sixHoursMs ||
+        Date.now() > claimedTime + validityMs ||
         new Date() > voucher.expiresAt
       ) {
         voucher.status = VoucherStatus.EXPIRED;
         await voucher.save();
         throw new BadRequestException(
-          'Voucher has expired (6 hours validity period exceeded)',
+          `Voucher has expired (${validityHours} hours validity period exceeded)`,
         );
       }
 

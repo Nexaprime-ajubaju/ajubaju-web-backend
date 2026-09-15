@@ -140,6 +140,11 @@ export class SubmitOfferPromotionDto {
   promotionExpiryText?: string;
 
   @IsOptional()
+  @IsNumber()
+  @Min(1)
+  qrValidityHours?: number;
+
+  @IsOptional()
   @IsString()
   termsAndConditions?: string;
 

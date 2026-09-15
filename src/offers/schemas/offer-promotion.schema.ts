@@ -100,13 +100,16 @@ export class OfferPromotion {
 
   // New: Points per purchase set by merchant
   @Prop({ default: 0 })
-  loyaltyPointsPerPurchase: number;
+  loyaltyPointsPerPurchase?: number;
 
   @Prop({ default: '' })
-  promotionExpiryText: string;
+  promotionExpiryText?: string;
+
+  @Prop({ default: 6 })
+  qrValidityHours: number;
 
   @Prop({ default: '' })
-  termsAndConditions: string;
+  termsAndConditions?: string;
 
   @Prop({ default: '' })
   exampleUsage: string;
@@ -135,6 +138,23 @@ export class OfferPromotion {
 
   @Prop({ enum: OfferPaymentStatus, default: OfferPaymentStatus.PENDING })
   paymentStatus: OfferPaymentStatus;
+
+  // New: GeoJSON Point for geospatial queries (e.g. $geoNear)
+  @Prop({
+    type: {
+      type: String,
+      enum: ['Point'],
+      default: 'Point',
+    },
+    coordinates: {
+      type: [Number], // [longitude, latitude]
+      default: [0, 0],
+    },
+  })
+  location: {
+    type: string;
+    coordinates: number[];
+  };
 
   @Prop()
   adminNotes?: string;
@@ -211,3 +231,6 @@ OfferPromotionSchema.index(
     },
   },
 );
+
+OfferPromotionSchema.index({ location: '2dsphere' });
+

@@ -209,8 +209,10 @@ export class MerchantProductsService implements OnModuleInit {
             payload.isActive = false;
 
             // Force the merchant to re-select active products since they now have more products than their plan allows
-            merchant.hasSelectedActiveProducts = false;
-            await merchant.save();
+            await this.merchantModel.findOneAndUpdate(
+              { _id: merchant._id },
+              { $set: { hasSelectedActiveProducts: false } }
+            ).exec();
           } else {
             payload.isActive = true;
           }
@@ -269,8 +271,10 @@ export class MerchantProductsService implements OnModuleInit {
           { merchantId },
           { isActive: true, lastActivatedAt: new Date() },
         );
-        merchant.hasSelectedActiveProducts = true;
-        await merchant.save();
+        await this.merchantModel.findOneAndUpdate(
+          { _id: merchant._id },
+          { $set: { hasSelectedActiveProducts: true } }
+        ).exec();
         await this.invalidateMerchantProductCache(merchantId);
       }
     }
@@ -861,8 +865,10 @@ export class MerchantProductsService implements OnModuleInit {
     }
 
     // Mark selection as finalized
-    merchant.hasSelectedActiveProducts = true;
-    await merchant.save();
+    await this.merchantModel.findOneAndUpdate(
+      { _id: merchant._id },
+      { $set: { hasSelectedActiveProducts: true } }
+    ).exec();
 
     await this.invalidateMerchantProductCache(merchantId);
 
