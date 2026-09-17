@@ -226,7 +226,7 @@ export class OffersController {
     }
 
     try {
-      await this.redisService.set(cacheKey, data, 60);
+      await this.redisService.set(cacheKey, data, 25);
     } catch (e) {
       // Ignore cache write failures
     }

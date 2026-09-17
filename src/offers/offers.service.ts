@@ -50,7 +50,7 @@ export class OffersService implements OnModuleInit {
     merchantOffers: 30, // Short TTL so Device B sees new offers within 30s
     publicOffer: 300,
     template: 600,
-    nearbyOffers: 120, // 2 min — nearby is public data, safe to cache longer
+    nearbyOffers: 30, // 30s — keeps nearby fresh so newly uploaded offers appear quickly
   } as const;
 
   constructor(
@@ -195,6 +195,10 @@ export class OffersService implements OnModuleInit {
     merchantId: string,
     identifiers: string[] = [],
   ): Promise<void> {
+    // Reset in-process merchants memory cache so updated merchant data is reflected
+    this.merchantsMemoryCache = [];
+    this.merchantsLastFetched = 0;
+
     await Promise.all([
       // Exact merchant key — use del, not pattern scan
       this.clearExactKey(this.offerMerchantCacheKey(merchantId)),
@@ -1147,7 +1151,7 @@ export class OffersService implements OnModuleInit {
     limit?: number;
   }) {
     const safePage = Math.max(1, Number(params.page) || 1);
-    const safeLimit = Math.min(50, Math.max(1, Number(params.limit) || 20));
+    const safeLimit = Math.min(200, Math.max(1, Number(params.limit) || 20));
     const safeRadiusKm = Math.min(
       100,
       Math.max(1, Number(params.radiusKm) || 5),
