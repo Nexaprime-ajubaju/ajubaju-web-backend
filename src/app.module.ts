@@ -37,7 +37,9 @@ import { HomepageConfigModule } from './homepage-config/homepage-config.module';
 import { RecommendationEngineModule } from './recommendation-engine/recommendation-engine.module';
 import { SupportTicketsModule } from './support-tickets/support-tickets.module';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
-import { APP_GUARD } from '@nestjs/core';
+import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
+import { PrometheusModule, makeCounterProvider, makeHistogramProvider } from '@willsoto/nestjs-prometheus';
+import { MetricsInterceptor } from './common/interceptors/metrics.interceptor';
 import * as Joi from 'joi';
 import { LoggerModule } from 'nestjs-pino';
 import { v4 as uuidv4 } from 'uuid';
@@ -67,6 +69,14 @@ const logger = new Logger('MongoDB');
       }),
       validationOptions: {
         abortEarly: true,
+      },
+    }),
+
+    // Prometheus Metrics
+    PrometheusModule.register({
+      path: '/metrics',
+      defaultMetrics: {
+        enabled: true,
       },
     }),
 
@@ -206,6 +216,20 @@ const logger = new Logger('MongoDB');
     {
       provide: APP_GUARD,
       useClass: ThrottlerGuard,
+    },
+    makeCounterProvider({
+      name: 'http_requests_total',
+      help: 'Total HTTP requests',
+      labelNames: ['method', 'path', 'status'],
+    }),
+    makeHistogramProvider({
+      name: 'http_request_duration_seconds',
+      help: 'Duration of HTTP requests in seconds',
+      labelNames: ['method', 'path', 'status'],
+    }),
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: MetricsInterceptor,
     },
   ],
 })
