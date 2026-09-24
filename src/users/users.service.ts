@@ -3160,12 +3160,12 @@ export class UsersService implements OnModuleInit {
     }
 
     if (this.mailTransporter) {
-      const fromEmail = this.configService.get<string>('EMAIL_USER');
+      const fromEmail = this.configService.get<string>('SMTP_USER') || this.configService.get<string>('EMAIL_USER') || this.mailFrom;
       try {
         const statusLower = kycStatus.toLowerCase();
         if (statusLower === 'verified' || statusLower === 'approved') {
           await this.mailTransporter.sendMail({
-            from: `"GOLO Admin" <${fromEmail}>`,
+            from: fromEmail ? `"GOLO Admin" <${fromEmail}>` : '"GOLO Admin"',
             to: user.email,
             subject: 'Your GOLO Merchant Account is Approved!',
             html: `
@@ -3182,7 +3182,7 @@ export class UsersService implements OnModuleInit {
           this.logger.log(`Sent KYC approval email to ${user.email}`);
         } else if (statusLower === 'rejected' || statusLower === 'declined') {
           await this.mailTransporter.sendMail({
-            from: `"GOLO Admin" <${fromEmail}>`,
+            from: fromEmail ? `"GOLO Admin" <${fromEmail}>` : '"GOLO Admin"',
             to: user.email,
             subject: 'Update on your GOLO Merchant Account',
             html: `
