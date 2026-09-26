@@ -183,11 +183,29 @@ export class PostProcessorService {
         p.merchantName =
           p.merchantName ||
           p.storeName ||
-          (p.merchant && (p.merchant.storeName || p.merchant.name)) ||
+          (p.merchant &&
+            (p.merchant.storeName || p.merchant.name)) ||
           '';
+        // For merchant/shop type items, use the store's profile photo or shop photo document
+        const isMerchantType = p.type === 'merchant' || p.type === 'shop';
+        const merchantImage = isMerchantType
+          ? (p.profilePhoto ||
+             p.documents?.businessDocs?.['Shop Photo'] ||
+             p.documents?.businessDocs?.['shop_photo'] ||
+             p.bannerPhoto ||
+             null)
+          : null;
         p.type = p.type || 'offer';
+        // Use store banner/photo for merchant cards; offer imageUrl for deal cards
         p.imageUrl =
-          p.imageUrl || (p.images && p.images[0]) || '/images/placeholder.webp';
+          merchantImage ||
+          p.imageUrl ||
+          (p.images && p.images[0]) ||
+          '/images/placeholder.webp';
+        // For merchant cards set the title to their store name
+        if (isMerchantType) {
+          p.title = p.storeName || p.merchantName || p.title || 'View Store';
+        }
         p.badge = p.promoTag || null;
         p.price = p.price ?? p.offerPrice ?? p.discountedPrice ?? null;
         p.originalPrice = p.originalPrice ?? null;
@@ -210,6 +228,7 @@ export class PostProcessorService {
         p.recommendationExplainability = explainability;
         finalProducts.push(p);
       }
+
     }
 
     return finalProducts;
