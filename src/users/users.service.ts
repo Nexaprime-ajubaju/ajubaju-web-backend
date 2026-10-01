@@ -642,6 +642,8 @@ export class UsersService implements OnModuleInit {
       referredBy,
       profile: {
         phone: registerDto.phone,
+        gender: registerDto.gender,
+        dateOfBirth: registerDto.dateOfBirth ? new Date(registerDto.dateOfBirth) : undefined,
       },
       metadata: {
         registeredIp: '0.0.0.0',
@@ -1287,6 +1289,10 @@ export class UsersService implements OnModuleInit {
       allowedUpdates['profile.avatar'] = updateData.profile.avatar;
     if (updateData.profile?.bio)
       allowedUpdates['profile.bio'] = updateData.profile.bio;
+    if (updateData.profile?.gender)
+      allowedUpdates['profile.gender'] = updateData.profile.gender;
+    if (updateData.profile?.dateOfBirth)
+      allowedUpdates['profile.dateOfBirth'] = new Date(updateData.profile.dateOfBirth);
     if (
       updateData.profile?.interests &&
       Array.isArray(updateData.profile.interests)

@@ -423,8 +423,14 @@ export class SubscriptionsService {
     const planFeatures = {
       canAddProduct: true,
       canDeleteProduct: plan.name !== 'Free Tier', // Free tier couldn't delete in old logic
-      canExportCsv: plan.features.analytics.advanced, // Close approximation
-      canViewAdvancedAnalytics: plan.features.analytics.advanced,
+      canExportCsv: plan.features.analytics.advanced || plan.features.analytics.ageGender,
+      canViewAdvancedAnalytics: plan.features.analytics.advanced ||
+        (plan.features.analytics as any).ageGender ||
+        (plan.features.analytics as any).device,
+      canViewDemographics: plan.features.analytics.advanced ||
+        !!(plan.features.analytics as any).ageGender,
+      canViewDeviceAnalytics: plan.features.analytics.advanced ||
+        !!(plan.features.analytics as any).device,
       canCreateOffer: true,
       canEditOffer: plan.name !== 'Free Tier', // Free tier couldn't edit
       canDeleteOffer: plan.name !== 'Free Tier', // Free tier couldn't delete
