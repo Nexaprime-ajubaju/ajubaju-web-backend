@@ -272,13 +272,13 @@ export class UsersController {
 
   @Post('forgot-password/send-otp')
   async sendForgotPasswordOTP(@Body() body: { email: string }) {
-    const result = this.usersService.sendForgotPasswordOTP(body.email);
+    const result = await this.usersService.sendForgotPasswordOTP(body.email);
     return { success: true, message: 'OTP sent', data: result };
   }
 
   @Post('forgot-password/verify-otp')
   async verifyForgotPasswordOTP(@Body() body: { email: string; otp: string }) {
-    const result = this.usersService.verifyForgotPasswordOTP(
+    const result = await this.usersService.verifyForgotPasswordOTP(
       body.email,
       body.otp,
     );

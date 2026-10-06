@@ -1118,8 +1118,13 @@ export class UsersService implements OnModuleInit {
     return { success: true, message: 'OTP verified' };
   }
 
-  sendForgotPasswordOTP(email: string) {
+  async sendForgotPasswordOTP(email: string) {
     if (!email) throw new BadRequestException('Email is required');
+    const userCount = await this.userModel.countDocuments({ email }).exec();
+    if (userCount === 0) throw new NotFoundException('User not found');
+
+    await this.sendEmailOTP(email, 'forgot-password');
+
     return {
       success: true,
       message: 'OTP sent for password reset',
@@ -1127,9 +1132,12 @@ export class UsersService implements OnModuleInit {
     };
   }
 
-  verifyForgotPasswordOTP(email: string, otp: string) {
+  async verifyForgotPasswordOTP(email: string, otp: string) {
     if (!email || !otp)
       throw new BadRequestException('Email and OTP are required');
+    
+    await this.verifyEmailOTP(email, otp);
+    
     return { success: true, message: 'OTP verified successfully' };
   }
 
@@ -1139,13 +1147,18 @@ export class UsersService implements OnModuleInit {
     const userCount = await this.userModel.countDocuments({ email }).exec();
     if (userCount === 0) throw new NotFoundException('User not found');
 
-    // Hardcoded logic for now
-    if (otp !== '123456') throw new BadRequestException('Invalid OTP');
+    const record = await this.otpModel.findOne({ email }).exec();
+    if (!record) throw new BadRequestException('No OTP found for this email');
+    if (record.otp !== otp) throw new UnauthorizedException('Invalid OTP');
+    if (new Date() > record.expiresAt)
+      throw new BadRequestException('OTP has expired');
 
     const hashedPassword = await bcrypt.hash(newPassword, 10);
     await this.userModel
       .updateOne({ email }, { password: hashedPassword })
       .exec();
+
+    await this.otpModel.deleteOne({ email }).exec();
 
     return { success: true, message: 'Password reset successfully' };
   }
