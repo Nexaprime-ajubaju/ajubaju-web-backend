@@ -1513,15 +1513,18 @@ export class UsersService implements OnModuleInit {
     const [users, total] = await Promise.all([
       this.userModel
         .find(query)
+        .select('-refreshTokens -pushTokens -passwordHistory -passwordChangeOTP -resetPasswordToken -profilePhoto')
         .skip(skip)
         .limit(limit)
         .sort({ createdAt: -1 })
+        .lean()
+        .maxTimeMS(15000)
         .exec(),
-      this.userModel.countDocuments(query),
+      this.userModel.countDocuments(query).maxTimeMS(10000),
     ]);
 
     return {
-      users: users.map((user) => this.toResponseDto(user)),
+      users: users.map((user) => this.toResponseDto(user as any)),
       total,
     };
   }
