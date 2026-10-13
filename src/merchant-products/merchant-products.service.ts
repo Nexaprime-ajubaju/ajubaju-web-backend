@@ -607,7 +607,18 @@ export class MerchantProductsService implements OnModuleInit {
     }
     if (Array.isArray(dto.images)) {
       const sanitizedImages = dto.images
-        .map((image) => String(image || '').trim())
+        .map((image) => {
+          let str = String(image || '').trim();
+          if (str.startsWith('/media/')) {
+            str = `https://res.cloudinary.com/${str.replace(/^\/media\//, '')}`;
+          } else {
+            const mediaIdx = str.indexOf('/media/');
+            if (mediaIdx !== -1 && !str.includes('res.cloudinary.com')) {
+              str = `https://res.cloudinary.com/${str.slice(mediaIdx + 7)}`;
+            }
+          }
+          return str;
+        })
         .filter(Boolean);
 
       if (sanitizedImages.length > 0) {
@@ -635,10 +646,21 @@ export class MerchantProductsService implements OnModuleInit {
     }
 
     if (dto.videoUrl !== undefined) {
-      if (dto.videoUrl !== null && dto.videoUrl !== product.videoUrl) {
-        await this.moderateVideo(dto.videoUrl, merchantId);
+      let vUrl = dto.videoUrl;
+      if (typeof vUrl === 'string') {
+        if (vUrl.startsWith('/media/')) {
+          vUrl = `https://res.cloudinary.com/${vUrl.replace(/^\/media\//, '')}`;
+        } else {
+          const mediaIdx = vUrl.indexOf('/media/');
+          if (mediaIdx !== -1 && !vUrl.includes('res.cloudinary.com')) {
+            vUrl = `https://res.cloudinary.com/${vUrl.slice(mediaIdx + 7)}`;
+          }
+        }
       }
-      product.videoUrl = dto.videoUrl;
+      if (vUrl !== null && vUrl !== product.videoUrl) {
+        await this.moderateVideo(vUrl, merchantId);
+      }
+      product.videoUrl = vUrl;
     }
 
     await product.save();

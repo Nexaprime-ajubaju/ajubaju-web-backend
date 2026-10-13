@@ -51,6 +51,17 @@ export class ModerationService {
    * @param imageUrl URL of the image to moderate.
    */
   async isImageSafe(imageUrl: string, merchantId?: string): Promise<boolean> {
+    if (typeof imageUrl === 'string') {
+      if (imageUrl.startsWith('/media/')) {
+        imageUrl = `https://res.cloudinary.com/${imageUrl.replace(/^\/media\//, '')}`;
+      } else {
+        const mediaIdx = imageUrl.indexOf('/media/');
+        if (mediaIdx !== -1 && !imageUrl.includes('res.cloudinary.com')) {
+          imageUrl = `https://res.cloudinary.com/${imageUrl.slice(mediaIdx + 7)}`;
+        }
+      }
+    }
+
     if (
       process.env.IMAGE_MODERATION === 'disable' ||
       process.env.IMAGE_MODERATION === 'mock-safe'

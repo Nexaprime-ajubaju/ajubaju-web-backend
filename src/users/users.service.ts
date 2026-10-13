@@ -1106,7 +1106,13 @@ export class UsersService implements OnModuleInit {
     if (!email || !otp)
       throw new BadRequestException('Email and OTP are required');
 
-    const record = await this.otpModel.findOne({ email }).exec();
+    const emailTrimmed = email.trim();
+    const emailLower = emailTrimmed.toLowerCase();
+    const record = await this.otpModel
+      .findOne({
+        $or: [{ email: emailLower }, { email: emailTrimmed }],
+      })
+      .exec();
     if (!record) throw new BadRequestException('No OTP found for this email');
     if (record.otp !== otp) throw new UnauthorizedException('Invalid OTP');
     if (new Date() > record.expiresAt)
@@ -1118,49 +1124,193 @@ export class UsersService implements OnModuleInit {
     return { success: true, message: 'OTP verified' };
   }
 
-  async sendForgotPasswordOTP(email: string) {
+  async sendForgotPasswordOTP(email: string, requestedAccountType?: string) {
     if (!email) throw new BadRequestException('Email is required');
-    const userCount = await this.userModel.countDocuments({ email }).exec();
-    if (userCount === 0) throw new NotFoundException('User not found');
+    const emailLower = email.trim().toLowerCase();
+    const accountType =
+      requestedAccountType === 'merchant'
+        ? 'merchant'
+        : requestedAccountType === 'user'
+          ? 'user'
+          : undefined;
 
-    await this.sendEmailOTP(email, 'forgot-password');
+    let user;
+    if (accountType) {
+      const targetQuery =
+        accountType === 'merchant'
+          ? {
+              email: emailCaseInsensitiveQuery(emailLower),
+              $or: [{ accountType: 'merchant' }, { role: UserRole.MERCHANT }],
+            }
+          : {
+              email: emailCaseInsensitiveQuery(emailLower),
+              accountType: { $ne: 'merchant' },
+              role: { $nin: [UserRole.MERCHANT, UserRole.ADMIN] },
+            };
+
+      user = await this.userModel.findOne(targetQuery).exec();
+
+      if (!user) {
+        const otherAccountType =
+          accountType === 'merchant' ? 'user' : 'merchant';
+        const otherQuery =
+          otherAccountType === 'merchant'
+            ? {
+                email: emailCaseInsensitiveQuery(emailLower),
+                $or: [{ accountType: 'merchant' }, { role: UserRole.MERCHANT }],
+              }
+            : {
+                email: emailCaseInsensitiveQuery(emailLower),
+                accountType: { $ne: 'merchant' },
+                role: { $nin: [UserRole.MERCHANT, UserRole.ADMIN] },
+              };
+
+        const otherUser = await this.userModel.findOne(otherQuery).exec();
+
+        if (otherUser) {
+          if (accountType === 'merchant') {
+            throw new BadRequestException(
+              'This email is not registered as a merchant. Please use User forgot password or register as a merchant.',
+            );
+          } else {
+            throw new BadRequestException(
+              'This email is registered as a merchant. Please use Merchant forgot password to reset your password.',
+            );
+          }
+        }
+
+        throw new NotFoundException('Account not found with this email');
+      }
+    } else {
+      user = await this.userModel
+        .findOne({ email: emailCaseInsensitiveQuery(emailLower) })
+        .exec();
+
+      if (!user) {
+        throw new NotFoundException('Account not found with this email');
+      }
+    }
+
+    const determinedAccountType =
+      user.accountType === 'merchant' || user.role === UserRole.MERCHANT
+        ? 'merchant'
+        : 'user';
+
+    await this.sendEmailOTP(
+      emailLower,
+      'forgot-password',
+      determinedAccountType,
+      user._id?.toString(),
+    );
 
     return {
       success: true,
       message: 'OTP sent for password reset',
       expiresIn: 300,
+      accountType: determinedAccountType,
     };
   }
 
-  async verifyForgotPasswordOTP(email: string, otp: string) {
+  async verifyForgotPasswordOTP(
+    email: string,
+    otp: string,
+    accountType?: string,
+  ) {
     if (!email || !otp)
       throw new BadRequestException('Email and OTP are required');
-    
-    await this.verifyEmailOTP(email, otp);
-    
+
+    const emailLower = email.trim().toLowerCase();
+    if (accountType) {
+      const normalizedAccountType =
+        accountType === 'merchant' ? 'merchant' : 'user';
+      const targetQuery =
+        normalizedAccountType === 'merchant'
+          ? {
+              email: emailCaseInsensitiveQuery(emailLower),
+              $or: [{ accountType: 'merchant' }, { role: UserRole.MERCHANT }],
+            }
+          : {
+              email: emailCaseInsensitiveQuery(emailLower),
+              accountType: { $ne: 'merchant' },
+              role: { $nin: [UserRole.MERCHANT, UserRole.ADMIN] },
+            };
+
+      const user = await this.userModel.findOne(targetQuery).exec();
+      if (!user) throw new NotFoundException('Account not found');
+    }
+
+    await this.verifyEmailOTP(emailLower, otp);
+
     return { success: true, message: 'OTP verified successfully' };
   }
 
-  async resetForgotPassword(email: string, otp: string, newPassword: string) {
+  async resetForgotPassword(
+    email: string,
+    otp: string,
+    newPassword: string,
+    accountType?: string,
+  ) {
     if (!email || !otp || !newPassword)
-      throw new BadRequestException('Email, OTP and new password are required');
-    const userCount = await this.userModel.countDocuments({ email }).exec();
-    if (userCount === 0) throw new NotFoundException('User not found');
+      throw new BadRequestException(
+        'Email, OTP and new password are required',
+      );
+    const emailLower = email.trim().toLowerCase();
 
-    const record = await this.otpModel.findOne({ email }).exec();
+    let user;
+    if (accountType) {
+      const normalizedAccountType =
+        accountType === 'merchant' ? 'merchant' : 'user';
+      const targetQuery =
+        normalizedAccountType === 'merchant'
+          ? {
+              email: emailCaseInsensitiveQuery(emailLower),
+              $or: [{ accountType: 'merchant' }, { role: UserRole.MERCHANT }],
+            }
+          : {
+              email: emailCaseInsensitiveQuery(emailLower),
+              accountType: { $ne: 'merchant' },
+              role: { $nin: [UserRole.MERCHANT, UserRole.ADMIN] },
+            };
+
+      user = await this.userModel.findOne(targetQuery).exec();
+    } else {
+      user = await this.userModel
+        .findOne({ email: emailCaseInsensitiveQuery(emailLower) })
+        .exec();
+    }
+
+    if (!user) throw new NotFoundException('Account not found');
+
+    const record = await this.otpModel
+      .findOne({
+        $or: [{ email: emailLower }, { email: email.trim() }],
+      })
+      .exec();
     if (!record) throw new BadRequestException('No OTP found for this email');
     if (record.otp !== otp) throw new UnauthorizedException('Invalid OTP');
     if (new Date() > record.expiresAt)
       throw new BadRequestException('OTP has expired');
 
     const hashedPassword = await bcrypt.hash(newPassword, 10);
-    await this.userModel
-      .updateOne({ email }, { password: hashedPassword })
+    user.password = hashedPassword;
+    await user.save();
+
+    await this.otpModel
+      .deleteMany({
+        $or: [{ email: emailLower }, { email: email.trim() }],
+      })
       .exec();
 
-    await this.otpModel.deleteOne({ email }).exec();
+    const finalAccountType =
+      user.accountType === 'merchant' || user.role === UserRole.MERCHANT
+        ? 'merchant'
+        : 'user';
 
-    return { success: true, message: 'Password reset successfully' };
+    return {
+      success: true,
+      message: 'Password reset successfully',
+      accountType: finalAccountType,
+    };
   }
 
   async validateReferralCode(code: string) {

@@ -271,28 +271,43 @@ export class UsersController {
   }
 
   @Post('forgot-password/send-otp')
-  async sendForgotPasswordOTP(@Body() body: { email: string }) {
-    const result = await this.usersService.sendForgotPasswordOTP(body.email);
+  async sendForgotPasswordOTP(
+    @Body() body: { email: string; accountType?: string },
+  ) {
+    const result = await this.usersService.sendForgotPasswordOTP(
+      body.email,
+      body.accountType,
+    );
     return { success: true, message: 'OTP sent', data: result };
   }
 
   @Post('forgot-password/verify-otp')
-  async verifyForgotPasswordOTP(@Body() body: { email: string; otp: string }) {
+  async verifyForgotPasswordOTP(
+    @Body() body: { email: string; otp: string; accountType?: string },
+  ) {
     const result = await this.usersService.verifyForgotPasswordOTP(
       body.email,
       body.otp,
+      body.accountType,
     );
     return { success: true, message: 'OTP verified', data: result };
   }
 
   @Post('forgot-password/reset')
   async resetForgotPassword(
-    @Body() body: { email: string; otp: string; newPassword: string },
+    @Body()
+    body: {
+      email: string;
+      otp: string;
+      newPassword: string;
+      accountType?: string;
+    },
   ) {
     const result = await this.usersService.resetForgotPassword(
       body.email,
       body.otp,
       body.newPassword,
+      body.accountType,
     );
     return {
       success: true,
