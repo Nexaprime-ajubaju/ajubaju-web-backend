@@ -72,7 +72,13 @@ export class SupportTicketsService {
   }
 
   async findOne(id: string): Promise<SupportTicket> {
-    const ticket = await this.ticketModel.findById(id).exec();
+    let ticket: SupportTicketDocument | null = null;
+    if (Types.ObjectId.isValid(id)) {
+      ticket = await this.ticketModel.findById(id).exec();
+    }
+    if (!ticket) {
+      ticket = await this.ticketModel.findOne({ ticketId: id }).exec();
+    }
     if (!ticket) {
       throw new NotFoundException(`Ticket with ID ${id} not found`);
     }
@@ -88,7 +94,13 @@ export class SupportTicketsService {
       newMessage?: { by: string; text: string };
     },
   ): Promise<SupportTicket> {
-    const ticket = await this.ticketModel.findById(id).exec();
+    let ticket: SupportTicketDocument | null = null;
+    if (Types.ObjectId.isValid(id)) {
+      ticket = await this.ticketModel.findById(id).exec();
+    }
+    if (!ticket) {
+      ticket = await this.ticketModel.findOne({ ticketId: id }).exec();
+    }
     if (!ticket) {
       throw new NotFoundException(`Ticket with ID ${id} not found`);
     }

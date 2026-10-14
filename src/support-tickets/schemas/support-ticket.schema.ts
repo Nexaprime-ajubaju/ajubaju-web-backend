@@ -17,6 +17,9 @@ export class SupportTicket {
   @Prop({ required: true })
   email: string;
 
+  @Prop({ required: false, default: '' })
+  contactNo?: string;
+
   @Prop({ required: true })
   issueType: string;
 

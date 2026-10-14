@@ -10,6 +10,10 @@ export class CreateTicketDto {
   email: string;
 
   @IsString()
+  @IsOptional()
+  contactNo?: string;
+
+  @IsString()
   @IsNotEmpty()
   issueType: string;
 
