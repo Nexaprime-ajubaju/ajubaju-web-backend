@@ -53,6 +53,9 @@ export class Merchant {
   @Prop()
   shopPhoto?: string;
 
+  @Prop({ type: [String], default: [] })
+  keywords?: string[];
+
   @Prop({ default: 'pending', enum: ['active', 'inactive', 'pending'] })
   status: 'active' | 'inactive' | 'pending';
 
