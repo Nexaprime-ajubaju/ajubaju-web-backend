@@ -28,7 +28,7 @@ export class CandidateRetrieverService {
   ) {}
 
   private get baseSelect() {
-    return 'title description category businessCategory businessSubCategory promoTag imageUrl selectedProducts status views viewHistory createdAt startDate endDate merchantId merchantName merchantEmail';
+    return 'title description category businessCategory businessSubCategory promoTag imageUrl selectedProducts status views viewHistory createdAt startDate endDate merchantId merchantName merchantEmail storeName';
   }
 
   private get merchantSelect() {
@@ -67,7 +67,8 @@ export class CandidateRetrieverService {
       const merchant = merchantMap.get(o.merchantId);
       const enriched: any = {
         ...offer,
-        merchantName: o.merchantName || merchant?.storeName || '',
+        storeName: merchant?.storeName || o.storeName || o.merchantName || '',
+        merchantName: merchant?.storeName || o.storeName || o.merchantName || '',
         storeLocation:
           merchant?.storeLocation ||
           o.storeLocation ||
@@ -174,7 +175,8 @@ export class CandidateRetrieverService {
       const merchant = merchantMap.get(o.merchantId);
       const enriched: any = {
         ...offer,
-        merchantName: o.merchantName || merchant?.storeName || '',
+        storeName: merchant?.storeName || o.storeName || o.merchantName || '',
+        merchantName: merchant?.storeName || o.storeName || o.merchantName || '',
         storeLocation:
           merchant?.storeLocation ||
           o.storeLocation ||
@@ -303,7 +305,8 @@ export class CandidateRetrieverService {
       const merchant = merchantMap.get(o.merchantId);
       const enriched: any = {
         ...offer,
-        merchantName: o.merchantName || merchant?.storeName || '',
+        storeName: merchant?.storeName || o.storeName || o.merchantName || '',
+        merchantName: merchant?.storeName || o.storeName || o.merchantName || '',
         storeLocation:
           merchant?.storeLocation ||
           o.storeLocation ||
@@ -416,7 +419,8 @@ export class CandidateRetrieverService {
       const merchant = merchantMap.get(o.merchantId);
       const enriched: any = {
         ...offer,
-        merchantName: o.merchantName || merchant?.storeName || '',
+        storeName: merchant?.storeName || o.storeName || o.merchantName || '',
+        merchantName: merchant?.storeName || o.storeName || o.merchantName || '',
         storeLocation:
           merchant?.storeLocation ||
           o.storeLocation ||
@@ -524,7 +528,8 @@ export class CandidateRetrieverService {
       const merchant = merchantMap.get(o.merchantId);
       const enriched: any = {
         ...offer,
-        merchantName: o.merchantName || merchant?.storeName || '',
+        storeName: merchant?.storeName || o.storeName || o.merchantName || '',
+        merchantName: merchant?.storeName || o.storeName || o.merchantName || '',
         storeLocation:
           merchant?.storeLocation ||
           o.storeLocation ||
@@ -679,7 +684,8 @@ export class CandidateRetrieverService {
       const merchant = merchantMap.get(o.merchantId);
       const enriched: any = {
         ...offer,
-        merchantName: o.merchantName || merchant?.storeName || '',
+        storeName: merchant?.storeName || o.storeName || o.merchantName || '',
+        merchantName: merchant?.storeName || o.storeName || o.merchantName || '',
         storeLocation:
           merchant?.storeLocation ||
           o.storeLocation ||
@@ -1041,7 +1047,8 @@ export class CandidateRetrieverService {
       const merchant = merchantMap.get(o.merchantId);
       const enriched: any = {
         ...offer,
-        merchantName: o.merchantName || merchant?.storeName || '',
+        storeName: merchant?.storeName || o.storeName || o.merchantName || '',
+        merchantName: merchant?.storeName || o.storeName || o.merchantName || '',
         storeLocation:
           merchant?.storeLocation ||
           o.storeLocation ||

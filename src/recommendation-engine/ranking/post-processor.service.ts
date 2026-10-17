@@ -81,11 +81,17 @@ export class PostProcessorService {
             originalPrice: totalOriginalPrice > 0 ? totalOriginalPrice : null,
             discountPercent,
             merchantId: offer.merchantId,
-            merchantName:
-              offer.merchantName ||
-              offer.storeName ||
+            storeName:
               (offer.merchant &&
                 (offer.merchant.storeName || offer.merchant.name)) ||
+              offer.storeName ||
+              offer.merchantName ||
+              '',
+            merchantName:
+              (offer.merchant &&
+                (offer.merchant.storeName || offer.merchant.name)) ||
+              offer.storeName ||
+              offer.merchantName ||
               '',
             location:
               offer.storeLocation ||
@@ -143,11 +149,17 @@ export class PostProcessorService {
                   : null,
               discountPercent,
               merchantId: offer.merchantId,
-              merchantName:
-                offer.merchantName ||
-                offer.storeName ||
+              storeName:
                 (offer.merchant &&
                   (offer.merchant.storeName || offer.merchant.name)) ||
+                offer.storeName ||
+                offer.merchantName ||
+                '',
+              merchantName:
+                (offer.merchant &&
+                  (offer.merchant.storeName || offer.merchant.name)) ||
+                offer.storeName ||
+                offer.merchantName ||
                 '',
               location:
                 offer.storeLocation ||
@@ -180,12 +192,14 @@ export class PostProcessorService {
         p.id = p.userId ? p.userId.toString() : p._id ? p._id.toString() : p.id;
         p.offerId = p._id?.toString() || p.id;
         p.merchantId = p.merchantId || p.userId;
-        p.merchantName =
-          p.merchantName ||
-          p.storeName ||
+        const resolvedStoreName =
           (p.merchant &&
             (p.merchant.storeName || p.merchant.name)) ||
+          p.storeName ||
+          p.merchantName ||
           '';
+        p.storeName = resolvedStoreName;
+        p.merchantName = resolvedStoreName;
         // For merchant/shop type items, use the store's profile photo or shop photo document
         const isMerchantType = p.type === 'merchant' || p.type === 'shop';
         const merchantImage = isMerchantType
