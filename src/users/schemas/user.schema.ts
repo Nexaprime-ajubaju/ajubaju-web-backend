@@ -107,6 +107,9 @@ export class User {
   wishlist: string[];
 
   @Prop({ type: [String], default: [] })
+  searchHistory: string[];
+
+  @Prop({ type: [String], default: [] })
   preferredCategories: string[];
 
   @Prop({

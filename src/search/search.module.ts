@@ -11,7 +11,19 @@ import {
   OfferPromotion,
   OfferPromotionSchema,
 } from '../offers/schemas/offer-promotion.schema';
-
+import {
+  SearchHistory,
+  SearchHistorySchema,
+} from './schemas/search-history.schema';
+import {
+  SearchDemandKeyword,
+  SearchDemandKeywordSchema,
+} from './schemas/search-demand-keyword.schema';
+import {
+  ItemDemandRequest,
+  ItemDemandRequestSchema,
+} from './schemas/item-demand-request.schema';
+import { User, UserSchema } from '../users/schemas/user.schema';
 import { RedisModule } from '../common/services/redis.module';
 
 @Module({
@@ -21,9 +33,14 @@ import { RedisModule } from '../common/services/redis.module';
       { name: Merchant.name, schema: MerchantSchema },
       { name: MerchantProduct.name, schema: MerchantProductSchema },
       { name: OfferPromotion.name, schema: OfferPromotionSchema },
+      { name: SearchHistory.name, schema: SearchHistorySchema },
+      { name: SearchDemandKeyword.name, schema: SearchDemandKeywordSchema },
+      { name: ItemDemandRequest.name, schema: ItemDemandRequestSchema },
+      { name: User.name, schema: UserSchema },
     ]),
   ],
   controllers: [SearchController],
   providers: [SearchService],
+  exports: [SearchService],
 })
 export class SearchModule {}
