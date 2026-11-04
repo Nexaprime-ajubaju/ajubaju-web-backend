@@ -73,7 +73,11 @@ export class ChatsController {
             }),
           );
 
-          const publicUrl = (process.env.CLOUDFLARE_R2_PUBLIC_URL || '').trim().replace(/\/+$/, '');
+          const publicUrl = (
+            process.env.CLOUDFLARE_R2_PUBLIC_URL ||
+            process.env.NEXT_PUBLIC_CLOUDFLARE_R2_PUBLIC_URL ||
+            ''
+          ).trim().replace(/\/+$/, '');
           secureUrl = publicUrl ? `${publicUrl}/${key}` : `/api/media/file/${key}`;
         } catch (r2Err: any) {
           console.error(`Cloudflare R2 chat upload failed: ${r2Err.message}`);

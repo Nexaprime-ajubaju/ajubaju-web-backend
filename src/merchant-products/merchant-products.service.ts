@@ -626,10 +626,17 @@ export class MerchantProductsService implements OnModuleInit {
       const sanitizedImages = dto.images
         .map((image) => {
           let str = String(image || '').trim();
+          const publicUrl = (
+            process.env.CLOUDFLARE_R2_PUBLIC_URL ||
+            process.env.NEXT_PUBLIC_CLOUDFLARE_R2_PUBLIC_URL ||
+            ''
+          ).trim().replace(/\/+$/, '');
+
           const isR2 =
             str.includes('/api/media/') ||
             str.includes('.r2.dev') ||
-            str.includes('.cloudflarestorage.com');
+            str.includes('.cloudflarestorage.com') ||
+            Boolean(publicUrl && str.startsWith(publicUrl));
 
           if (!isR2) {
             if (str.startsWith('/media/')) {
@@ -672,10 +679,17 @@ export class MerchantProductsService implements OnModuleInit {
     if (dto.videoUrl !== undefined) {
       let vUrl = dto.videoUrl;
       if (typeof vUrl === 'string') {
+        const publicUrl = (
+          process.env.CLOUDFLARE_R2_PUBLIC_URL ||
+          process.env.NEXT_PUBLIC_CLOUDFLARE_R2_PUBLIC_URL ||
+          ''
+        ).trim().replace(/\/+$/, '');
+
         const isR2 =
           vUrl.includes('/api/media/') ||
           vUrl.includes('.r2.dev') ||
-          vUrl.includes('.cloudflarestorage.com');
+          vUrl.includes('.cloudflarestorage.com') ||
+          Boolean(publicUrl && vUrl.startsWith(publicUrl));
 
         if (!isR2) {
           if (vUrl.startsWith('/media/')) {

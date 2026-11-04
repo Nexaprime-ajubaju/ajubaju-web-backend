@@ -159,8 +159,16 @@ export class ModerationService {
             process.env.CLOUDFLARE_R2_ACCESS_KEY_ID &&
             process.env.CLOUDFLARE_R2_SECRET_ACCESS_KEY
           ) {
+            const publicUrl = (
+              process.env.CLOUDFLARE_R2_PUBLIC_URL ||
+              process.env.NEXT_PUBLIC_CLOUDFLARE_R2_PUBLIC_URL ||
+              ''
+            ).trim().replace(/\/+$/, '');
+
             let key = imageUrl;
-            if (key.includes('/api/media/file/')) {
+            if (publicUrl && key.startsWith(publicUrl)) {
+              key = key.replace(publicUrl, '').replace(/^\/+/, '');
+            } else if (key.includes('/api/media/file/')) {
               key = key.split('/api/media/file/')[1];
             } else if (key.includes('/api/media/')) {
               key = key.split('/api/media/')[1];
@@ -286,8 +294,16 @@ export class ModerationService {
         process.env.CLOUDFLARE_R2_ACCESS_KEY_ID &&
         process.env.CLOUDFLARE_R2_SECRET_ACCESS_KEY
       ) {
+        const publicUrl = (
+          process.env.CLOUDFLARE_R2_PUBLIC_URL ||
+          process.env.NEXT_PUBLIC_CLOUDFLARE_R2_PUBLIC_URL ||
+          ''
+        ).trim().replace(/\/+$/, '');
+
         let key = imageUrl;
-        if (key.includes('/api/media/file/')) {
+        if (publicUrl && key.startsWith(publicUrl)) {
+          key = key.replace(publicUrl, '').replace(/^\/+/, '');
+        } else if (key.includes('/api/media/file/')) {
           key = key.split('/api/media/file/')[1];
         } else if (key.includes('.r2.dev/')) {
           key = key.split('.r2.dev/')[1];

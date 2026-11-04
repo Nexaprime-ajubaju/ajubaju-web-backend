@@ -3099,7 +3099,11 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
           }),
         );
 
-        const publicUrl = (process.env.CLOUDFLARE_R2_PUBLIC_URL || '').trim().replace(/\/+$/, '');
+        const publicUrl = (
+          process.env.CLOUDFLARE_R2_PUBLIC_URL ||
+          process.env.NEXT_PUBLIC_CLOUDFLARE_R2_PUBLIC_URL ||
+          ''
+        ).trim().replace(/\/+$/, '');
         return publicUrl ? `${publicUrl}/${key}` : `/api/media/file/${key}`;
       } catch (r2Error: any) {
         this.logger.error(`Cloudflare R2 upload failed in AdsService: ${r2Error.message}`);

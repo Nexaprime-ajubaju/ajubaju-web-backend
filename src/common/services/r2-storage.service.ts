@@ -24,7 +24,11 @@ export class R2StorageService {
     this.bucketName = (
       process.env.CLOUDFLARE_R2_BUCKET_NAME || 'ajubaju-29-10'
     ).trim();
-    this.publicUrl = (process.env.CLOUDFLARE_R2_PUBLIC_URL || '')
+    this.publicUrl = (
+      process.env.CLOUDFLARE_R2_PUBLIC_URL ||
+      process.env.NEXT_PUBLIC_CLOUDFLARE_R2_PUBLIC_URL ||
+      ''
+    )
       .trim()
       .replace(/\/+$/, '');
 
