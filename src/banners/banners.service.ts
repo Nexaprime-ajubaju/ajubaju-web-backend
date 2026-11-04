@@ -315,13 +315,13 @@ export class BannersService implements OnModuleInit {
 
     if (payload.imageUrl.startsWith('data:image')) {
       throw new BadRequestException(
-        'Base64 images are not allowed. Image must be uploaded to Cloudinary.',
+        'Base64 images are not allowed. Image must be uploaded first.',
       );
     }
 
     if (payload.imageUrl.length > 2048) {
       throw new BadRequestException(
-        'Image URL is too long. Image must be uploaded to Cloudinary.',
+        'Image URL is too long. Image must be uploaded first.',
       );
     }
 

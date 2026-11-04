@@ -39,49 +39,54 @@ export class ChatsController {
           message: 'No image file provided',
         };
       }
-      const cloudName = process.env.CLOUDINARY_CLOUD_NAME || 'dcm1plq42';
-      const apiKey = process.env.CLOUDINARY_API_KEY;
-      const apiSecret = process.env.CLOUDINARY_API_SECRET;
-
       let secureUrl = '';
-      if (apiKey && apiSecret) {
-        const cloudinary = require('cloudinary').v2;
-        cloudinary.config({
-          cloud_name: cloudName,
-          api_key: apiKey,
-          api_secret: apiSecret,
-        });
 
-        secureUrl = await new Promise<string>((resolve, reject) => {
-          const uploadStream = cloudinary.uploader.upload_stream(
-            { folder: 'golo/chat-images' },
-            (error: any, result: any) => {
-              if (error) return reject(error);
-              resolve(result.secure_url);
+      // 1. Cloudflare R2 Primary Upload
+      if (
+        process.env.CLOUDFLARE_R2_ACCOUNT_ID &&
+        process.env.CLOUDFLARE_R2_ACCESS_KEY_ID &&
+        process.env.CLOUDFLARE_R2_SECRET_ACCESS_KEY
+      ) {
+        try {
+          const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
+          const s3 = new S3Client({
+            region: 'auto',
+            endpoint: `https://${process.env.CLOUDFLARE_R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+            credentials: {
+              accessKeyId: process.env.CLOUDFLARE_R2_ACCESS_KEY_ID,
+              secretAccessKey: process.env.CLOUDFLARE_R2_SECRET_ACCESS_KEY,
             },
-          );
-          uploadStream.end(file.buffer);
-        });
-      } else {
-        const FormData = require('form-data');
-        const axios = require('axios');
-        const formData = new FormData();
-        formData.append('file', file.buffer, {
-          filename: file.originalname || 'upload.jpg',
-          contentType: file.mimetype || 'image/jpeg',
-        });
-        formData.append(
-          'upload_preset',
-          process.env.CLOUDINARY_UPLOAD_PRESET || 'choja_preset',
-        );
-        formData.append('folder', 'golo/chat-images');
+          });
+          const cleanName = (file.originalname || 'chat_image.jpg')
+            .replace(/\.[^.]+$/, '')
+            .replace(/[^a-zA-Z0-9_-]/g, '_');
+          const ext = (file.originalname || 'chat_image.jpg').split('.').pop() || 'jpg';
+          const key = `chats/${Date.now()}_${Math.random().toString(36).substring(2, 8)}_${cleanName}.${ext}`;
+          const bucket = process.env.CLOUDFLARE_R2_BUCKET_NAME || 'ajubaju-29-10';
 
-        const response = await axios.post(
-          `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
-          formData,
-          { headers: formData.getHeaders() },
-        );
-        secureUrl = response.data?.secure_url || '';
+          await s3.send(
+            new PutObjectCommand({
+              Bucket: bucket,
+              Key: key,
+              Body: file.buffer,
+              ContentType: file.mimetype || 'image/jpeg',
+            }),
+          );
+
+          const publicUrl = (process.env.CLOUDFLARE_R2_PUBLIC_URL || '').trim().replace(/\/+$/, '');
+          secureUrl = publicUrl ? `${publicUrl}/${key}` : `/api/media/file/${key}`;
+        } catch (r2Err: any) {
+          console.error(`Cloudflare R2 chat upload failed: ${r2Err.message}`);
+          return {
+            success: false,
+            message: `Failed to upload image to Cloudflare R2: ${r2Err.message}`,
+          };
+        }
+      } else {
+        return {
+          success: false,
+          message: 'Cloudflare R2 storage credentials are not configured.',
+        };
       }
 
       return {

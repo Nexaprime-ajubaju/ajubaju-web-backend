@@ -1,3 +1,4 @@
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import {
   ForbiddenException,
   Injectable,
@@ -48,6 +49,7 @@ export class MerchantProductsService implements OnModuleInit {
     private readonly moderationService: ModerationService,
     private readonly moderationSecurityService: ModerationSecurityService,
     @Optional() private readonly kafkaService?: KafkaService,
+    @Optional() private readonly eventEmitter?: EventEmitter2,
   ) {}
 
   private cacheListKey(
@@ -223,6 +225,21 @@ export class MerchantProductsService implements OnModuleInit {
 
       const product = await this.merchantProductModel.create(payload);
       await this.invalidateMerchantProductCache(merchantId);
+
+      if (this.eventEmitter) {
+        try {
+          this.eventEmitter.emit('product.created', {
+            productId: String(product._id),
+            name: product.name,
+            category: product.category,
+            description: product.description,
+            merchantId,
+            merchantName: merchant?.storeName || (merchant as any)?.name,
+            price: product.price,
+            imageUrl: (product.images && product.images[0]) || null,
+          });
+        } catch (_emitErr) {}
+      }
 
       if (this.kafkaService) {
         await this.kafkaService.emit(KAFKA_TOPICS.MERCHANT_PRODUCT_CREATED, {
@@ -609,12 +626,19 @@ export class MerchantProductsService implements OnModuleInit {
       const sanitizedImages = dto.images
         .map((image) => {
           let str = String(image || '').trim();
-          if (str.startsWith('/media/')) {
-            str = `https://res.cloudinary.com/${str.replace(/^\/media\//, '')}`;
-          } else {
-            const mediaIdx = str.indexOf('/media/');
-            if (mediaIdx !== -1 && !str.includes('res.cloudinary.com')) {
-              str = `https://res.cloudinary.com/${str.slice(mediaIdx + 7)}`;
+          const isR2 =
+            str.includes('/api/media/') ||
+            str.includes('.r2.dev') ||
+            str.includes('.cloudflarestorage.com');
+
+          if (!isR2) {
+            if (str.startsWith('/media/')) {
+              str = `https://res.cloudinary.com/${str.replace(/^\/media\//, '')}`;
+            } else {
+              const mediaIdx = str.indexOf('/media/');
+              if (mediaIdx !== -1 && !str.includes('res.cloudinary.com')) {
+                str = `https://res.cloudinary.com/${str.slice(mediaIdx + 7)}`;
+              }
             }
           }
           return str;
@@ -648,12 +672,19 @@ export class MerchantProductsService implements OnModuleInit {
     if (dto.videoUrl !== undefined) {
       let vUrl = dto.videoUrl;
       if (typeof vUrl === 'string') {
-        if (vUrl.startsWith('/media/')) {
-          vUrl = `https://res.cloudinary.com/${vUrl.replace(/^\/media\//, '')}`;
-        } else {
-          const mediaIdx = vUrl.indexOf('/media/');
-          if (mediaIdx !== -1 && !vUrl.includes('res.cloudinary.com')) {
-            vUrl = `https://res.cloudinary.com/${vUrl.slice(mediaIdx + 7)}`;
+        const isR2 =
+          vUrl.includes('/api/media/') ||
+          vUrl.includes('.r2.dev') ||
+          vUrl.includes('.cloudflarestorage.com');
+
+        if (!isR2) {
+          if (vUrl.startsWith('/media/')) {
+            vUrl = `https://res.cloudinary.com/${vUrl.replace(/^\/media\//, '')}`;
+          } else {
+            const mediaIdx = vUrl.indexOf('/media/');
+            if (mediaIdx !== -1 && !vUrl.includes('res.cloudinary.com')) {
+              vUrl = `https://res.cloudinary.com/${vUrl.slice(mediaIdx + 7)}`;
+            }
           }
         }
       }

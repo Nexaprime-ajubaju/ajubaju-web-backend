@@ -61,12 +61,12 @@ export class CreateAdDto {
   userType: string;
 
   @IsArray()
-  @IsUrl({}, { each: true })
+  @IsString({ each: true })
   images: string[];
 
   @IsOptional()
   @IsArray()
-  @IsUrl({}, { each: true })
+  @IsString({ each: true })
   videos?: string[];
 
   @IsNumber()
@@ -129,6 +129,7 @@ export class CreateAdDto {
   selectedDates?: Date[]; // Selected dates from scheduling
 
   @IsOptional()
+  @Type(() => Number)
   @IsNumber()
   templateId?: number; // Template ID for UI (1, 2, or 3)
 

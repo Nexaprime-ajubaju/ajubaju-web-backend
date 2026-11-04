@@ -4,7 +4,6 @@ import { RedisService } from '../common/services/redis.service';
 import { SecurityConfig } from '../security/config/security.config';
 import * as crypto from 'crypto';
 import * as fs from 'fs';
-import * as cloudinaryLib from 'cloudinary';
 
 @Injectable()
 export class ModerationService {
@@ -52,12 +51,19 @@ export class ModerationService {
    */
   async isImageSafe(imageUrl: string, merchantId?: string): Promise<boolean> {
     if (typeof imageUrl === 'string') {
-      if (imageUrl.startsWith('/media/')) {
-        imageUrl = `https://res.cloudinary.com/${imageUrl.replace(/^\/media\//, '')}`;
-      } else {
-        const mediaIdx = imageUrl.indexOf('/media/');
-        if (mediaIdx !== -1 && !imageUrl.includes('res.cloudinary.com')) {
-          imageUrl = `https://res.cloudinary.com/${imageUrl.slice(mediaIdx + 7)}`;
+      const isR2Media =
+        imageUrl.includes('/api/media/') ||
+        imageUrl.includes('.r2.dev') ||
+        imageUrl.includes('.cloudflarestorage.com');
+
+      if (!isR2Media) {
+        if (imageUrl.startsWith('/media/')) {
+          imageUrl = `https://res.cloudinary.com/${imageUrl.replace(/^\/media\//, '')}`;
+        } else {
+          const mediaIdx = imageUrl.indexOf('/media/');
+          if (mediaIdx !== -1 && !imageUrl.includes('res.cloudinary.com')) {
+            imageUrl = `https://res.cloudinary.com/${imageUrl.slice(mediaIdx + 7)}`;
+          }
         }
       }
     }
@@ -138,12 +144,51 @@ export class ModerationService {
           requestPayload = Buffer.from(base64Data, 'base64');
         }
       } else if (
-        imageUrl.length > 200 &&
-        !imageUrl.startsWith('http') &&
-        !imageUrl.startsWith('gs://')
+        imageUrl.includes('/api/media/') ||
+        imageUrl.includes('.r2.dev') ||
+        imageUrl.includes('.cloudflarestorage.com') ||
+        imageUrl.startsWith('ads/') ||
+        imageUrl.startsWith('offers/') ||
+        imageUrl.startsWith('products/') ||
+        imageUrl.startsWith('banners/')
       ) {
-        // If it's a very long string that doesn't start with http/gs, it's likely raw base64
-        requestPayload = Buffer.from(imageUrl, 'base64');
+        // Direct read from Cloudflare R2 bucket for Vision moderation
+        try {
+          if (
+            process.env.CLOUDFLARE_R2_ACCOUNT_ID &&
+            process.env.CLOUDFLARE_R2_ACCESS_KEY_ID &&
+            process.env.CLOUDFLARE_R2_SECRET_ACCESS_KEY
+          ) {
+            let key = imageUrl;
+            if (key.includes('/api/media/file/')) {
+              key = key.split('/api/media/file/')[1];
+            } else if (key.includes('/api/media/')) {
+              key = key.split('/api/media/')[1];
+            } else if (key.includes('.r2.dev/')) {
+              key = key.split('.r2.dev/')[1];
+            }
+            key = key.split('?')[0].replace(/^\/+/, '');
+
+            const { S3Client, GetObjectCommand } = require('@aws-sdk/client-s3');
+            const s3 = new S3Client({
+              region: 'auto',
+              endpoint: `https://${process.env.CLOUDFLARE_R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+              credentials: {
+                accessKeyId: process.env.CLOUDFLARE_R2_ACCESS_KEY_ID,
+                secretAccessKey: process.env.CLOUDFLARE_R2_SECRET_ACCESS_KEY,
+              },
+            });
+            const bucket = process.env.CLOUDFLARE_R2_BUCKET_NAME || 'ajubaju-29-10';
+            const r2Obj = await s3.send(new GetObjectCommand({ Bucket: bucket, Key: key }));
+            const chunks: any[] = [];
+            for await (const chunk of r2Obj.Body) {
+              chunks.push(chunk);
+            }
+            requestPayload = Buffer.concat(chunks);
+          }
+        } catch (r2ReadErr: any) {
+          this.logger.warn(`Failed direct R2 read for moderation: ${r2ReadErr?.message}`);
+        }
       } else if (
         imageUrl.startsWith('http://') ||
         imageUrl.startsWith('https://')
@@ -197,7 +242,7 @@ export class ModerationService {
             7 * 24 * 3600,
           );
 
-        await this.deleteFromCloudinary(imageUrl);
+        await this.deleteRejectedMedia(imageUrl);
         return false;
       }
 
@@ -232,28 +277,38 @@ export class ModerationService {
     }
   }
 
-  private async deleteFromCloudinary(imageUrl: string) {
-    try {
-      if (!imageUrl || !imageUrl.includes('cloudinary.com')) return;
+  private async deleteRejectedMedia(imageUrl: string) {
+    if (!imageUrl) return;
 
-      // Extract public_id from Cloudinary URL
-      const matches = imageUrl.match(/\/upload\/(?:v\d+\/)?([^.]+)/);
-      if (matches && matches[1]) {
-        const publicId = matches[1];
-        this.logger.log(`Deleting rejected image from Cloudinary: ${publicId}`);
-        const cloudinary = cloudinaryLib.v2;
-        cloudinary.config({
-          cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-          api_key: process.env.CLOUDINARY_API_KEY,
-          api_secret: process.env.CLOUDINARY_API_SECRET,
+    try {
+      if (
+        process.env.CLOUDFLARE_R2_ACCOUNT_ID &&
+        process.env.CLOUDFLARE_R2_ACCESS_KEY_ID &&
+        process.env.CLOUDFLARE_R2_SECRET_ACCESS_KEY
+      ) {
+        let key = imageUrl;
+        if (key.includes('/api/media/file/')) {
+          key = key.split('/api/media/file/')[1];
+        } else if (key.includes('.r2.dev/')) {
+          key = key.split('.r2.dev/')[1];
+        }
+        key = key.split('?')[0].replace(/^\/+/, '');
+
+        const { S3Client, DeleteObjectCommand } = require('@aws-sdk/client-s3');
+        const s3 = new S3Client({
+          region: 'auto',
+          endpoint: `https://${process.env.CLOUDFLARE_R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+          credentials: {
+            accessKeyId: process.env.CLOUDFLARE_R2_ACCESS_KEY_ID,
+            secretAccessKey: process.env.CLOUDFLARE_R2_SECRET_ACCESS_KEY,
+          },
         });
-        await cloudinary.uploader.destroy(publicId);
+        const bucket = process.env.CLOUDFLARE_R2_BUCKET_NAME || 'ajubaju-29-10';
+        await s3.send(new DeleteObjectCommand({ Bucket: bucket, Key: key }));
+        this.logger.log(`Deleted rejected image from Cloudflare R2: ${key}`);
       }
-    } catch (error) {
-      this.logger.error(
-        `Failed to delete image from Cloudinary: ${error.message}`,
-        error.stack,
-      );
+    } catch (r2Err: any) {
+      this.logger.warn(`Failed to delete image from R2: ${r2Err?.message}`);
     }
   }
 }

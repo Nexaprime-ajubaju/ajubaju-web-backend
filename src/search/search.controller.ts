@@ -71,7 +71,7 @@ export class SearchController {
     @CurrentUser() user?: any,
     @Req() req?: any,
   ) {
-    const userId = user?.id || user?._id || user?.userId;
+    const userId = user?.id || user?._id || user?.userId || (body as any)?.userId;
     const resolvedSessionId =
       body?.sessionId ||
       req?.headers?.['x-session-id'] ||
@@ -97,13 +97,12 @@ export class SearchController {
     @CurrentUser() user?: any,
     @Req() req?: any,
   ) {
+    const limitNum = Math.min(20, Math.max(1, parseInt(limit, 10) || 6));
     const userId = user?.id || user?._id || user?.userId;
     const resolvedSessionId =
       sessionId ||
       req?.headers?.['x-session-id'] ||
       req?.cookies?.['ajubaju_session'];
-
-    const limitNum = Math.min(20, Math.max(1, parseInt(limit, 10) || 6));
     const data = await this.searchService.getSearchHistory(
       userId,
       resolvedSessionId,
@@ -244,7 +243,7 @@ export class SearchController {
     @CurrentUser() user?: any,
     @Req() req?: any,
   ) {
-    const userId = user?.id || user?._id || user?.userId;
+    const userId = user?.id || user?._id || user?.userId || (body as any)?.userId;
     const resolvedSessionId =
       body?.sessionId ||
       req?.headers?.['x-session-id'] ||
@@ -300,4 +299,27 @@ export class SearchController {
       data: updated,
     };
   }
+
+  @Post('check-demand-match')
+  async checkDemandMatch(
+    @Body()
+    body: {
+      itemId: string;
+      itemType: 'product' | 'offer' | 'ad';
+      title: string;
+      category?: string;
+      description?: string;
+      merchantId?: string;
+      merchantName?: string;
+      price?: number;
+      imageUrl?: string;
+    },
+  ) {
+    const result = await this.searchService.checkAndNotifyDemandRequests(body);
+    return {
+      success: true,
+      data: result,
+    };
+  }
+
 }

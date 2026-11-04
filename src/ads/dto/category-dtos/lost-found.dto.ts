@@ -57,6 +57,6 @@ export class LostFoundDto {
 
   @IsOptional()
   @IsArray()
-  @IsUrl({}, { each: true })
+  @IsString({ each: true })
   images?: string[];
 }

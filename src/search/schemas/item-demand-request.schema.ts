@@ -46,6 +46,18 @@ export class ItemDemandRequest {
 
   @Prop({ type: Date, default: Date.now, index: true })
   requestedAt: Date;
+
+  @Prop({ type: Date, required: false })
+  notifiedAt?: Date;
+
+  @Prop({ type: String, required: false, trim: true })
+  notifiedProductId?: string;
+
+  @Prop({ type: String, required: false, trim: true })
+  notifiedItemTitle?: string;
+
+  @Prop({ type: String, required: false, trim: true })
+  notifiedItemType?: string;
 }
 
 export const ItemDemandRequestSchema =

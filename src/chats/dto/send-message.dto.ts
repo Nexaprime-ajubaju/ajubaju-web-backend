@@ -27,7 +27,6 @@ class MessageAttachmentDto {
 
   @IsString()
   @IsNotEmpty()
-  @IsUrl()
   url: string;
 
   @IsOptional()

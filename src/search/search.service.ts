@@ -1,4 +1,8 @@
 import { Injectable, Logger, Optional } from '@nestjs/common';
+import { OnEvent } from '@nestjs/event-emitter';
+import { ConfigService } from '@nestjs/config';
+import { EmailService } from '../common/services/email.service';
+import { Notification, NotificationDocument } from '../users/schemas/notification.schema';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Merchant, MerchantDocument } from '../users/schemas/merchant.schema';
@@ -53,6 +57,10 @@ export class SearchService {
     private readonly itemDemandRequestModel: Model<ItemDemandRequestDocument>,
     @InjectModel(User.name)
     private readonly userModel: Model<UserDocument>,
+    @InjectModel(Notification.name)
+    private readonly notificationModel: Model<NotificationDocument>,
+    private readonly emailService: EmailService,
+    private readonly configService: ConfigService,
     @Optional() private readonly redisService?: RedisService,
   ) {}
 
@@ -1172,7 +1180,7 @@ export class SearchService {
     };
   }
 
-  /**
+/**
    * Log an item demand notification request from user (When an item is unavailable)
    */
   async createItemDemandRequest(data: {
@@ -1189,13 +1197,37 @@ export class SearchService {
     if (!cleanKeyword) {
       return { success: false, message: 'Keyword is required' };
     }
+    const cleanContact = (data.userContact || '').trim();
+    if (!cleanContact) {
+      return { success: false, message: 'Phone number or email is required' };
+    }
+
+    let finalUserId = data.userId;
+    // If guest user submitted an email or phone, check if a registered user exists
+    if (!finalUserId && cleanContact) {
+      try {
+        const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanContact);
+        const safeContact = cleanContact.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const userMatch = await this.userModel
+          .findOne(
+            isEmail
+              ? { email: { $regex: new RegExp(`^${safeContact}$`, 'i') } }
+              : { $or: [{ phone: cleanContact }, { mobile: cleanContact }] }
+          )
+          .select('_id')
+          .lean();
+        if (userMatch) {
+          finalUserId = String(userMatch._id);
+        }
+      } catch (_e) {}
+    }
 
     const request = await this.itemDemandRequestModel.create({
       keyword: cleanKeyword,
       originalQuery: (data.originalQuery || data.keyword || '').trim(),
-      userId: data.userId || undefined,
+      userId: finalUserId || undefined,
       sessionId: data.sessionId || undefined,
-      userContact: (data.userContact || '').trim(),
+      userContact: cleanContact,
       userName: (data.userName || '').trim(),
       location: (data.location || '').trim(),
       notes: (data.notes || '').trim(),
@@ -1208,12 +1240,18 @@ export class SearchService {
       cleanKeyword,
       0,
       { merchants: [], products: [], offers: [] },
-      data.userId,
+      finalUserId,
       data.sessionId,
       data.location,
     ).catch(() => {});
 
-    return { success: true, data: request };
+    this.logger.log(`Saved item demand request for "${cleanKeyword}" from contact: ${cleanContact}`);
+
+    return {
+      success: true,
+      message: 'Your request has been saved. We will notify you when this item becomes available!',
+      data: request,
+    };
   }
 
   /**
@@ -1284,4 +1322,258 @@ export class SearchService {
     );
     return updated;
   }
+
+  /**
+   * Check open demand requests and notify users when a new item/product/offer/ad matches or is related.
+   */
+  async checkAndNotifyDemandRequests(item: {
+    itemId: string;
+    itemType: 'product' | 'offer' | 'ad';
+    title: string;
+    category?: string;
+    description?: string;
+    merchantId?: string;
+    merchantName?: string;
+    price?: number;
+    imageUrl?: string;
+    location?: string;
+    url?: string;
+  }) {
+    if (!item || !item.title) return { notifiedCount: 0 };
+
+    const itemTitle = (item.title || '').trim().toLowerCase();
+    const itemDesc = (item.description || '').trim().toLowerCase();
+    const itemCat = (item.category || '').trim().toLowerCase();
+    const itemFullText = `${itemTitle} ${itemDesc} ${itemCat}`;
+
+    // Resolve target URL
+    let targetUrl = item.url;
+    if (!targetUrl) {
+      if (item.itemType === 'product') {
+        targetUrl = `/nearby-deals/product?id=${item.itemId}`;
+      } else if (item.itemType === 'offer') {
+        targetUrl = `/nearby-deals/deal?offerId=${item.itemId}`;
+      } else {
+        targetUrl = `/product/${item.itemId}`;
+      }
+    }
+
+    const frontendBaseUrl =
+      this.configService.get('FRONTEND_URL') ||
+      'https://goloo-inky.vercel.app';
+    const absoluteTargetUrl = targetUrl.startsWith('http')
+      ? targetUrl
+      : `${frontendBaseUrl.replace(/\/+$/, '')}${targetUrl.startsWith('/') ? '' : '/'}${targetUrl}`;
+
+    // Find all OPEN demand requests
+    const openRequests = await this.itemDemandRequestModel
+      .find({ status: ItemRequestStatus.OPEN })
+      .exec();
+
+    if (!openRequests || openRequests.length === 0) {
+      return { notifiedCount: 0 };
+    }
+
+    let notifiedCount = 0;
+
+    for (const req of openRequests) {
+      const keyword = (req.keyword || '').trim().toLowerCase();
+      const originalQuery = (req.originalQuery || '').trim().toLowerCase();
+      const notes = (req.notes || '').trim().toLowerCase();
+
+      let isMatch = false;
+
+      // 1. Direct match: item title or description contains the keyword (or vice versa)
+      if (keyword && (itemTitle.includes(keyword) || (keyword.length > 3 && itemFullText.includes(keyword)))) {
+        isMatch = true;
+      }
+
+      // 2. Original query match
+      if (!isMatch && originalQuery && (itemTitle.includes(originalQuery) || (originalQuery.length > 3 && itemFullText.includes(originalQuery)))) {
+        isMatch = true;
+      }
+
+      // 3. Token match: individual words of keyword/query
+      if (!isMatch) {
+        const queryTokens = (originalQuery || keyword)
+          .split(/[\s,.-]+/)
+          .filter((t) => t.length >= 3 && !['the', 'and', 'for', 'with', 'need', 'want', 'please', 'any'].includes(t));
+
+        if (queryTokens.length > 0) {
+          const tokenMatches = queryTokens.filter((t) => itemTitle.includes(t));
+          if (tokenMatches.length >= Math.ceil(queryTokens.length / 2)) {
+            isMatch = true;
+          }
+        }
+      }
+
+      // 4. Dictionary Expansion (Synonyms, Transliteration, Typo corrections)
+      if (!isMatch && keyword) {
+        const expansion = expandQuery(keyword);
+        for (const eq of expansion.equivalents) {
+          const cleanEq = eq.toLowerCase().trim();
+          if (cleanEq.length >= 3 && itemTitle.includes(cleanEq)) {
+            isMatch = true;
+            break;
+          }
+        }
+      }
+
+      // 5. Category Inference Match
+      if (!isMatch && keyword) {
+        const inferred = inferCategory(keyword);
+        if (inferred && itemCat && (itemCat.includes(inferred.toLowerCase()) || inferred.toLowerCase().includes(itemCat))) {
+          if (notes) {
+            const noteTokens = notes.split(/[\s,.-]+/).filter((t) => t.length >= 3);
+            if (noteTokens.some((t) => itemTitle.includes(t))) {
+              isMatch = true;
+            }
+          }
+        }
+      }
+
+      // 6. Notes match
+      if (!isMatch && notes) {
+        const noteTokens = notes.split(/[\s,.-]+/).filter((t) => t.length >= 3 && !['need', 'want', 'brand', 'size', 'specific', 'please'].includes(t));
+        if (noteTokens.some((t) => itemTitle.includes(t))) {
+          isMatch = true;
+        }
+      }
+
+      if (!isMatch) continue;
+
+      // MATCH FOUND! Deliver notifications
+      this.logger.log(
+        `[Demand Match] Request for "${keyword || originalQuery}" matched ${item.itemType} "${item.title}"`,
+      );
+
+      // 1. Resolve or find recipient User
+      let recipientUserId = req.userId;
+      if (!recipientUserId && req.userContact) {
+        try {
+          const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(req.userContact);
+          const safeContact = req.userContact.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          const userDoc = await this.userModel
+            .findOne(
+              isEmail
+                ? { email: { $regex: new RegExp(`^${safeContact}$`, 'i') } }
+                : { $or: [{ phone: req.userContact }, { mobile: req.userContact }] }
+            )
+            .select('_id')
+            .lean();
+          if (userDoc) {
+            recipientUserId = String(userDoc._id);
+          }
+        } catch (_err) {}
+      }
+
+      // 2. Create in-app notification if user id exists
+      if (recipientUserId) {
+        try {
+          await this.notificationModel.create({
+            recipientId: String(recipientUserId),
+            senderId: String(item.merchantId || 'system'),
+            senderName: item.merchantName || 'GOLO Local Store',
+            productId: item.itemType === 'product' ? String(item.itemId) : undefined,
+            offerId: item.itemType === 'offer' ? String(item.itemId) : undefined,
+            adId: item.itemType === 'ad' ? String(item.itemId) : undefined,
+            targetUrl,
+            type: 'item_available',
+            title: `Good news! "${item.title}" is now available`,
+            message: `An item matching your request for "${req.originalQuery || req.keyword}" is now available at ${item.merchantName || 'a local store'}. Tap to view details!`,
+            read: false,
+            createdAt: new Date(),
+          });
+        } catch (notifErr: any) {
+          this.logger.warn(`Failed to create in-app notification: ${notifErr.message}`);
+        }
+      }
+
+      // 3. Send Email Notification if contact is email
+      if (req.userContact && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(req.userContact)) {
+        try {
+          await this.emailService.sendItemAvailableEmail({
+            toEmail: req.userContact,
+            userName: req.userName || 'Valued Customer',
+            requestedKeyword: req.originalQuery || req.keyword,
+            itemName: item.title,
+            itemType: item.itemType,
+            itemPrice: item.price,
+            storeName: item.merchantName || 'Local Merchant',
+            targetUrl: absoluteTargetUrl,
+          });
+        } catch (emailErr: any) {
+          this.logger.warn(`Failed to send item available email: ${emailErr.message}`);
+        }
+      }
+
+      // 4. Mark request as AVAILABLE
+      req.status = ItemRequestStatus.AVAILABLE;
+      req.notifiedAt = new Date();
+      req.notifiedProductId = String(item.itemId);
+      req.notifiedItemTitle = item.title;
+      req.notifiedItemType = item.itemType;
+      await req.save();
+
+      notifiedCount++;
+    }
+
+    return { notifiedCount };
+  }
+
+  @OnEvent('product.created')
+  async handleProductCreated(payload: any) {
+    try {
+      await this.checkAndNotifyDemandRequests({
+        itemId: payload.productId || payload._id || payload.itemId,
+        itemType: 'product',
+        title: payload.name || payload.title,
+        category: payload.category,
+        description: payload.description,
+        merchantId: payload.merchantId,
+        merchantName: payload.merchantName || payload.storeName,
+        price: payload.price,
+        imageUrl: payload.imageUrl || (payload.images && payload.images[0]),
+      });
+    } catch (e: any) {
+      this.logger.error(`Error in handleProductCreated: ${e.message}`);
+    }
+  }
+
+  @OnEvent('offer.created')
+  async handleOfferCreated(payload: any) {
+    try {
+      await this.checkAndNotifyDemandRequests({
+        itemId: payload.offerId || payload.requestId || payload._id || payload.itemId,
+        itemType: 'offer',
+        title: payload.title,
+        category: payload.category || payload.businessCategory,
+        description: payload.description,
+        merchantId: payload.merchantId,
+        merchantName: payload.merchantName,
+        price: payload.price || payload.totalPrice,
+        imageUrl: payload.imageUrl,
+      });
+    } catch (e: any) {
+      this.logger.error(`Error in handleOfferCreated: ${e.message}`);
+    }
+  }
+
+  @OnEvent('ad.created')
+  async handleAdCreated(payload: any) {
+    try {
+      await this.checkAndNotifyDemandRequests({
+        itemId: payload.adId || payload._id || payload.itemId,
+        itemType: 'ad',
+        title: payload.title,
+        category: payload.category,
+        description: payload.description,
+        price: payload.price,
+        imageUrl: payload.imageUrl || (payload.images && payload.images[0]),
+      });
+    } catch (e: any) {
+      this.logger.error(`Error in handleAdCreated: ${e.message}`);
+    }
+  }
+
 }

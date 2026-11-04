@@ -345,6 +345,76 @@ export class EmailService {
     return emojis[reason] || '📝';
   }
 
+
+  async sendItemAvailableEmail(data: {
+    toEmail: string;
+    userName?: string;
+    requestedKeyword: string;
+    itemName: string;
+    itemType: 'product' | 'offer' | 'ad';
+    itemPrice?: number;
+    storeName?: string;
+    targetUrl: string;
+  }): Promise<boolean> {
+    const greetingName = data.userName || 'Shopper';
+    const priceText = data.itemPrice !== undefined && data.itemPrice !== null
+      ? '<p style="margin: 8px 0; font-size: 18px; font-weight: bold; color: #157A4F;">Price: ₹' + Number(data.itemPrice).toLocaleString('en-IN') + '</p>'
+      : '';
+
+    const mailOptions = {
+      from: '"GOLO Alerts" <' + (this.configService.get('EMAIL_FROM') || this.configService.get('SMTP_FROM') || this.configService.get('EMAIL_USER')) + '>',
+      replyTo: 'support@nexaprime.in',
+      to: data.toEmail,
+      subject: '🎉 Good news! "' + data.itemName + '" is now available on GOLO',
+      text: 'Hello ' + greetingName + ',\n\nGreat news! An item matching your search for "' + data.requestedKeyword + '" is now available on GOLO:\n\n' + data.itemName + (data.storeName ? ' (' + data.storeName + ')' : '') + '\n' + (data.itemPrice ? 'Price: ₹' + data.itemPrice + '\n' : '') + 'View it here: ' + data.targetUrl + '\n\nBest regards,\nThe GOLO Team',
+      html: `
+        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: #1f2937; max-width: 600px; margin: 0 auto; padding: 24px; background: #ffffff; border: 1px solid #e5e7eb; border-radius: 16px;">
+          <div style="text-align: center; margin-bottom: 24px;">
+            <div style="display: inline-block; background: #ecfdf5; border-radius: 50%; padding: 12px; margin-bottom: 12px;">
+              <span style="font-size: 32px;">🛍️</span>
+            </div>
+            <h2 style="color: #157A4F; font-size: 24px; font-weight: 800; margin: 0 0 6px 0;">Item Now Available!</h2>
+            <p style="color: #6b7280; font-size: 14px; margin: 0;">You asked us to notify you when this item arrived.</p>
+          </div>
+
+          <p style="font-size: 15px;">Hello <strong>${greetingName}</strong>,</p>
+          <p style="font-size: 15px; color: #4b5563;">
+            You recently requested notifications for <strong>&ldquo;${data.requestedKeyword}&rdquo;</strong>. A local merchant just made it available!
+          </p>
+
+          <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-left: 5px solid #157A4F; border-radius: 12px; padding: 18px; margin: 20px 0;">
+            <h3 style="margin: 0 0 6px 0; font-size: 18px; color: #111827;">${data.itemName}</h3>
+            ${data.storeName ? '<p style="margin: 4px 0; font-size: 13px; color: #6b7280;">Offered by: <strong>' + data.storeName + '</strong></p>' : ''}
+            ${priceText}
+          </div>
+
+          <div style="text-align: center; margin: 30px 0 20px 0;">
+            <a href="${data.targetUrl}" style="display: inline-block; padding: 14px 32px; background: #157A4F; color: #ffffff; text-decoration: none; border-radius: 12px; font-weight: bold; font-size: 15px; box-shadow: 0 4px 12px rgba(21, 122, 79, 0.25);">
+              View & Order Now &rarr;
+            </a>
+          </div>
+
+          <p style="font-size: 12px; color: #9ca3af; text-align: center; margin-top: 30px; border-top: 1px solid #f3f4f6; padding-top: 16px;">
+            You received this email because you clicked &ldquo;Notify me when available&rdquo; on GOLO. If you did not make this request, you can safely ignore this email.
+          </p>
+        </div>
+      `,
+    };
+
+    try {
+      if (!this.enabled || !this.transporter) {
+        this.logger.log('[EMAIL MOCK] Would send item-available notification to ' + data.toEmail + ' for "' + data.itemName + '" (URL: ' + data.targetUrl + ')');
+        return true;
+      }
+      await this.transporter.sendMail(mailOptions);
+      this.logger.log('✅ Item-available notification email sent to ' + data.toEmail + ' for "' + data.itemName + '"');
+      return true;
+    } catch (error: any) {
+      this.logger.error('Failed to send item-available email to ' + data.toEmail + ': ' + error.message);
+      return false;
+    }
+  }
+
   private formatReason(reason: string): string {
     return reason.charAt(0).toUpperCase() + reason.slice(1);
   }

@@ -818,6 +818,17 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
 
     await this.emitAdCreated(savedAd, uuidv4());
 
+    try {
+      this.eventEmitter.emit('ad.created', {
+        adId: savedAd.adId || String(savedAd._id),
+        title: savedAd.title,
+        category: savedAd.category,
+        description: savedAd.description,
+        price: savedAd.price,
+        imageUrl: (savedAd.images && savedAd.images[0]) || null,
+      });
+    } catch (_emitErr) {}
+
     return savedAd;
   }
 
@@ -3049,69 +3060,53 @@ export class AdsService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
-   * Upload an image buffer to Cloudinary
+   * Upload an image buffer to Cloudflare R2 (with Cloudinary fallback)
    */
   async uploadImageToCloudinary(file: any): Promise<string> {
     if (!file || !file.buffer) {
       throw new BadRequestException('No image file provided');
     }
 
-    const cloudName = process.env.CLOUDINARY_CLOUD_NAME || 'dcm1plq42';
-    const apiKey = process.env.CLOUDINARY_API_KEY;
-    const apiSecret = process.env.CLOUDINARY_API_SECRET;
-
-    if (apiKey && apiSecret) {
-      const cloudinary = require('cloudinary').v2;
-      cloudinary.config({
-        cloud_name: cloudName,
-        api_key: apiKey,
-        api_secret: apiSecret,
-      });
-
-      return new Promise<string>((resolve, reject) => {
-        const uploadStream = cloudinary.uploader.upload_stream(
-          { folder: 'golo/chat-images' },
-          (error: any, result: any) => {
-            if (error) {
-              return reject(
-                new BadRequestException(
-                  error.message || 'Cloudinary upload failed',
-                ),
-              );
-            }
-            resolve(result.secure_url);
+    // 1. Cloudflare R2 Primary Upload
+    if (
+      process.env.CLOUDFLARE_R2_ACCOUNT_ID &&
+      process.env.CLOUDFLARE_R2_ACCESS_KEY_ID &&
+      process.env.CLOUDFLARE_R2_SECRET_ACCESS_KEY
+    ) {
+      try {
+        const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
+        const s3 = new S3Client({
+          region: 'auto',
+          endpoint: `https://${process.env.CLOUDFLARE_R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+          credentials: {
+            accessKeyId: process.env.CLOUDFLARE_R2_ACCESS_KEY_ID,
+            secretAccessKey: process.env.CLOUDFLARE_R2_SECRET_ACCESS_KEY,
           },
+        });
+        const cleanName = (file.originalname || 'image.jpg')
+          .replace(/\.[^.]+$/, '')
+          .replace(/[^a-zA-Z0-9_-]/g, '_');
+        const ext = (file.originalname || 'image.jpg').split('.').pop() || 'jpg';
+        const key = `ads/${Date.now()}_${Math.random().toString(36).substring(2, 8)}_${cleanName}.${ext}`;
+        const bucket = process.env.CLOUDFLARE_R2_BUCKET_NAME || 'ajubaju-29-10';
+
+        await s3.send(
+          new PutObjectCommand({
+            Bucket: bucket,
+            Key: key,
+            Body: file.buffer,
+            ContentType: file.mimetype || 'image/jpeg',
+          }),
         );
-        uploadStream.end(file.buffer);
-      });
-    } else {
-      // Unsigned upload fallback using Cloudinary REST API
-      const FormData = require('form-data');
-      const axios = require('axios');
 
-      const formData = new FormData();
-      formData.append('file', file.buffer, {
-        filename: file.originalname || 'upload.jpg',
-        contentType: file.mimetype || 'image/jpeg',
-      });
-      formData.append(
-        'upload_preset',
-        process.env.CLOUDINARY_UPLOAD_PRESET || 'choja_preset',
-      );
-      formData.append('folder', 'golo/chat-images');
-
-      const response = await axios.post(
-        `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
-        formData,
-        { headers: formData.getHeaders() },
-      );
-
-      if (response.data && response.data.secure_url) {
-        return response.data.secure_url;
+        const publicUrl = (process.env.CLOUDFLARE_R2_PUBLIC_URL || '').trim().replace(/\/+$/, '');
+        return publicUrl ? `${publicUrl}/${key}` : `/api/media/file/${key}`;
+      } catch (r2Error: any) {
+        this.logger.error(`Cloudflare R2 upload failed in AdsService: ${r2Error.message}`);
+        throw new BadRequestException(`Cloudflare R2 upload failed: ${r2Error.message}`);
       }
-      throw new BadRequestException(
-        'Cloudinary upload returned invalid response',
-      );
     }
+
+    throw new BadRequestException('Cloudflare R2 storage is not configured.');
   }
 }

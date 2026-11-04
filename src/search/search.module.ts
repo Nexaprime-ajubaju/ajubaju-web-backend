@@ -24,11 +24,17 @@ import {
   ItemDemandRequestSchema,
 } from './schemas/item-demand-request.schema';
 import { User, UserSchema } from '../users/schemas/user.schema';
+import {
+  Notification,
+  NotificationSchema,
+} from '../users/schemas/notification.schema';
 import { RedisModule } from '../common/services/redis.module';
+import { EmailModule } from '../common/services/email.service';
 
 @Module({
   imports: [
     RedisModule,
+    EmailModule,
     MongooseModule.forFeature([
       { name: Merchant.name, schema: MerchantSchema },
       { name: MerchantProduct.name, schema: MerchantProductSchema },
@@ -37,6 +43,7 @@ import { RedisModule } from '../common/services/redis.module';
       { name: SearchDemandKeyword.name, schema: SearchDemandKeywordSchema },
       { name: ItemDemandRequest.name, schema: ItemDemandRequestSchema },
       { name: User.name, schema: UserSchema },
+      { name: Notification.name, schema: NotificationSchema },
     ]),
   ],
   controllers: [SearchController],

@@ -26,6 +26,12 @@ export class Notification {
   @Prop({ required: false })
   offerId?: string;
 
+  @Prop({ required: false })
+  productId?: string;
+
+  @Prop({ required: false })
+  targetUrl?: string;
+
   @Prop({
     required: true,
     enum: [
@@ -44,6 +50,7 @@ export class Notification {
       'system_update',
       'new_message',
       'loyalty_points',
+      'item_available',
     ],
     default: 'wishlist_add',
   })

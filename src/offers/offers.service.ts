@@ -1,3 +1,4 @@
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import {
   BadRequestException,
   Injectable,
@@ -73,6 +74,7 @@ export class OffersService implements OnModuleInit {
     @Optional() private readonly moderationService?: ModerationService,
     @Optional()
     private readonly moderationSecurityService?: ModerationSecurityService,
+    @Optional() private readonly eventEmitter?: EventEmitter2,
   ) {}
 
   private offerMerchantCacheKey(merchantId: string) {
@@ -751,6 +753,21 @@ export class OffersService implements OnModuleInit {
         merchant.name || 'Merchant',
         request,
       );
+
+      if (this.eventEmitter) {
+        try {
+          this.eventEmitter.emit('offer.created', {
+            offerId: String(request._id || request.requestId),
+            title: request.title,
+            category: request.category || request.businessCategory,
+            description: request.description,
+            merchantId,
+            merchantName: merchant.name || 'Merchant',
+            price: request.totalPrice,
+            imageUrl: request.imageUrl,
+          });
+        } catch (_emitErr) {}
+      }
 
       return request;
     } catch (error: any) {
