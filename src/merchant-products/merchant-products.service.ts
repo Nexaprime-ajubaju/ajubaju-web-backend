@@ -292,6 +292,7 @@ export class MerchantProductsService implements OnModuleInit {
           { _id: merchant._id },
           { $set: { hasSelectedActiveProducts: true } }
         ).exec();
+        merchant.hasSelectedActiveProducts = true;
         await this.invalidateMerchantProductCache(merchantId);
       }
     }
@@ -401,7 +402,7 @@ export class MerchantProductsService implements OnModuleInit {
         },
         needsActiveProductsSelection,
         maxActiveProducts: maxProducts,
-        hasSelectedActiveProducts: merchant.hasSelectedActiveProducts || false,
+        hasSelectedActiveProducts: maxProducts === -1 ? true : (merchant.hasSelectedActiveProducts || false),
       },
       pagination: {
         total,
@@ -815,10 +816,14 @@ export class MerchantProductsService implements OnModuleInit {
     const merchant = await this.merchantModel
       .findOne({ userId: merchantId })
       .exec();
-    if (merchant && merchant.hasSelectedActiveProducts) {
-      throw new ForbiddenException(
-        'You have already finalized your active products selection. Individual product status toggles are disabled.',
-      );
+    let planDetails: any = null;
+    if (merchant) {
+      planDetails = await this.SubscriptionsService.getPlanDetails(merchant);
+      if (planDetails.planFeatures.maxProducts !== -1 && merchant.hasSelectedActiveProducts) {
+        throw new ForbiddenException(
+          'You have already finalized your active products selection. Individual product status toggles are disabled.',
+        );
+      }
     }
 
     const product = await this.merchantProductModel.findOne({
@@ -831,12 +836,7 @@ export class MerchantProductsService implements OnModuleInit {
 
     if (isActive) {
       // Check limits
-      const merchant = await this.merchantModel
-        .findOne({ userId: merchantId })
-        .exec();
-      if (merchant) {
-        const planDetails =
-          await this.SubscriptionsService.getPlanDetails(merchant);
+      if (merchant && planDetails) {
         if (planDetails.planFeatures.maxProducts !== -1) {
           const activeProducts = await this.merchantProductModel.countDocuments(
             {
@@ -886,14 +886,15 @@ export class MerchantProductsService implements OnModuleInit {
     if (!merchant) {
       throw new NotFoundException('Merchant not found');
     }
-    if (merchant.hasSelectedActiveProducts) {
+    const planDetails =
+      await this.SubscriptionsService.getPlanDetails(merchant);
+    const maxProducts = planDetails.planFeatures.maxProducts;
+
+    if (maxProducts !== -1 && merchant.hasSelectedActiveProducts) {
       throw new BadRequestException(
         'You have already finalized your active products selection. This selection cannot be edited.',
       );
     }
-    const planDetails =
-      await this.SubscriptionsService.getPlanDetails(merchant);
-    const maxProducts = planDetails.planFeatures.maxProducts;
 
     const totalProducts = await this.merchantProductModel.countDocuments({
       merchantId,
